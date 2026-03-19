@@ -35,9 +35,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final result = await _authRepository.getProfile();
     if (result['success']) {
-      final universityId = result['data']['attributes']['university_id'];
+      final universityData = result['data']['attributes']['university_id']?['data'];
       if (mounted) {
-        if (universityId != null) {
+        if (universityData != null) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainScreen()),

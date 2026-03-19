@@ -323,6 +323,14 @@ class AuthRepository {
     required dynamic centerId,
     required dynamic facultyId,
   }) async {
+    return updateProfile({
+      'university_id': int.tryParse(universityId.toString()) ?? universityId,
+      'center_id': int.tryParse(centerId.toString()) ?? centerId,
+      'faculty_id': int.tryParse(facultyId.toString()) ?? facultyId,
+    });
+  }
+
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'No token found'};
 
@@ -330,12 +338,6 @@ class AuthRepository {
       '${ApiConstants.baseUrl}${ApiConstants.updateProfile}',
     );
     try {
-      final body = {
-        'university_id': int.tryParse(universityId.toString()) ?? universityId,
-        'center_id': int.tryParse(centerId.toString()) ?? centerId,
-        'faculty_id': int.tryParse(facultyId.toString()) ?? facultyId,
-      };
-
       final response = await http.put(
         url,
         headers: {
@@ -351,6 +353,7 @@ class AuthRepository {
         return {
           'success': true,
           'message': data['message'] ?? 'Profile updated successfully',
+          'data': data['data'],
         };
       } else {
         return {

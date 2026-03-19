@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:learnoo/features/home/presentation/screens/home_screen.dart';
+import 'package:learnoo/features/home/presentation/screens/my_courses_screen.dart';
+import 'package:learnoo/features/profile/presentation/screens/my_profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -13,10 +16,10 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Center(child: Text('Courses Screen')),
+    const MyCoursesScreen(),
     const Center(child: Text('Live Screen')),
     const Center(child: Text('Exams Screen')),
-    const Center(child: Text('Profile Screen')),
+    const MyProfileScreen(),
   ];
 
   @override
@@ -47,11 +50,11 @@ class _MainScreenState extends State<MainScreen> {
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400),
           elevation: 0,
           items: [
-            _buildNavItem(Icons.home_outlined, Icons.home_rounded, 'Home', 0),
-            _buildNavItem(Icons.book_outlined, Icons.book_rounded, 'Courses', 1),
-            _buildNavItem(Icons.videocam_outlined, Icons.videocam_rounded, 'Live', 2),
-            _buildNavItem(Icons.assignment_outlined, Icons.assignment_rounded, 'Exams', 3),
-            _buildNavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profile', 4),
+            _buildNavItem(FontAwesomeIcons.house, FontAwesomeIcons.house, 'Home', 0),
+            _buildNavItem(FontAwesomeIcons.bookOpen, FontAwesomeIcons.bookOpen, 'Courses', 1),
+            _buildNavItem(FontAwesomeIcons.video, FontAwesomeIcons.video, 'Live', 2),
+            _buildNavItem(FontAwesomeIcons.fileSignature, FontAwesomeIcons.fileSignature, 'Exams', 3),
+            _buildNavItem(FontAwesomeIcons.user, FontAwesomeIcons.user, 'Profile', 4),
           ],
         ),
       ),
@@ -59,8 +62,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   BottomNavigationBarItem _buildNavItem(
-    IconData icon,
-    IconData activeIcon,
+    FaIconData icon,
+    FaIconData activeIcon,
     String label,
     int index,
   ) {
@@ -68,14 +71,14 @@ class _MainScreenState extends State<MainScreen> {
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
-        child: Icon(isSelected ? activeIcon : icon),
+        child: FaIcon(isSelected ? activeIcon : icon, size: 20),
       ),
       activeIcon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(activeIcon, color: const Color(0xFF5A75FF)),
+            FaIcon(activeIcon, color: const Color(0xFF5A75FF), size: 20),
             const SizedBox(height: 4),
             Container(
               width: 4,

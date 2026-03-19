@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../course_content/presentation/screens/course_content_screen.dart';
+import '../../../course_content/presentation/screens/subject_detail_screen.dart';
+import '../../../course_content/presentation/screens/lecture_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,9 +16,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _authRepository = AuthRepository();
   bool _isLoading = true;
-  String _userName = 'Noura'; // Default/Fallback
+  String _userName = 'Loading...'; // Default/Fallback
   String _universityName = 'Loading...';
   String _facultyName = 'Loading...';
+
+  void _navigateToLecture(String title, String subtitle) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            LectureDetailScreen(title: title, subtitle: subtitle),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -29,45 +42,21 @@ class _HomeScreenState extends State<HomeScreen> {
       final profileResult = await _authRepository.getProfile();
       if (profileResult['success']) {
         final attributes = profileResult['data']['attributes'];
-        final firstName = attributes['first_name'] ?? '';
-        final lastName = attributes['last_name'] ?? '';
-        final universityId = attributes['university_id'];
-        final facultyId = attributes['faculty_id'];
+        final firstName = (attributes['first_name'] ?? '').toString();
+        final lastName = (attributes['last_name'] ?? '').toString();
+        final fullName = '$firstName $lastName'.trim();
+
+        final universityName =
+            (attributes['university_id']?['data']?['attributes']?['name'] ??
+            'University not set').toString();
+        final facultyName =
+            (attributes['faculty_id']?['data']?['attributes']?['name'] ??
+            'Faculty not set').toString();
 
         setState(() {
-          _userName = '$firstName $lastName'.trim();
-          if (_userName.isEmpty) _userName = 'User';
-        });
-
-        // 2. Fetch Universities and Faculties for mapping
-        final univsResult = await _authRepository.getUniversities();
-        final facultiesResult = await _authRepository.getFaculties();
-
-        String foundUniv = 'University not set';
-        String foundFaculty = 'Faculty not set';
-
-        if (univsResult['success'] && universityId != null) {
-          final List univs = univsResult['data'] ?? [];
-          final univMatch = univs.firstWhere(
-            (u) => u['id'].toString() == universityId.toString(),
-            orElse: () => null,
-          );
-          if (univMatch != null) foundUniv = univMatch['attributes']['name'];
-        }
-
-        if (facultiesResult['success'] && facultyId != null) {
-          final List faculties = facultiesResult['data'] ?? [];
-          final facultyMatch = faculties.firstWhere(
-            (f) => f['id'].toString() == facultyId.toString(),
-            orElse: () => null,
-          );
-          if (facultyMatch != null)
-            foundFaculty = facultyMatch['attributes']['name'];
-        }
-
-        setState(() {
-          _universityName = foundUniv;
-          _facultyName = foundFaculty;
+          _userName = fullName.isEmpty ? 'User' : fullName;
+          _universityName = universityName;
+          _facultyName = facultyName;
           _isLoading = false;
         });
       }
@@ -136,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          
+
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -252,10 +241,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              const Icon(
-                Icons.notifications_none_rounded,
+              const FaIcon(
+                FontAwesomeIcons.bell,
                 color: Color(0xFF5A75FF),
-                size: 26,
+                size: 22,
               ),
               Positioned(
                 top: 12,
@@ -294,14 +283,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: const TextField(
         decoration: InputDecoration(
           hintText: 'Search courses, lectures...',
-          hintStyle: TextStyle(
-            color: Color(0xFFD1D1D1),
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: Color(0xFFD1D1D1),
-            size: 24,
+          hintStyle: TextStyle(color: Color(0xFFD1D1D1), fontSize: 14),
+          prefixIcon: Padding(
+            padding: EdgeInsets.all(14),
+            child: FaIcon(
+              FontAwesomeIcons.magnifyingGlass,
+              color: Color(0xFFD1D1D1),
+              size: 18,
+            ),
           ),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 18),
@@ -314,9 +303,18 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CourseContentScreen(
-          courseTitle: title,
-          instructorName: instructor,
+        builder: (context) =>
+            CourseContentScreen(courseTitle: title, instructorName: instructor),
+      ),
+    );
+  }
+
+  void _navigateToSubjectDetail(String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SubjectDetailScreen(
+          subjectTitle: title,
         ),
       ),
     );
@@ -370,10 +368,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
+                    child: const FaIcon(
+                      FontAwesomeIcons.play,
                       color: Color(0xFF5A75FF),
-                      size: 20,
+                      size: 14,
                     ),
                   ),
                 ],
@@ -434,7 +432,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => _navigateToCourse('Cost Accounting', 'Accounting Basics'),
+            onPressed: () => _navigateToLecture(
+              'Cost Accounting',
+              'Chapter 1: Introduction',
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2137D6),
               foregroundColor: Colors.white,
@@ -449,13 +450,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   'Continue',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(width: 8),
-                Icon(Icons.play_arrow_outlined, size: 20),
+                FaIcon(FontAwesomeIcons.play, size: 14),
               ],
             ),
           ),
@@ -473,25 +471,25 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildSubjectItem(
             'Accounting',
-            Icons.calculate_outlined,
+            FontAwesomeIcons.calculator,
             AppColors.accountingBg,
             AppColors.accountingText,
           ),
           _buildSubjectItem(
             'Business',
-            Icons.business_center_outlined,
+            FontAwesomeIcons.briefcase,
             AppColors.businessBg,
             AppColors.businessText,
           ),
           _buildSubjectItem(
             'Economics',
-            Icons.trending_up,
+            FontAwesomeIcons.chartLine,
             AppColors.economicsBg,
             AppColors.economicsText,
           ),
           _buildSubjectItem(
             'Finance',
-            Icons.bar_chart_rounded,
+            FontAwesomeIcons.chartPie,
             AppColors.financeBg,
             AppColors.financeText,
           ),
@@ -502,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSubjectItem(
     String title,
-    IconData icon,
+    FaIconData icon,
     Color bgColor,
     Color iconColor,
   ) {
@@ -515,11 +513,11 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: InkWell(
-        onTap: () => _navigateToCourse(title, 'Course Content'),
+        onTap: () => _navigateToSubjectDetail(title),
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
-            Icon(icon, color: iconColor, size: 24),
+            FaIcon(icon, color: iconColor, size: 24),
             const SizedBox(height: 8),
             Text(
               title,
@@ -586,7 +584,9 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: Image.network(
                 imageUrl,
                 height: 130,
@@ -664,7 +664,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.liveBg,
                   borderRadius: BorderRadius.circular(8),
@@ -689,10 +692,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              const Icon(
-                Icons.sensors_rounded,
+              const FaIcon(
+                FontAwesomeIcons.towerBroadcast,
                 color: Color(0xFF5A75FF),
-                size: 24,
+                size: 20,
               ),
             ],
           ),
