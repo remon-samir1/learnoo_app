@@ -16,10 +16,17 @@ class ApiConstants {
   static const String lectures = '/v1/lecture';
   static const String chapters = '/v1/chapter';
   static const String codeActivate = '/v1/code/activate';
+  static const String discussion = '/v1/discussion';
 
   // Quiz/Exam endpoints
   static const String quiz = '/v1/quiz';
   static const String quizQuestion = '/v1/quiz-question';
   static const String quizAnswer = '/v1/quiz-answer';
   static const String quizAttempt = '/v1/quiz-attempt';
+
+  // Notes endpoints
+  static const String notes = '/v1/note';
+
+  // Library endpoints
+  static const String libraries = '/v1/library';
 }

@@ -4,8 +4,15 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../course_content/data/course_repository.dart';
+import '../../../course_content/data/library_repository.dart';
 import '../../../course_content/presentation/screens/course_detail_screen.dart';
+import '../../../course_content/presentation/screens/electronic_library_screen.dart';
 import '../../../course_content/presentation/screens/subject_detail_screen.dart';
+import '../../../course_content/presentation/screens/unlock_material_screen.dart';
+import '../../../notes/data/notes_repository.dart';
+import '../../../notes/presentation/screens/summaries_list_screen.dart';
+import '../../../notes/presentation/screens/summary_detail_screen.dart';
+import '../../../profile/presentation/screens/my_profile_screen.dart';
 import '../../data/department_repository.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,14 +26,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final _authRepository = AuthRepository();
   final _courseRepository = CourseRepository();
   final _departmentRepository = DepartmentRepository();
+  final _notesRepository = NotesRepository();
+  final _libraryRepository = LibraryRepository();
   bool _isLoading = true;
   bool _isCoursesLoading = true;
   bool _isSubjectsLoading = true;
+  bool _isNotesLoading = true;
+  bool _isLibrariesLoading = true;
   String _userName = 'Loading...';
   String _universityName = 'Loading...';
   String _facultyName = 'Loading...';
   List<dynamic> _courses = [];
   List<dynamic> _subjects = [];
+  List<dynamic> _notes = [];
+  List<dynamic> _libraries = [];
   Map<String, dynamic>? _continueWatching;
   List<dynamic> _liveClasses = [];
   bool _isLiveClassesLoading = true;
@@ -79,6 +92,46 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCourses();
     _loadSubjects();
     _loadLiveClasses();
+    _loadNotes();
+    _loadLibraries();
+  }
+
+  Future<void> _loadLibraries() async {
+    setState(() => _isLibrariesLoading = true);
+    try {
+      final result = await _libraryRepository.getLibraries();
+      if (result['success'] && mounted) {
+        setState(() {
+          _libraries = result['data'] ?? [];
+          _isLibrariesLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLibrariesLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLibrariesLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadNotes() async {
+    setState(() => _isNotesLoading = true);
+    try {
+      final result = await _notesRepository.getNotes();
+      if (result['success'] && mounted) {
+        setState(() {
+          _notes = result['data'] ?? [];
+          _isNotesLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isNotesLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isNotesLoading = false);
+      }
+    }
   }
 
   Future<void> _loadSubjects() async {
@@ -241,11 +294,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
                   _buildLiveClassesList(),
                   const SizedBox(height: 32),
-                  _buildSectionHeaderWithAction('New Notes & Summaries', 'View All', () {}),
+                  _buildSectionHeaderWithAction(
+                    'New Notes & Summaries', 'View All',
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SummariesListScreen()),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 20),
                   _buildNotesSummariesList(),
                   const SizedBox(height: 32),
-                  _buildSectionHeaderWithAction('Electronic Library', 'View All', () {}),
+                  _buildSectionHeaderWithAction(
+                    'Electronic Library', 'View All',
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ElectronicLibraryScreen()),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 20),
                   _buildLibraryList(),
                   const SizedBox(height: 32),
@@ -344,6 +413,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MyProfileScreen()),
+            );
+          },
+          child: Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: FaIcon(
+                FontAwesomeIcons.gear,
+                color: Color(0xFF5A75FF),
+                size: 22,
+              ),
+            ),
           ),
         ),
       ],
@@ -1034,35 +1134,185 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<dynamic> get _summaryNotes {
+    return _notes.where((note) {
+      final attributes = note['attributes'] ?? {};
+      return attributes['type'] == 'summary';
+    }).toList();
+  }
+
   Widget _buildNotesSummariesList() {
+    if (_isNotesLoading) {
+      return _buildNotesSummariesShimmer();
+    }
+
+    if (_summaryNotes.isEmpty) {
+      return const SizedBox(
+        height: 100,
+        child: Center(
+          child: Text(
+            'No summaries available',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       clipBehavior: Clip.none,
       child: Row(
-        children: [
-          _buildNoteSummaryCard(
-            'Chapter 4 Summary',
-            'Economics • Added today',
-            FontAwesomeIcons.fileLines,
-            const Color(0xFFFFF0F0),
-            const Color(0xFFFF4B4B),
-          ),
-          _buildNoteSummaryCard(
-            'Exam Highlights',
-            'Economics • 2 days ago',
-            FontAwesomeIcons.filePdf,
-            const Color(0xFFF0F2FF),
-            const Color(0xFF5A75FF),
-          ),
-          _buildNoteSummaryCard(
-            'Quick Notes',
-            'Business • 3 days ago',
-            FontAwesomeIcons.noteSticky,
-            const Color(0xFFFFF9F0),
-            const Color(0xFFF2994A),
-          ),
-        ],
+        children: _summaryNotes.take(5).map((note) {
+          final attributes = note['attributes'] ?? {};
+          final title = attributes['title']?.toString() ?? 'Untitled';
+          final type = attributes['type']?.toString() ?? 'note';
+          final linkedLecture = attributes['linked_lecture']?.toString();
+          final createdAt = attributes['created_at']?.toString();
+
+          final typeStyles = _getNoteTypeStyles(type);
+          final dateText = _formatNoteDate(createdAt);
+          final subtitle = linkedLecture != null
+              ? '$linkedLecture • $dateText'
+              : dateText;
+
+          return GestureDetector(
+            onTap: () => _navigateToNoteDetail(note),
+            child: _buildNoteSummaryCard(
+              title,
+              subtitle,
+              typeStyles['icon'],
+              typeStyles['bgColor'],
+              typeStyles['iconColor'],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _getNoteTypeStyles(String type) {
+    switch (type) {
+      case 'summary':
+        return {
+          'icon': FontAwesomeIcons.fileLines,
+          'bgColor': const Color(0xFFFFF0F0),
+          'iconColor': const Color(0xFFFF4B4B),
+        };
+      case 'highlight':
+      case 'key_point':
+        return {
+          'icon': FontAwesomeIcons.highlighter,
+          'bgColor': const Color(0xFFE6F9F1),
+          'iconColor': const Color(0xFF10B981),
+        };
+      case 'important_notice':
+        return {
+          'icon': FontAwesomeIcons.circleExclamation,
+          'bgColor': const Color(0xFFFFE6E6),
+          'iconColor': const Color(0xFFEF4444),
+        };
+      case 'video_note':
+        return {
+          'icon': FontAwesomeIcons.video,
+          'bgColor': const Color(0xFFEEF0FF),
+          'iconColor': const Color(0xFF5A75FF),
+        };
+      default:
+        return {
+          'icon': FontAwesomeIcons.noteSticky,
+          'bgColor': const Color(0xFFFFF9F0),
+          'iconColor': const Color(0xFFF2994A),
+        };
+    }
+  }
+
+  String _formatNoteDate(String? dateString) {
+    if (dateString == null) return 'Recently';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${(difference.inDays / 7).floor()} weeks ago';
+      }
+    } catch (e) {
+      return 'Recently';
+    }
+  }
+
+  void _navigateToNoteDetail(dynamic note) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SummaryDetailScreen(note: note),
+      ),
+    );
+  }
+
+  Widget _buildNotesSummariesShimmer() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      clipBehavior: Clip.none,
+      child: Row(
+        children: List.generate(3, (index) {
+          return Container(
+            width: 180,
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF1F1F1)),
+            ),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey[300]!,
+              highlightColor: Colors.grey[100]!,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 100,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -1128,33 +1378,137 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLibraryList() {
+    if (_isLibrariesLoading) {
+      return _buildLibraryShimmerList();
+    }
+
+    if (_libraries.isEmpty) {
+      return const SizedBox(
+        height: 100,
+        child: Center(
+          child: Text(
+            'No library materials available',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       clipBehavior: Clip.none,
       child: Row(
+        children: _libraries.take(5).map((library) {
+          final attributes = library['attributes'] ?? {};
+          final title = attributes['title']?.toString() ?? 'Untitled';
+          final price = attributes['price']?.toString() ?? '0';
+          final coverImage = attributes['cover_image']?.toString() ?? '';
+          final codeActivation = attributes['code_activation'] == true;
+
+          return _buildLibraryCard(
+            title: title,
+            price: 'EGP $price',
+            imageUrl: coverImage,
+            requiresCode: codeActivation,
+            library: library,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildLibraryShimmerList() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      clipBehavior: Clip.none,
+      child: Row(
         children: [
-          _buildLibraryCard(
-            'Financial Accounting Vol. 1',
-            'EGP 150',
-            'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200',
-          ),
-          _buildLibraryCard(
-            'Cost Accounting Basics',
-            'EGP 120',
-            'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200',
-          ),
-          _buildLibraryCard(
-            'Business Economics',
-            'EGP 180',
-            'https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=200',
-          ),
+          _buildLibraryShimmerCard(),
+          _buildLibraryShimmerCard(),
+          _buildLibraryShimmerCard(),
         ],
       ),
     );
   }
 
-  Widget _buildLibraryCard(String title, String price, String imageUrl) {
+  Widget _buildLibraryShimmerCard() {
+    return Container(
+      width: 280,
+      margin: const EdgeInsets.only(right: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 100,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(16),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 60,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 80,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryCard({
+    required String title,
+    required String price,
+    required String imageUrl,
+    required bool requiresCode,
+    required dynamic library,
+  }) {
     return Container(
       width: 280,
       margin: const EdgeInsets.only(right: 16),
@@ -1219,21 +1573,33 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Color(0xFF5A75FF),
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2137D6),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Buy',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                      GestureDetector(
+                        onTap: () {
+                          if (requiresCode) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UnlockMaterialScreen(library: library),
+                              ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2137D6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            requiresCode ? 'Unlock' : 'Free',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),

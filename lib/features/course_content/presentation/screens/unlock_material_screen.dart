@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../data/library_repository.dart';
 import 'material_unlocked_screen.dart';
-import 'electronic_library_screen.dart';
 
 class UnlockMaterialScreen extends StatefulWidget {
-  final LibraryMaterial material;
+  final dynamic library;
 
   const UnlockMaterialScreen({
     super.key,
-    required this.material,
+    required this.library,
   });
 
   @override
@@ -17,6 +17,7 @@ class UnlockMaterialScreen extends StatefulWidget {
 
 class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
   final TextEditingController _codeController = TextEditingController();
+  final LibraryRepository _libraryRepository = LibraryRepository();
   bool _isVerifying = false;
 
   @override
@@ -25,14 +26,11 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
     super.dispose();
   }
 
-  void _verifyCode() {
-    if (_codeController.text.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid 6-digit code'),
-          backgroundColor: Colors.red,
-        ),
-      );
+  Future<void> _verifyCode() async {
+    final code = _codeController.text.trim();
+
+    if (code.isEmpty) {
+      _showError('Please enter an activation code');
       return;
     }
 
@@ -40,24 +38,61 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
       _isVerifying = true;
     });
 
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 1), () {
-      setState(() {
-        _isVerifying = false;
-      });
+    try {
+      final result = await _libraryRepository.activateCode(code);
 
-      // Navigate to success screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MaterialUnlockedScreen(material: widget.material),
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+
+        if (result['success']) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MaterialUnlockedScreen(library: widget.library),
+            ),
+          );
+        } else {
+          _showError(result['message'] ?? 'Invalid activation code');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+        _showError('Connection error. Please try again.');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
         ),
-      );
-    });
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final attributes = widget.library['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Untitled';
+    final coverImage = attributes['cover_image']?.toString() ?? '';
+    final materialType = attributes['material_type']?.toString() ?? 'Unknown';
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -162,10 +197,18 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
-                                  widget.material.imageUrl,
+                                  coverImage,
                                   width: 70,
                                   height: 90,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: 70,
+                                      height: 90,
+                                      color: const Color(0xFFF3F4F6),
+                                      child: const Icon(Icons.book, color: Color(0xFF9CA3AF)),
+                                    );
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -174,30 +217,30 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      widget.material.title,
+                                      title,
                                       style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                         color: Color(0xFF1F2937),
                                       ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.locationDot,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0F2FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        materialType,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
                                           color: Color(0xFF5A75FF),
-                                          size: 12,
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          widget.material.center,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[500],
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -235,7 +278,7 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                         const SizedBox(height: 12),
                         // Subtitle
                         Text(
-                          'Enter the code you received from the\ncenter to unlock this PDF material.',
+                          'Enter the code you received to unlock this PDF material.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
@@ -266,12 +309,13 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                           ),
                           child: TextField(
                             controller: _codeController,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.characters,
+                            maxLength: 20,
                             style: const TextStyle(
-                              fontSize: 24,
+                              fontSize: 20,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: 8,
+                              letterSpacing: 4,
                               color: Color(0xFF1F2937),
                             ),
                             decoration: InputDecoration(
@@ -281,11 +325,11 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                                 vertical: 18,
                               ),
                               border: InputBorder.none,
-                              hintText: '000000',
+                              hintText: 'ABCD-1234',
                               hintStyle: TextStyle(
-                                fontSize: 24,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w600,
-                                letterSpacing: 8,
+                                letterSpacing: 4,
                                 color: Colors.grey[300],
                               ),
                             ),
@@ -303,7 +347,7 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                "Didn't receive a code? Please contact your center directly. Codes are provided after payment at the center.",
+                                "Didn't receive a code? Please contact support. Codes are provided after payment.",
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[400],

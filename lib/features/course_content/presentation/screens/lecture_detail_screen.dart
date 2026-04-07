@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
 import '../../../../core/network/api_constants.dart';
 import '../../data/chapter_repository.dart';
+import '../../data/discussion_repository.dart';
 
 class LectureDetailScreen extends StatefulWidget {
   final String lectureId;
@@ -26,10 +32,12 @@ class LectureDetailScreen extends StatefulWidget {
 
 class _LectureDetailScreenState extends State<LectureDetailScreen> {
   final _chapterRepository = ChapterRepository();
+  final _discussionRepository = DiscussionRepository();
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   
   bool _isLoadingChapter = true;
+  bool _isLoadingDiscussions = false;
   bool _isInitializingVideo = false;
   Map<String, dynamic>? _chapterData;
   
@@ -50,20 +58,200 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   String _totalTime = '0:00';
   
   bool _showDiscussionPanel = false;
+  String _discussionTab = 'all'; // 'all', 'comment', 'voice'
+  final _commentController = TextEditingController();
   
+  // Voice recording
+  final _audioRecorder = AudioRecorder();
+  final _audioPlayer = AudioPlayer();
+  final _recordedPlayer = AudioPlayer(); // Added for playing the recorded file
+  bool _isRecording = false;
+  String? _recordedPath;
+  Duration _recordDuration = Duration.zero;
+  Duration _recordedPosition = Duration.zero;
+  Duration _recordedTotalDuration = Duration.zero;
+  StreamSubscription<RecordState>? _recordSub;
+  StreamSubscription<Duration>? _durationSub;
+  
+  // For list audio playback
+  String? _currentlyPlayingUrl;
+  Duration _listAudioPosition = Duration.zero;
+  Duration _listAudioDuration = Duration.zero;
+
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadChapterDetails();
+    _loadDiscussions();
+    
+    // Listen for recording state changes
+    _recordSub = _audioRecorder.onStateChanged().listen((state) {
+      if (state == RecordState.record) {
+        // Start timer or update UI
+      }
+    });
+
+    // Listen for recorded player position
+    _recordedPlayer.onPositionChanged.listen((p) {
+      setState(() => _recordedPosition = p);
+    });
+
+    _recordedPlayer.onDurationChanged.listen((d) {
+      setState(() => _recordedTotalDuration = d);
+    });
+
+    _recordedPlayer.onPlayerComplete.listen((_) {
+      setState(() => _recordedPosition = Duration.zero);
+    });
+
+    // Listen for list player
+    _audioPlayer.onPositionChanged.listen((p) {
+      setState(() => _listAudioPosition = p);
+    });
+    _audioPlayer.onDurationChanged.listen((d) {
+      setState(() => _listAudioDuration = d);
+    });
+    _audioPlayer.onPlayerComplete.listen((_) {
+      setState(() {
+        _currentlyPlayingUrl = null;
+        _listAudioPosition = Duration.zero;
+      });
+    });
   }
 
   @override
   void dispose() {
     _videoController?.dispose();
     _chewieController?.dispose();
+    _commentController.dispose();
+    _recordSub?.cancel();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
+    _recordedPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadDiscussions() async {
+    setState(() => _isLoadingDiscussions = true);
+    try {
+      final result = await _discussionRepository.getDiscussions(
+        chapterId: int.tryParse(widget.chapterId),
+      );
+      if (result['success'] && mounted) {
+        setState(() {
+          _discussions = result['data'] ?? [];
+          _isLoadingDiscussions = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingDiscussions = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingDiscussions = false);
+    }
+  }
+
+  Future<void> _startRecording() async {
+    debugPrint('Start recording clicked');
+    try {
+      // Use the record package's built-in permission check
+      final hasPermission = await _audioRecorder.hasPermission();
+      debugPrint('Has permission: $hasPermission');
+
+      if (hasPermission) {
+        debugPrint('Has permission, starting recording...');
+        final directory = await getApplicationDocumentsDirectory();
+        final path = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        
+        const config = RecordConfig();
+        await _audioRecorder.start(config, path: path);
+        debugPrint('Recording started at path: $path');
+        
+        setState(() {
+          _isRecording = true;
+          _recordedPath = null;
+        });
+      } else {
+        debugPrint('Permission denied');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Microphone permission is required to record voice notes'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    debugPrint('Stop recording clicked');
+    try {
+      final path = await _audioRecorder.stop();
+      debugPrint('Recording stopped. Path: $path');
+      setState(() {
+        _isRecording = false;
+        _recordedPath = path;
+      });
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
+    }
+  }
+
+  Future<void> _postDiscussion() async {
+    if (widget.chapterId.isEmpty) return;
+    
+    final chapterId = int.tryParse(widget.chapterId);
+    if (chapterId == null) return;
+
+    final moment = _videoController?.value.position.inSeconds ?? 0;
+    
+    setState(() => _isLoadingDiscussions = true);
+
+    Map<String, dynamic> result;
+    if (_discussionTab == 'voice' && _recordedPath != null) {
+      result = await _discussionRepository.postDiscussion(
+        chapterId: chapterId,
+        type: 'voice',
+        content: '',
+        moment: moment,
+        voiceFile: File(_recordedPath!),
+      );
+    } else {
+      if (_commentController.text.trim().isEmpty) {
+        setState(() => _isLoadingDiscussions = false);
+        return;
+      }
+      result = await _discussionRepository.postDiscussion(
+        chapterId: chapterId,
+        type: 'text',
+        content: _commentController.text.trim(),
+        moment: moment,
+      );
+    }
+
+    if (result['success'] && mounted) {
+      _commentController.clear();
+      _recordedPath = null;
+      _discussionTab = 'all';
+      await _loadDiscussions();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Discussion posted successfully')),
+      );
+    } else if (mounted) {
+      setState(() => _isLoadingDiscussions = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Failed to post discussion')),
+      );
+    }
   }
 
   Future<void> _loadChapterDetails() async {
@@ -622,7 +810,10 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   Widget _buildAskButton() {
     return GestureDetector(
-      onTap: _openAskMoment,
+      onTap: () {
+        debugPrint('Ask button clicked');
+        _openAskMoment();
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -992,56 +1183,665 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       color: Colors.black.withValues(alpha: 0.5),
       child: Column(
         children: [
-          const Spacer(),
-          Container(
-            height: MediaQuery.of(context).size.height * 0.7,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          GestureDetector(
+            onTap: _closeDiscussionPanel,
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.15,
+              color: Colors.transparent,
             ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Discussions',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+          ),
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 8, 0),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Ask about this moment',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2937),
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: _closeDiscussionPanel,
-                        icon: const FaIcon(FontAwesomeIcons.xmark, size: 20),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: _closeDiscussionPanel,
+                          icon: const Icon(Icons.close, color: Color(0xFF9CA3AF)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildDiscussionTabs(),
+                  if (_discussionTab != 'all') _buildDiscussionInput(),
+                  Expanded(
+                    child: _isLoadingDiscussions
+                        ? _buildDiscussionSkeleton()
+                        : _discussions.isEmpty
+                            ? _buildEmptyDiscussions()
+                            : _buildDiscussionsList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscussionTabs() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildTabItem('All Discussions', 'all'),
+          _buildTabItem('Comment', 'comment'),
+          _buildTabItem('Voice', 'voice'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem(String label, String tab) {
+    bool isSelected = _discussionTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _discussionTab = tab),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected ? const Color(0xFF3451E5) : const Color(0xFF6B7280),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscussionInput() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'About  $_currentTime',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _discussionTab == 'comment' ? 'comment' : 'voice',
+                  style: const TextStyle(
+                    color: Color(0xFF3451E5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() => _discussionTab = 'all'),
+                child: const Icon(Icons.close, size: 18, color: Color(0xFF9CA3AF)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_discussionTab == 'comment')
+            TextField(
+              controller: _commentController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Write a comment about this moment...',
+                hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+            )
+          else
+            _buildVoiceRecorderUI(),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _postDiscussion,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3451E5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: Text(
+                _discussionTab == 'comment' ? 'Post Comment' : 'Post Voice Note',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoiceRecorderUI() {
+    if (_recordedPath != null) {
+      return _buildRecordedPreview();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            _isRecording ? Icons.mic : Icons.mic_none,
+            size: 48,
+            color: _isRecording ? const Color(0xFF3451E5) : const Color(0xFF9CA3AF),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _isRecording ? 'Recording...' : 'Tap to record voice note',
+            style: TextStyle(
+              color: _isRecording ? const Color(0xFF3451E5) : const Color(0xFF6B7280),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  debugPrint('Record button tapped, isRecording: $_isRecording');
+                  if (_isRecording) {
+                    _stopRecording();
+                  } else {
+                    _startRecording();
+                  }
+                },
+                borderRadius: BorderRadius.circular(32),
+                child: Container(
+                  height: 64,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3451E5),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3451E5).withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
+                  child: Icon(
+                    _isRecording ? Icons.stop : Icons.mic,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
-                Expanded(
-                  child: _discussions.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No discussions yet',
-                            style: TextStyle(
-                              color: Color(0xFF9CA3AF),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecordedPreview() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  if (_recordedPlayer.state == PlayerState.playing) {
+                    await _recordedPlayer.pause();
+                  } else {
+                    await _recordedPlayer.play(DeviceFileSource(_recordedPath!));
+                  }
+                  setState(() {});
+                },
+                child: Icon(
+                  _recordedPlayer.state == PlayerState.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: const Color(0xFF3451E5),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: _recordedTotalDuration.inMilliseconds > 0 
+                      ? _recordedPosition.inMilliseconds / _recordedTotalDuration.inMilliseconds 
+                      : 0.0,
+                  backgroundColor: const Color(0xFFE5E7EB),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _formatDuration(_recordedTotalDuration),
+                style: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _recordedPath = null;
+                    _recordedPosition = Duration.zero;
+                    _recordedTotalDuration = Duration.zero;
+                  });
+                  _recordedPlayer.stop();
+                },
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 28),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    debugPrint('Re-record button tapped');
+                    _startRecording();
+                  },
+                  borderRadius: BorderRadius.circular(28),
+                  child: Container(
+                    height: 56,
+                    width: 56,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF3451E5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mic, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _postDiscussion,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 56,
+                    width: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3451E5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscussionSkeleton() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: 5,
+      itemBuilder: (context, index) => Shimmer.fromColors(
+        baseColor: Colors.grey[200]!,
+        highlightColor: Colors.grey[50]!,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(radius: 20, backgroundColor: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(height: 12, width: 100, color: Colors.white),
+                    const SizedBox(height: 8),
+                    Container(height: 10, width: double.infinity, color: Colors.white),
+                    const SizedBox(height: 4),
+                    Container(height: 10, width: 150, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyDiscussions() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 48, color: Color(0xFFD1D5DB)),
+          SizedBox(height: 16),
+          Text(
+            'No discussions yet',
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Be the first to start a conversation!',
+            style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscussionsList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      itemCount: _discussions.length,
+      itemBuilder: (context, index) {
+        final discussion = _discussions[index];
+        final attributes = discussion['attributes'] ?? {};
+        final user = attributes['user']?['data']?['attributes'] ?? {};
+        final firstName = user['first_name'] ?? '';
+        final lastName = user['last_name'] ?? '';
+        final role = user['role'] ?? '';
+        final content = attributes['content'] ?? '';
+        final type = attributes['type'] ?? 'text';
+        final moment = attributes['moment'] ?? 0;
+        final createdAt = attributes['created_at'] ?? '';
+        final replies = attributes['replies'] as List? ?? [];
+        
+        bool isInstructor = role.toLowerCase() == 'admin' || role.toLowerCase() == 'instructor';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    child: Text(
+                      firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+                      style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '$firstName $lastName',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Color(0xFF1F2937),
+                              ),
                             ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _discussions.length,
-                          itemBuilder: (context, index) {
-                            final discussion = _discussions[index];
-                            final attrs = discussion['attributes'] ?? {};
-                            final content = attrs['content']?.toString() ?? '';
-                            final type = attrs['type']?.toString() ?? 'text';
-                            
-                            return _buildDiscussionItem(content, type);
-                          },
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatDate(createdAt),
+                              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
+                            ),
+                          ],
                         ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563), height: 1.5),
+                        children: [
+                          TextSpan(
+                            text: '${_formatMoment(moment)} ',
+                            style: const TextStyle(color: Color(0xFF3451E5), fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: type == 'text' ? content : 'Voice question linked to moment'),
+                        ],
+                      ),
+                    ),
+                    if (type == 'voice') ...[
+                      const SizedBox(height: 12),
+                      _buildAudioPlayer(content),
+                    ],
+                    if (replies.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      ...replies.map((reply) => _buildReplyItem(reply)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReplyItem(dynamic reply) {
+    final attributes = reply['attributes'] ?? {};
+    final user = attributes['user']?['data']?['attributes'] ?? {};
+    final firstName = user['first_name'] ?? '';
+    final lastName = user['last_name'] ?? '';
+    final role = user['role'] ?? '';
+    final content = attributes['content'] ?? '';
+    
+    bool isInstructor = role.toLowerCase() == 'admin' || role.toLowerCase() == 'instructor';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4FF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFF3451E5),
+                child: Text(
+                  firstName.isNotEmpty ? firstName[0].toUpperCase() : 'I',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '$firstName $lastName',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF3451E5)),
+              ),
+              if (isInstructor) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3451E5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Instructor',
+                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            content,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563), height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAudioPlayer(String url) {
+    bool isThisPlaying = _currentlyPlayingUrl == url;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF2FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () async {
+              if (isThisPlaying && _audioPlayer.state == PlayerState.playing) {
+                await _audioPlayer.pause();
+              } else {
+                if (_currentlyPlayingUrl != url) {
+                  await _audioPlayer.stop();
+                  setState(() {
+                    _currentlyPlayingUrl = url;
+                    _listAudioPosition = Duration.zero;
+                    _listAudioDuration = Duration.zero;
+                  });
+                }
+                await _audioPlayer.play(UrlSource(url));
+              }
+              setState(() {});
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(color: Color(0xFF3451E5), shape: BoxShape.circle),
+              child: Icon(
+                (isThisPlaying && _audioPlayer.state == PlayerState.playing) ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              children: [
+                LinearProgressIndicator(
+                  value: isThisPlaying && _listAudioDuration.inMilliseconds > 0
+                      ? _listAudioPosition.inMilliseconds / _listAudioDuration.inMilliseconds
+                      : 0.0,
+                  backgroundColor: const Color(0xFFD1D5DB),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isThisPlaying ? _formatDuration(_listAudioPosition) : '00:00',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                    ),
+                    Text(
+                      isThisPlaying ? _formatDuration(_listAudioDuration) : '00:00',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1051,41 +1851,23 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     );
   }
 
-  Widget _buildDiscussionItem(String content, String type) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDEDFF),
-              shape: BoxShape.circle,
-            ),
-            child: FaIcon(
-              type == 'voice' ? FontAwesomeIcons.microphone : FontAwesomeIcons.comment,
-              color: const Color(0xFF3451E5),
-              size: 14,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              content,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatMoment(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(1, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      return '${date.day}/${date.month}';
+    } catch (e) {
+      return '';
+    }
   }
 }

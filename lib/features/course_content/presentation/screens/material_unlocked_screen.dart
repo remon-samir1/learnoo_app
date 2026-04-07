@@ -3,11 +3,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'electronic_library_screen.dart';
 
 class MaterialUnlockedScreen extends StatelessWidget {
-  final LibraryMaterial material;
+  final dynamic library;
 
   const MaterialUnlockedScreen({
     super.key,
-    required this.material,
+    required this.library,
   });
 
   String get _currentDate {
@@ -20,9 +20,9 @@ class MaterialUnlockedScreen extends StatelessWidget {
   }
 
   void _openPdf(BuildContext context) {
-    // TODO: Implement PDF viewer
+    final title = library['attributes']?['title']?.toString() ?? 'Material';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Opening ${material.title} PDF...')),
+      SnackBar(content: Text('Opening $title PDF...')),
     );
   }
 
@@ -181,7 +181,7 @@ class MaterialUnlockedScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    material.title,
+                                    library['attributes']?['title']?.toString() ?? 'Untitled',
                                     style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
@@ -192,13 +192,13 @@ class MaterialUnlockedScreen extends StatelessWidget {
                                   Row(
                                     children: [
                                       const FaIcon(
-                                        FontAwesomeIcons.locationDot,
+                                        FontAwesomeIcons.book,
                                         color: Color(0xFF5A75FF),
                                         size: 12,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        material.center,
+                                        library['attributes']?['material_type']?.toString() ?? 'Unknown',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey[500],

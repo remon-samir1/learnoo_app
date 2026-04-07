@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/exam_repository.dart';
 import '../../models/quiz_models.dart';
@@ -41,9 +42,10 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
         _quizzes = quizzes;
       });
 
-      for (final quiz in quizzes) {
-        await _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts);
-      }
+      final attemptsFutures = quizzes.map((quiz) => 
+        _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts)
+      ).toList();
+      await Future.wait(attemptsFutures);
     } else {
       setState(() {
         _errorMessage = result['message'];
@@ -106,7 +108,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
                 Expanded(
                   flex: 8,
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      ? _buildSkeletonList()
                       : _errorMessage != null
                           ? _buildErrorView()
                           : _quizzes.isEmpty
@@ -296,5 +298,60 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
     final startStr = '${months[start.month - 1]} ${start.day}';
     final endStr = '${months[end.month - 1]} ${end.day}';
     return '$startStr - $endStr';
+  }
+
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: 3,
+      itemBuilder: (context, index) => _buildSkeletonCard(),
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top row - badges
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(width: 80, height: 24, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+                Container(width: 100, height: 24, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Title
+            Container(width: double.infinity, height: 20, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8))),
+            const SizedBox(height: 8),
+            Container(width: 200, height: 20, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8))),
+            const SizedBox(height: 16),
+            // Info rows
+            Row(
+              children: [
+                Container(width: 100, height: 14, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                const SizedBox(width: 16),
+                Container(width: 120, height: 14, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(width: 180, height: 14, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 16),
+            // Button
+            Container(width: double.infinity, height: 46, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
+          ],
+        ),
+      ),
+    );
   }
 }

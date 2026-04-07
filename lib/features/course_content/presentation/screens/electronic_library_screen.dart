@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../data/library_repository.dart';
 import 'unlock_material_screen.dart';
 
 class ElectronicLibraryScreen extends StatefulWidget {
@@ -10,77 +12,84 @@ class ElectronicLibraryScreen extends StatefulWidget {
 }
 
 class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
+  final LibraryRepository _libraryRepository = LibraryRepository();
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Nasr City', 'Heliopolis'];
+  final List<String> _filters = ['All', 'guide', 'reference', 'booklet'];
 
-  final List<LibraryMaterial> _materials = [
-    LibraryMaterial(
-      id: '1',
-      title: 'Financial Accounting Vol. 1',
-      author: 'Dr. Sarah Ahmed',
-      category: 'Accounting',
-      center: 'Nasr City Center',
-      imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400',
-      isUnlocked: false,
-    ),
-    LibraryMaterial(
-      id: '2',
-      title: 'Cost Accounting Guide',
-      author: 'Dr. Ahmed Hassan',
-      category: 'Accounting',
-      center: 'Nasr City Center',
-      imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400',
-      isUnlocked: true,
-    ),
-    LibraryMaterial(
-      id: '3',
-      title: 'Economics Essentials',
-      author: 'Dr. Mohamed Ali',
-      category: 'Economics',
-      center: 'Heliopolis Center',
-      imageUrl: 'https://images.unsplash.com/photo-1550399105-c4db5fb85c18?w=400',
-      isUnlocked: false,
-    ),
-    LibraryMaterial(
-      id: '4',
-      title: 'Business Law Notes',
-      author: 'Dr. Layla Hassan',
-      category: 'Business',
-      center: 'Heliopolis Center',
-      imageUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400',
-      isUnlocked: false,
-    ),
-  ];
+  List<dynamic> _libraries = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  List<LibraryMaterial> get _filteredMaterials {
-    if (_selectedFilter == 'All') return _materials;
-    return _materials.where((m) => m.center.contains(_selectedFilter)).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadLibraries();
   }
 
-  Map<String, List<LibraryMaterial>> get _groupedMaterials {
-    final grouped = <String, List<LibraryMaterial>>{};
-    for (final material in _filteredMaterials) {
-      if (!grouped.containsKey(material.center)) {
-        grouped[material.center] = [];
+  Future<void> _loadLibraries() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _libraryRepository.getLibraries();
+      if (mounted) {
+        if (result['success']) {
+          setState(() {
+            _libraries = result['data'] ?? [];
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = result['message'] ?? 'Failed to load libraries';
+            _isLoading = false;
+          });
+        }
       }
-      grouped[material.center]!.add(material);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Connection error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<dynamic> get _filteredLibraries {
+    if (_selectedFilter == 'All') return _libraries;
+    return _libraries.where((lib) {
+      final materialType = lib['attributes']?['material_type']?.toString().toLowerCase() ?? '';
+      return materialType == _selectedFilter.toLowerCase();
+    }).toList();
+  }
+
+  Map<String, List<dynamic>> get _groupedLibraries {
+    final grouped = <String, List<dynamic>>{};
+    for (final library in _filteredLibraries) {
+      final materialType = library['attributes']?['material_type']?.toString() ?? 'Other';
+      if (!grouped.containsKey(materialType)) {
+        grouped[materialType] = [];
+      }
+      grouped[materialType]!.add(library);
     }
     return grouped;
   }
 
-  void _navigateToUnlock(LibraryMaterial material) {
+  void _navigateToUnlock(dynamic library) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UnlockMaterialScreen(material: material),
+        builder: (context) => UnlockMaterialScreen(library: library),
       ),
     );
   }
 
-  void _openPdf(LibraryMaterial material) {
-    // TODO: Implement PDF viewer
+  void _openPdf(dynamic library) {
+    final title = library['attributes']?['title']?.toString() ?? 'Material';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Opening ${material.title}...')),
+      SnackBar(content: Text('Opening $title...')),
     );
   }
 
@@ -240,42 +249,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                 const SizedBox(height: 20),
                 // Materials List
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _groupedMaterials.entries.map((entry) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Center Header
-                            Row(
-                              children: [
-                                const FaIcon(
-                                  FontAwesomeIcons.locationDot,
-                                  color: Color(0xFF5A75FF),
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  entry.key,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1F2937),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            // Materials Cards
-                            ...entry.value.map((material) => _buildMaterialCard(material)),
-                            const SizedBox(height: 20),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                  child: _buildBody(),
                 ),
               ],
             ),
@@ -285,7 +259,208 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
     );
   }
 
-  Widget _buildMaterialCard(LibraryMaterial material) {
+  Widget _buildBody() {
+    if (_isLoading) {
+      return _buildSkeletonList();
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadLibraries,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5A75FF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_libraries.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.library_books_outlined,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No materials available',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _groupedLibraries.entries.map((entry) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.book,
+                    color: Color(0xFF5A75FF),
+                    size: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    entry.key.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...entry.value.map((library) => _buildMaterialCard(library)),
+              const SizedBox(height: 20),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonList() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSkeletonHeader(),
+          const SizedBox(height: 12),
+          _buildSkeletonCard(),
+          _buildSkeletonCard(),
+          const SizedBox(height: 20),
+          _buildSkeletonHeader(),
+          const SizedBox(height: 12),
+          _buildSkeletonCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonHeader() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: 100,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 120,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 60,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMaterialCard(dynamic library) {
+    final attributes = library['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Untitled';
+    final description = attributes['description']?.toString() ?? '';
+    final materialType = attributes['material_type']?.toString() ?? 'Unknown';
+    final coverImage = attributes['cover_image']?.toString() ?? '';
+    final codeActivation = attributes['code_activation'] == true;
+    final price = attributes['price']?.toString() ?? '0';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -303,19 +478,26 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
       ),
       child: Row(
         children: [
-          // Book Image
           Stack(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  material.imageUrl,
+                  coverImage,
                   width: 80,
                   height: 100,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 80,
+                      height: 100,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(Icons.book, color: Color(0xFF9CA3AF)),
+                    );
+                  },
                 ),
               ),
-              if (!material.isUnlocked)
+              if (codeActivation)
                 Positioned(
                   top: 6,
                   right: 6,
@@ -336,26 +518,29 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
             ],
           ),
           const SizedBox(width: 16),
-          // Material Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  material.title,
+                  title,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF1F2937),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  material.author,
+                  description,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -365,7 +550,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    material.category,
+                    materialType,
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -374,26 +559,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (material.isUnlocked)
-                  Row(
-                    children: [
-                      const FaIcon(
-                        FontAwesomeIcons.lockOpen,
-                        color: Color(0xFF27AE60),
-                        size: 12,
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'Unlocked',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF27AE60),
-                        ),
-                      ),
-                    ],
-                  )
-                else
+                if (codeActivation)
                   Row(
                     children: [
                       FaIcon(
@@ -403,7 +569,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Locked',
+                        'Requires code - EGP $price',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -411,14 +577,32 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                         ),
                       ),
                     ],
+                  )
+                else
+                  Row(
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.lockOpen,
+                        color: Color(0xFF27AE60),
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Free Access',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF27AE60),
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
           ),
-          // Action Button
-          if (material.isUnlocked)
+          if (!codeActivation)
             OutlinedButton.icon(
-              onPressed: () => _openPdf(material),
+              onPressed: () => _openPdf(library),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF5A75FF),
                 side: const BorderSide(color: Color(0xFF5A75FF)),
@@ -435,7 +619,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
             )
           else
             ElevatedButton.icon(
-              onPressed: () => _navigateToUnlock(material),
+              onPressed: () => _navigateToUnlock(library),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2137D6),
                 foregroundColor: Colors.white,
@@ -455,24 +639,4 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
       ),
     );
   }
-}
-
-class LibraryMaterial {
-  final String id;
-  final String title;
-  final String author;
-  final String category;
-  final String center;
-  final String imageUrl;
-  final bool isUnlocked;
-
-  LibraryMaterial({
-    required this.id,
-    required this.title,
-    required this.author,
-    required this.category,
-    required this.center,
-    required this.imageUrl,
-    required this.isUnlocked,
-  });
 }

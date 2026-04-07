@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../data/notes_repository.dart';
 import 'summary_detail_screen.dart';
 
 class SummariesListScreen extends StatefulWidget {
@@ -10,100 +13,137 @@ class SummariesListScreen extends StatefulWidget {
 }
 
 class _SummariesListScreenState extends State<SummariesListScreen> {
-  String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Summaries', 'Highlights', 'Video'];
+  final NotesRepository _notesRepository = NotesRepository();
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  List<dynamic> _notes = [];
 
-  final List<Map<String, dynamic>> _items = [
-    {
-      'title': 'Chapter 4 Summary',
-      'type': 'Summary',
-      'typeColor': const Color(0xFFF2994A),
-      'typeBgColor': const Color(0xFFFFF4E6),
-      'subject': 'Cost Accounting',
-      'preview': 'Key concepts: Fixed costs remain constant regardless of production volume. Variable...',
-      'date': 'Today',
-      'icon': FontAwesomeIcons.fileLines,
-      'iconColor': const Color(0xFFF2994A),
-      'iconBgColor': const Color(0xFFFFF4E6),
-    },
-    {
-      'title': 'Key Formulas',
-      'type': 'Highlight',
-      'typeColor': const Color(0xFF10B981),
-      'typeBgColor': const Color(0xFFE6F9F1),
-      'subject': 'Statistics for Business',
-      'preview': 'Mean = Σ(x)/n, Standard Deviation = √[Σ(x-μ)²/n], Variance = σ²...',
-      'date': 'Yesterday',
-      'icon': FontAwesomeIcons.highlighter,
-      'iconColor': const Color(0xFF10B981),
-      'iconBgColor': const Color(0xFFE6F9F1),
-    },
-    {
-      'title': 'Lecture 8 Notes',
-      'type': 'Video Note',
-      'typeColor': const Color(0xFF5A75FF),
-      'typeBgColor': const Color(0xFFEEF0FF),
-      'subject': 'Monetary Economics',
-      'preview': 'Monetary policy tools: Open market operations, discount rate, reserve...',
-      'date': '2 days ago',
-      'icon': FontAwesomeIcons.video,
-      'iconColor': const Color(0xFF5A75FF),
-      'iconBgColor': const Color(0xFFEEF0FF),
-    },
-    {
-      'title': 'Exam Prep Highlights',
-      'type': 'Highlight',
-      'typeColor': const Color(0xFF10B981),
-      'typeBgColor': const Color(0xFFE6F9F1),
-      'subject': 'Business Administration',
-      'preview': 'SWOT Analysis framework: Strengths, Weaknesses, Opportunities, Threats.',
-      'date': '3 days ago',
-      'icon': FontAwesomeIcons.highlighter,
-      'iconColor': const Color(0xFF10B981),
-      'iconBgColor': const Color(0xFFE6F9F1),
-    },
-    {
-      'title': 'Cost Types Overview',
-      'type': 'Summary',
-      'typeColor': const Color(0xFFF2994A),
-      'typeBgColor': const Color(0xFFFFF4E6),
-      'subject': 'Cost Accounting',
-      'preview': 'Direct costs: Materials, Labor. Indirect costs: Overhead, Administrative expenses...',
-      'date': '1 week ago',
-      'icon': FontAwesomeIcons.fileLines,
-      'iconColor': const Color(0xFFF2994A),
-      'iconBgColor': const Color(0xFFFFF4E6),
-    },
-    {
-      'title': 'Market Structures',
-      'type': 'Video Note',
-      'typeColor': const Color(0xFF5A75FF),
-      'typeBgColor': const Color(0xFFEEF0FF),
-      'subject': 'Monetary Economics',
-      'preview': 'Perfect competition, Monopoly, Oligopoly, Monopolistic competition characteristics...',
-      'date': '1 week ago',
-      'icon': FontAwesomeIcons.video,
-      'iconColor': const Color(0xFF5A75FF),
-      'iconBgColor': const Color(0xFFEEF0FF),
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filteredItems {
-    if (_selectedFilter == 'All') return _items;
-    if (_selectedFilter == 'Video') {
-      return _items.where((item) => item['type'] == 'Video Note').toList();
-    }
-    return _items.where((item) => item['type'] == _selectedFilter).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
   }
 
-  void _navigateToSummaryDetail(Map<String, dynamic> item) {
+  Future<void> _loadNotes() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
+
+    try {
+      final result = await _notesRepository.getNotes();
+      if (result['success'] && mounted) {
+        setState(() {
+          _notes = result['data'] ?? [];
+          _isLoading = false;
+        });
+      } else if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = result['message'] ?? 'Failed to load notes';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Connection error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<dynamic> get _filteredItems {
+    return _notes.where((item) {
+      final attributes = item['attributes'] ?? {};
+      return attributes['type'] == 'summary';
+    }).toList();
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else if (difference.inDays < 30) {
+        return '${(difference.inDays / 7).floor()} weeks ago';
+      } else {
+        return DateFormat('MMM d, yyyy').format(date);
+      }
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Map<String, dynamic> _getTypeStyles(String? type) {
+    switch (type) {
+      case 'summary':
+        return {
+          'typeLabel': 'Summary',
+          'typeColor': const Color(0xFFF2994A),
+          'typeBgColor': const Color(0xFFFFF4E6),
+          'icon': FontAwesomeIcons.fileLines,
+          'iconColor': const Color(0xFFF2994A),
+          'iconBgColor': const Color(0xFFFFF4E6),
+        };
+      case 'highlight':
+      case 'key_point':
+        return {
+          'typeLabel': 'Highlight',
+          'typeColor': const Color(0xFF10B981),
+          'typeBgColor': const Color(0xFFE6F9F1),
+          'icon': FontAwesomeIcons.highlighter,
+          'iconColor': const Color(0xFF10B981),
+          'iconBgColor': const Color(0xFFE6F9F1),
+        };
+      case 'important_notice':
+        return {
+          'typeLabel': 'Important',
+          'typeColor': const Color(0xFFEF4444),
+          'typeBgColor': const Color(0xFFFFE6E6),
+          'icon': FontAwesomeIcons.circleExclamation,
+          'iconColor': const Color(0xFFEF4444),
+          'iconBgColor': const Color(0xFFFFE6E6),
+        };
+      case 'video_note':
+        return {
+          'typeLabel': 'Video Note',
+          'typeColor': const Color(0xFF5A75FF),
+          'typeBgColor': const Color(0xFFEEF0FF),
+          'icon': FontAwesomeIcons.video,
+          'iconColor': const Color(0xFF5A75FF),
+          'iconBgColor': const Color(0xFFEEF0FF),
+        };
+      default:
+        return {
+          'typeLabel': 'Note',
+          'typeColor': const Color(0xFF6B7280),
+          'typeBgColor': const Color(0xFFF3F4F6),
+          'icon': FontAwesomeIcons.noteSticky,
+          'iconColor': const Color(0xFF6B7280),
+          'iconBgColor': const Color(0xFFF3F4F6),
+        };
+    }
+  }
+
+  void _navigateToSummaryDetail(dynamic item) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SummaryDetailScreen(
-          title: item['title'],
-          subject: item['subject'],
-          type: item['type'],
+          note: item,
         ),
       ),
     );
@@ -117,18 +157,21 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
         children: [
           _buildHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  _buildSearchBar(),
-                  const SizedBox(height: 20),
-                  _buildFilterChips(),
-                  const SizedBox(height: 20),
-                  _buildItemsList(),
-                  const SizedBox(height: 20),
-                ],
+            child: RefreshIndicator(
+              onRefresh: _loadNotes,
+              color: const Color(0xFF5A75FF),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildSearchBar(),
+                    const SizedBox(height: 20),
+                    _buildContent(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
@@ -177,7 +220,7 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
               ),
               const Expanded(
                 child: Text(
-                  'New Summaries',
+                  'Summaries',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -228,39 +271,169 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
     );
   }
 
-  Widget _buildFilterChips() {
-    return Row(
-      children: _filters.map((filter) {
-        final isSelected = _selectedFilter == filter;
-        return Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedFilter = filter;
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  Widget _buildContent() {
+    if (_isLoading) {
+      return _buildSkeletonList();
+    }
+
+    if (_hasError) {
+      return _buildErrorWidget();
+    }
+
+    if (_filteredItems.isEmpty) {
+      return _buildEmptyWidget();
+    }
+
+    return _buildItemsList();
+  }
+
+  Widget _buildSkeletonList() {
+    return Column(
+      children: List.generate(4, (index) => _buildSkeletonCard()),
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 100,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              height: 12,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF5A75FF) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? const Color(0xFF5A75FF) : const Color(0xFFE5E7EB),
-                ),
-              ),
-              child: Text(
-                filter,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF6B7280),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
+            const SizedBox(height: 6),
+            Container(
+              width: 200,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Color(0xFFEF4444),
+            size: 48,
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _loadNotes,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5A75FF),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.folder_open_outlined,
+            color: const Color(0xFF9CA3AF).withValues(alpha: 0.5),
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No summaries available',
+            style: TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Pull down to refresh',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -272,7 +445,18 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
     );
   }
 
-  Widget _buildItemCard(Map<String, dynamic> item) {
+  Widget _buildItemCard(dynamic item) {
+    final attributes = item['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Untitled';
+    final type = attributes['type']?.toString() ?? 'note';
+    final content = attributes['content']?.toString() ?? '';
+    final linkedLecture = attributes['linked_lecture']?.toString();
+    final createdAt = attributes['created_at']?.toString();
+
+    final styles = _getTypeStyles(type);
+    final preview = content.length > 100 ? '${content.substring(0, 100)}...' : content;
+    final date = _formatDate(createdAt);
+
     return GestureDetector(
       onTap: () => _navigateToSummaryDetail(item),
       child: Container(
@@ -299,13 +483,13 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: item['iconBgColor'],
+                    color: styles['iconBgColor'],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
                     child: FaIcon(
-                      item['icon'],
-                      color: item['iconColor'],
+                      styles['icon'],
+                      color: styles['iconColor'],
                       size: 20,
                     ),
                   ),
@@ -316,7 +500,7 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item['title'],
+                        title,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -332,26 +516,28 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: item['typeBgColor'],
+                              color: styles['typeBgColor'],
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              item['type'],
+                              styles['typeLabel'],
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: item['typeColor'],
+                                color: styles['typeColor'],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            item['subject'],
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF9CA3AF),
+                          if (linkedLecture != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              linkedLecture,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF9CA3AF),
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ],
@@ -359,25 +545,29 @@ class _SummariesListScreenState extends State<SummariesListScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              item['preview'],
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6B7280),
-                height: 1.4,
+            if (preview.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                preview,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item['date'],
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF9CA3AF),
+            ],
+            if (date.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                date,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF9CA3AF),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

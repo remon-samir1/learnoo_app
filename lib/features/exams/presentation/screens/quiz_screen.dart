@@ -426,32 +426,40 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Options
-                if (answers.isEmpty)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  ...answers.map((answer) {
-                    final isSelected = currentQuestion.selectedAnswerId == answer.answerId;
-                    return _buildOptionCard(answer.text, isSelected, answer.answerId);
-                  }),
-                const Spacer(),
-                // Navigation Row
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildNavButton(icon: FontAwesomeIcons.chevronLeft, onTap: _currentQuestionIndex > 0 ? _goToPreviousQuestion : null),
-                      const SizedBox(width: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(8)),
-                        child: Text('${_currentQuestionIndex + 1}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
-                      ),
-                      const SizedBox(width: 16),
-                      _buildNavButton(icon: FontAwesomeIcons.chevronRight, onTap: _goToNextQuestion),
-                    ],
+                // Options - Scrollable area
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        if (answers.isEmpty)
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          ...answers.map((answer) {
+                            final isSelected = currentQuestion.selectedAnswerId == answer.answerId;
+                            return _buildOptionCard(answer.text, isSelected, answer.answerId);
+                          }),
+                        const SizedBox(height: 24),
+                        // Navigation Row
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildNavButton(icon: FontAwesomeIcons.chevronLeft, onTap: _currentQuestionIndex > 0 ? _goToPreviousQuestion : null),
+                              const SizedBox(width: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(8)),
+                                child: Text('${_currentQuestionIndex + 1}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                              ),
+                              const SizedBox(width: 16),
+                              _buildNavButton(icon: FontAwesomeIcons.chevronRight, onTap: _goToNextQuestion),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
