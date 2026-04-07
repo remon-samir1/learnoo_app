@@ -31,6 +31,18 @@ class AppColors {
   static const Color financeBg = Color(0xFFFFF9F0);
   static const Color financeText = Color(0xFFF2994A);
 
+  // Dynamic subject colors list
+  static const List<Map<String, Color>> subjectColors = [
+    {'bg': Color(0xFFF0F2FF), 'text': Color(0xFF5A75FF)},
+    {'bg': Color(0xFFF0FFF6), 'text': Color(0xFF27AE60)},
+    {'bg': Color(0xFFFFF0F0), 'text': Color(0xFFFF4B4B)},
+    {'bg': Color(0xFFFFF9F0), 'text': Color(0xFFF2994A)},
+    {'bg': Color(0xFFE6F7FF), 'text': Color(0xFF1890FF)},
+    {'bg': Color(0xFFF6F0FF), 'text': Color(0xFF722ED1)},
+    {'bg': Color(0xFFFFF0E6), 'text': Color(0xFFFA8C16)},
+    {'bg': Color(0xFFE6FFFB), 'text': Color(0xFF13C2C2)},
+  ];
+
   // Status Colors
   static const Color liveBg = Color(0xFFFFF0F0);
   static const Color liveText = Color(0xFFFF4B4B);

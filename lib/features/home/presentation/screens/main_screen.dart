@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:learnoo/features/exams/presentation/screens/exams_list_screen.dart';
 import 'package:learnoo/features/home/presentation/screens/home_screen.dart';
 import 'package:learnoo/features/home/presentation/screens/my_courses_screen.dart';
-import 'package:learnoo/features/profile/presentation/screens/my_profile_screen.dart';
+import 'package:learnoo/features/community/presentation/screens/community_screen.dart';
+import 'package:learnoo/features/course_content/presentation/screens/live_sessions_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,9 +19,9 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const MyCoursesScreen(),
-    const Center(child: Text('Live Screen')),
-    const Center(child: Text('Exams Screen')),
-    const MyProfileScreen(),
+    const CommunityScreen(),
+    const LiveSessionsScreen(),
+    const ExamsListScreen(),
   ];
 
   @override
@@ -52,9 +54,9 @@ class _MainScreenState extends State<MainScreen> {
           items: [
             _buildNavItem(FontAwesomeIcons.house, FontAwesomeIcons.house, 'Home', 0),
             _buildNavItem(FontAwesomeIcons.bookOpen, FontAwesomeIcons.bookOpen, 'Courses', 1),
-            _buildNavItem(FontAwesomeIcons.video, FontAwesomeIcons.video, 'Live', 2),
-            _buildNavItem(FontAwesomeIcons.fileSignature, FontAwesomeIcons.fileSignature, 'Exams', 3),
-            _buildNavItem(FontAwesomeIcons.user, FontAwesomeIcons.user, 'Profile', 4),
+            _buildNavItem(FontAwesomeIcons.users, FontAwesomeIcons.users, 'Community', 2),
+            _buildNavItem(FontAwesomeIcons.video, FontAwesomeIcons.video, 'Live', 3),
+            _buildNavItem(FontAwesomeIcons.fileSignature, FontAwesomeIcons.fileSignature, 'Exams', 4),
           ],
         ),
       ),

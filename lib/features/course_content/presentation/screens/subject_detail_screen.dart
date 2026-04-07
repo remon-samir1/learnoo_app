@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../data/course_repository.dart';
+import 'course_detail_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
+  final String subjectId;
   final String subjectTitle;
+  final String? subjectImage;
   final String subtitle;
 
   const SubjectDetailScreen({
     super.key,
+    required this.subjectId,
     required this.subjectTitle,
+    this.subjectImage,
     this.subtitle = 'Course Content',
   });
 
@@ -18,11 +25,64 @@ class SubjectDetailScreen extends StatefulWidget {
 class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _courseRepository = CourseRepository();
+  bool _isLoadingCourses = true;
+  List<dynamic> _courses = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    if (widget.subjectId.isEmpty) {
+      setState(() => _isLoadingCourses = false);
+      return;
+    }
+
+    setState(() => _isLoadingCourses = true);
+    try {
+      final categoryId = int.tryParse(widget.subjectId);
+      final result = await _courseRepository.getCourses(categoryId: categoryId);
+      if (result['success'] && mounted) {
+        setState(() {
+          _courses = result['data'] ?? [];
+          _isLoadingCourses = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingCourses = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCourses = false);
+      }
+    }
+  }
+
+  Widget _buildSubjectIconFallback() {
+    final firstLetter = widget.subjectTitle.isNotEmpty 
+        ? widget.subjectTitle[0].toUpperCase() 
+        : '?';
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          firstLetter,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -47,7 +107,6 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 _KeepAliveWrapper(child: _buildLiveTab()),
                 _KeepAliveWrapper(child: _buildFilesTab()),
                 _KeepAliveWrapper(child: _buildExamsTab()),
-                _KeepAliveWrapper(child: _buildCommunityTab()),
               ],
             ),
           ),
@@ -91,25 +150,42 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.subjectTitle,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                  if (widget.subjectImage != null && widget.subjectImage!.isNotEmpty)
+                    ClipOval(
+                      child: Image.network(
+                        widget.subjectImage!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildSubjectIconFallback();
+                        },
                       ),
-                      Text(
-                        widget.subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withValues(alpha: 0.8),
+                    )
+                  else
+                    _buildSubjectIconFallback(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.subjectTitle,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          widget.subtitle,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -117,7 +193,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildHeaderInfoCard(FontAwesomeIcons.play, '4 Lectures'),
+                  _buildHeaderInfoCard(FontAwesomeIcons.play, '${_courses.length} Courses'),
                   _buildHeaderInfoCard(FontAwesomeIcons.fileLines, '4 Files'),
                   _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, '3 Exams'),
                 ],
@@ -174,15 +250,14 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
         indicatorWeight: 2,
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: Colors.transparent,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 18),
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         tabs: [
-          _buildTabItem(FontAwesomeIcons.circlePlay, 'Lectures'),
+          _buildTabItem(FontAwesomeIcons.circlePlay, 'Courses'),
           _buildTabItem(FontAwesomeIcons.video, 'Live'),
           _buildTabItem(FontAwesomeIcons.fileLines, 'Files'),
           _buildTabItem(FontAwesomeIcons.calendarCheck, 'Exams'),
-          _buildTabItem(FontAwesomeIcons.calendarDays, 'Community'),
         ],
       ),
     );
@@ -202,157 +277,216 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   }
 
   Widget _buildLecturesTab() {
-    return ListView(
+    if (_isLoadingCourses) {
+      return _buildCoursesSkeletonList();
+    }
+
+    if (_courses.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No courses available for this subject',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(20),
-      children: [
-        _buildLectureCard(
-          'Introduction to Financial Accounting',
-          '45:30',
-          '2 views left',
-          'https://images.unsplash.com/photo-1554224155-1696413575b3?w=400',
-          isCompleted: true,
-        ),
-        _buildLectureCard(
-          'Accounting Concepts and Principles',
-          '52:15',
-          '1 view left',
-          'https://images.unsplash.com/photo-1454165833767-027ffcb7141b?w=400',
-          isCompleted: true,
-        ),
-        _buildLectureCard(
-          'Recording Busine Transactions',
-          '38:45',
-          'Watch limit reached',
-          'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400',
-          isWarning: true,
-        ),
-        _buildLectureCard(
-          'Preparing Financial Statements',
-          '41:20',
-          '1 view left',
-          'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=400',
-        ),
-      ],
+      itemCount: _courses.length,
+      itemBuilder: (context, index) {
+        final course = _courses[index];
+        final attributes = course['attributes'] ?? {};
+        final title = attributes['title']?.toString() ?? 'Untitled Course';
+        final thumbnail = attributes['thumbnail']?.toString() ?? '';
+        final price = attributes['price']?.toString() ?? '0';
+        
+        return _buildCourseCard(
+          courseId: course['id']?.toString() ?? '',
+          title: title,
+          thumbnail: thumbnail,
+          price: price,
+          description: attributes['description']?.toString() ?? '',
+        );
+      },
     );
   }
 
-  Widget _buildLectureCard(
-    String title,
-    String duration,
-    String statusLabel,
-    String imageUrl, {
-    bool isCompleted = false,
-    bool isWarning = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  imageUrl,
+  Widget _buildCoursesSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Container(
                   width: 100,
                   height: 75,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 100,
-                      height: 75,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported, color: Color(0xFF9CA3AF), size: 24),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Positioned.fill(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.play_arrow, color: Color(0xFF1F2937), size: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-              if (isCompleted)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF2DBC77),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 10),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Color(0xFF1F2937),
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    FaIcon(FontAwesomeIcons.clock, size: 12, color: Colors.grey[400]),
-                    const SizedBox(width: 4),
-                    Text(
-                      duration,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isWarning ? const Color(0xFFFFF1F1) : const Color(0xFFF0F2FF),
-                        borderRadius: BorderRadius.circular(20),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        color: Colors.white,
                       ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(
-                          color: isWarning ? const Color(0xFFFF4B4B) : const Color(0xFF5A75FF),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 80,
+                        color: Colors.white,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCourseCard({
+    required String courseId,
+    required String title,
+    required String thumbnail,
+    required String price,
+    required String description,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CourseDetailScreen(
+              courseId: courseId,
+              title: title,
+              thumbnail: thumbnail,
+              price: price,
+              description: description,
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: thumbnail.isNotEmpty
+                      ? Image.network(
+                          thumbnail,
+                          width: 100,
+                          height: 75,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildCourseImagePlaceholder();
+                          },
+                        )
+                      : _buildCourseImagePlaceholder(),
+                ),
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.play_arrow, color: Color(0xFF1F2937), size: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF1F2937),
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      FaIcon(FontAwesomeIcons.tag, size: 12, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'EGP $price',
+                        style: TextStyle(
+                          color: const Color(0xFF5A75FF),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCourseImagePlaceholder() {
+    return Container(
+      width: 100,
+      height: 75,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: Icon(Icons.image_not_supported, color: Color(0xFF9CA3AF), size: 24),
       ),
     );
   }
@@ -603,68 +737,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     );
   }
 
-  Widget _buildCommunityTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Center(
-          child: Column(
-            children: [
-              Text(
-                'Community',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Stay connected with course updates, links, and class discussions.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            _buildCommunityButton(FontAwesomeIcons.whatsapp, 'Join WhatsApp\nGroup', const Color(0xFF27AE60)),
-            const SizedBox(width: 12),
-            _buildCommunityButton(FontAwesomeIcons.paperPlane, 'Join Telegram\nChannel', const Color(0xFF5A75FF)),
-            const SizedBox(width: 12),
-            _buildCommunityButton(FontAwesomeIcons.globe, 'Our Course\nWebsite', const Color(0xFFFF4B4B)),
-          ],
-        ),
-        const SizedBox(height: 32),
-        _buildAnnouncementCard('Announcement', '10 min ago', 'Live revision moved to Thursday', 'The weekly revision session will be on Thursday at 8:00 PM instead of Wednesday. Please review Chapter 1 before joining.'),
-        _buildAnnouncementCard('Exam update', '1 hour ago', 'Quiz 2 opens tomorrow', 'Quiz 2 will be available tomorrow at 6:00 PM. It focuses on accounting concepts and business transactions.'),
-        _buildAnnouncementCard('Instruction', 'Yesterday', 'Important note for assignments', 'Upload your practice sheet before Sunday. Late submissions will not be reviewed during the next live session.'),
-      ],
-    );
-  }
-
-  Widget _buildCommunityButton(dynamic icon, String label, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            FaIcon(icon as FaIconData, color: color, size: 24),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, height: 1.2),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+  
   Widget _buildAnnouncementCard(String tag, String time, String title, String content) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

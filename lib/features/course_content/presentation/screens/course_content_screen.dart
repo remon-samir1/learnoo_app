@@ -62,7 +62,7 @@ class _CourseContentScreenState extends State<CourseContentScreen>
       children: [
         // Background Image
         Container(
-          height: 240,
+          // height: 240,
           width: double.infinity,
           decoration: const BoxDecoration(
             image: DecorationImage(
