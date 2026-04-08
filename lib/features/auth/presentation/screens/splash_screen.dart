@@ -5,7 +5,6 @@ import '../../../../core/widgets/app_logo.dart';
 import 'profile_screen.dart';
 import '../../data/auth_repository.dart';
 import '../../../../features/home/presentation/screens/main_screen.dart';
-import '../../../../features/academic/presentation/screens/university_selection_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,26 +34,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final result = await _authRepository.getProfile();
     if (result['success']) {
-      final attributes = result['data']['attributes'];
-      final universityData = attributes['university_id']?['data'];
-      final centerData = attributes['center_id']?['data'];
-      final facultyData = attributes['faculty_id']?['data'];
-
-      // Check if user has completed academic profile setup
-      final hasCompleteProfile = universityData != null && centerData != null && facultyData != null;
-
       if (mounted) {
-        if (hasCompleteProfile) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const UniversitySelectionScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
       }
     } else {
       // If 401 or other error, go to profile/register

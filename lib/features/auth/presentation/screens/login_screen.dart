@@ -5,6 +5,7 @@ import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../screens/otp_verification_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/forgot_password_screen.dart';
 import '../../data/auth_repository.dart';
 import '../../../../features/academic/presentation/screens/university_selection_screen.dart';
 import '../../../home/presentation/screens/main_screen.dart';
@@ -192,7 +193,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
                       style: TextButton.styleFrom(padding: EdgeInsets.zero),
                       child: const Text(
                         'Forget password?',

@@ -444,4 +444,78 @@ class AuthRepository {
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }
+
+  Future<Map<String, dynamic>> requestPasswordReset(String phoneOrEmail) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.passwordForgot}');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'phone_or_email': phoneOrEmail}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Password reset code sent successfully',
+          'data': data,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to send password reset code'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String phoneOrEmail,
+    required String code,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.passwordReset}');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'phone_or_email': phoneOrEmail,
+          'code': code,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Password reset successfully',
+          'data': data,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to reset password'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
 }

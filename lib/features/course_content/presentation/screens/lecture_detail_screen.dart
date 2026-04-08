@@ -128,6 +128,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   @override
   void dispose() {
+    // Update user progress before leaving
+    _updateProgressBeforeLeaving();
+
     _videoController?.dispose();
     _chewieController?.dispose();
     _commentController.dispose();
@@ -136,6 +139,22 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     _audioPlayer.dispose();
     _recordedPlayer.dispose();
     super.dispose();
+  }
+
+  void _updateProgressBeforeLeaving() {
+    final chapterId = int.tryParse(widget.chapterId);
+    if (chapterId == null) return;
+
+    final progressSeconds = _videoController?.value.position.inSeconds ?? 0;
+    final totalSeconds = _videoController?.value.duration.inSeconds ?? 0;
+    final isCompleted = totalSeconds > 0 && progressSeconds >= totalSeconds - 5;
+
+    // Fire-and-forget: don't await, just send the request
+    _chapterRepository.updateUserProgress(
+      chapterId: chapterId,
+      progressSeconds: progressSeconds,
+      isCompleted: isCompleted,
+    );
   }
 
   Future<void> _loadDiscussions() async {

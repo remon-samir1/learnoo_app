@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/post_model.dart';
 import '../../data/repositories/community_repository.dart';
 import 'create_post_screen.dart';
+import '../../../search/data/search_repository.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -15,12 +16,19 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   String _selectedFilter = 'All';
   final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final CommunityRepository _repository = CommunityRepository();
+  final SearchRepository _searchRepository = SearchRepository();
 
   List<Post> _posts = [];
   List<PostCourse> _courses = [];
   bool _isLoading = true;
   String? _errorMessage;
+
+  // Search state variables
+  bool _isSearching = false;
+  List<dynamic> _searchResults = [];
+  bool _showSearchResults = false;
 
   @override
   void initState() {
@@ -155,7 +163,55 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   void dispose() {
     _commentController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _showSearchResults = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final result = await _searchRepository.search(
+        query: query,
+        type: 'posts', // Filter by posts type
+        limit: 10,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (result['success']) {
+            _searchResults = result['data'] ?? [];
+          } else {
+            _searchResults = [];
+          }
+          _showSearchResults = true;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+          _searchResults = [];
+        });
+      }
+    }
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchController.clear();
+      _showSearchResults = false;
+      _searchResults = [];
+    });
   }
 
   void _navigateToCreatePost() async {
@@ -182,16 +238,22 @@ class _CommunityScreenState extends State<CommunityScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFilterTabs(),
-                  _buildCommunityInfoCard(),
-                  _buildQuickLinks(),
-                  _isLoading
+                  if (!_showSearchResults) ...[
+                    _buildFilterTabs(),
+                    _buildCommunityInfoCard(),
+                    _buildQuickLinks(),
+                  ],
+                  _isSearching
                       ? _buildSkeletonPosts()
-                      : _errorMessage != null
-                          ? _buildErrorWidget()
-                          : _posts.isEmpty
-                              ? _buildEmptyWidget()
-                              : _buildPostsList(),
+                      : _showSearchResults
+                          ? _buildSearchResultsList()
+                          : _isLoading
+                              ? _buildSkeletonPosts()
+                              : _errorMessage != null
+                                  ? _buildErrorWidget()
+                                  : _posts.isEmpty
+                                      ? _buildEmptyWidget()
+                                      : _buildPostsList(),
                   const SizedBox(height: 80),
                 ],
               ),
@@ -245,9 +307,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        _performSearch(value);
+                      },
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Search...',
+                        hintText: 'Search posts...',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 14,
@@ -264,6 +330,31 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           minWidth: 46,
                           minHeight: 46,
                         ),
+                        suffixIcon: _isSearching
+                            ? const Padding(
+                                padding: EdgeInsets.all(14),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ),
+                              )
+                            : _searchController.text.isNotEmpty
+                                ? GestureDetector(
+                                    onTap: _clearSearch,
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 16, left: 12, top: 12),
+                                      child: FaIcon(
+                                        FontAwesomeIcons.xmark,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  )
+                                : null,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -571,6 +662,81 @@ class _CommunityScreenState extends State<CommunityScreen> {
           isPinned: index == 0 && post.attributes.postType == 'summary',
         );
       },
+    );
+  }
+
+  Widget _buildSearchResultsList() {
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 60),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.magnifyingGlass,
+                color: Color(0xFFD1D1D1),
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No posts found for "${_searchController.text}"',
+                style: const TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Search results header
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'Search Results (${_searchResults.length})',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+          ),
+          // Search results list
+          ..._searchResults.map((item) {
+            final attributes = item['attributes'] ?? {};
+            final post = Post(
+              id: item['id']?.toString() ?? '',
+              type: item['type']?.toString() ?? 'post',
+              attributes: PostAttributes(
+                user: null,
+                course: null,
+                status: attributes['status']?.toString() ?? 'draft',
+                postType: attributes['post_type']?.toString() ?? 'discussion',
+                title: attributes['title']?.toString() ?? '',
+                content: attributes['content']?.toString() ?? '',
+                tags: (attributes['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+                reactionsCount: 0,
+                userReaction: null,
+                createdAt: DateTime.tryParse(attributes['created_at']?.toString() ?? '') ?? DateTime.now(),
+                updatedAt: DateTime.tryParse(attributes['updated_at']?.toString() ?? '') ?? DateTime.now(),
+              ),
+            );
+            return _buildPostCard(
+              post: post,
+              isPinned: false,
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 

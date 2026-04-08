@@ -3,6 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../course_content/data/course_repository.dart';
 import '../../../course_content/presentation/screens/course_detail_screen.dart';
+import '../../../search/data/search_repository.dart';
+import '../../data/department_repository.dart';
 
 class MyCoursesScreen extends StatefulWidget {
   const MyCoursesScreen({super.key});
@@ -13,20 +15,51 @@ class MyCoursesScreen extends StatefulWidget {
 
 class _MyCoursesScreenState extends State<MyCoursesScreen> {
   final _courseRepository = CourseRepository();
+  final _searchRepository = SearchRepository();
+  final _departmentRepository = DepartmentRepository();
   String _selectedFilter = 'All';
   bool _isLoading = true;
+  bool _isDepartmentsLoading = true;
   List<dynamic> _courses = [];
+  List<dynamic> _departments = [];
+  int? _selectedDepartmentId;
+
+  // Search state variables
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+  List<dynamic> _searchResults = [];
+  bool _showSearchResults = false;
 
   @override
   void initState() {
     super.initState();
+    _loadDepartments();
     _loadCourses();
   }
 
-  Future<void> _loadCourses() async {
+  Future<void> _loadDepartments() async {
+    setState(() => _isDepartmentsLoading = true);
+    try {
+      final result = await _departmentRepository.getDepartments();
+      if (result['success'] && mounted) {
+        setState(() {
+          _departments = result['data'] ?? [];
+          _isDepartmentsLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isDepartmentsLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDepartmentsLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadCourses({int? categoryId}) async {
     setState(() => _isLoading = true);
     try {
-      final result = await _courseRepository.getCourses();
+      final result = await _courseRepository.getCourses(categoryId: categoryId);
       if (result['success'] && mounted) {
         setState(() {
           _courses = result['data'] ?? [];
@@ -40,6 +73,59 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _showSearchResults = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final result = await _searchRepository.search(
+        query: query,
+        type: 'courses', // Filter by courses type
+        limit: 10,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (result['success']) {
+            _searchResults = result['data'] ?? [];
+          } else {
+            _searchResults = [];
+          }
+          _showSearchResults = true;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+          _searchResults = [];
+        });
+      }
+    }
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchController.clear();
+      _showSearchResults = false;
+      _searchResults = [];
+    });
   }
 
   @override
@@ -118,54 +204,87 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                 ),
               ],
             ),
-            child: const TextField(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                _performSearch(value);
+              },
               decoration: InputDecoration(
-                hintText: 'Search...',
-                hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+                hintText: 'Search courses...',
+                hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                suffixIcon: _isSearching
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5A75FF)),
+                          ),
+                        ),
+                      )
+                    : _searchController.text.isNotEmpty
+                        ? GestureDetector(
+                            onTap: _clearSearch,
+                            child: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                          )
+                        : null,
                 border: InputBorder.none,
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          // Filter Dropdowns
-          Row(
-            children: [
-              _buildFilterDropdown('All Subjects'),
-              const SizedBox(width: 12),
-              _buildFilterDropdown('Recently Opened'),
-            ],
-          ),
+          // Removed dropdowns - now using department chips below
         ],
       ),
     );
   }
 
-  Widget _buildFilterDropdown(String label) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFF1F1F1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const Icon(Icons.keyboard_arrow_down, color: Colors.grey, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatusChips() {
-    final chips = ['All', 'In Progress', 'Completed', 'Not Started'];
+    // Show loading shimmer while departments are loading
+    if (_isDepartmentsLoading) {
+      return Container(
+        height: 60,
+        margin: const EdgeInsets.only(top: 8),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          scrollDirection: Axis.horizontal,
+          itemCount: 4,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
+              child: Shimmer.fromColors(
+                baseColor: Colors.grey[300]!,
+                highlightColor: Colors.grey[100]!,
+                child: Container(
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Build department chips with "All" as first option
+    final chips = [
+      {'id': null, 'name': 'All'},
+      ..._departments.map((d) {
+        final attributes = d['attributes'] ?? {};
+        return {
+          'id': int.tryParse(d['id']?.toString() ?? ''),
+          'name': attributes['name']?.toString() ??
+                  attributes['title']?.toString() ??
+                  'Unknown',
+        };
+      }).toList(),
+    ];
+
     return Container(
       height: 60,
       margin: const EdgeInsets.only(top: 8),
@@ -174,14 +293,21 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
         scrollDirection: Axis.horizontal,
         itemCount: chips.length,
         itemBuilder: (context, index) {
-          final isSelected = chips[index] == _selectedFilter;
+          final chip = chips[index];
+          final chipName = chip['name'] as String;
+          final chipId = chip['id'] as int?;
+          final isSelected = _selectedDepartmentId == chipId;
+
           return Padding(
             padding: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedFilter = chips[index];
+                  _selectedDepartmentId = chipId;
+                  _selectedFilter = chipName;
                 });
+                // Load courses filtered by selected department
+                _loadCourses(categoryId: chipId);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -199,7 +325,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    chips[index],
+                    chipName,
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.grey,
                       fontSize: 13,
@@ -238,6 +364,47 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   }
 
   Widget _buildCourseList() {
+    // Show search results when searching
+    if (_showSearchResults) {
+      if (_searchResults.isEmpty) {
+        return const SizedBox(
+          height: 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FaIcon(
+                  FontAwesomeIcons.magnifyingGlass,
+                  color: Color(0xFFD1D1D1),
+                  size: 48,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'No courses found',
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return ListView.builder(
+        padding: const EdgeInsets.all(20),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final course = _searchResults[index];
+          return _buildCourseCard(course);
+        },
+      );
+    }
+
+    // Show regular course list
     if (_isLoading) {
       return ListView.builder(
         padding: const EdgeInsets.all(20),
