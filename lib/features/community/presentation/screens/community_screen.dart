@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/models/post_model.dart';
+import '../../data/repositories/community_repository.dart';
 import 'create_post_screen.dart';
 
 class CommunityScreen extends StatefulWidget {
@@ -13,8 +15,142 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   String _selectedFilter = 'All';
   final TextEditingController _commentController = TextEditingController();
+  final CommunityRepository _repository = CommunityRepository();
 
-  final List<String> _filters = ['All', 'Announcements', 'Accounting'];
+  List<Post> _posts = [];
+  List<PostCourse> _courses = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+    _loadCourses();
+  }
+
+  Future<void> _loadPosts() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    int? courseId;
+    if (_selectedFilter != 'All') {
+      final selectedCourse = _courses.firstWhere(
+        (c) => c.attributes.title == _selectedFilter,
+        orElse: () => PostCourse(id: '', type: '', attributes: CourseAttributes(title: '', subTitle: '', description: '', thumbnail: '', objectives: '', price: '0', maxViewsPerStudent: 0, visibility: 'public', approval: 0, status: 0, reason: '')),
+      );
+      if (selectedCourse.id.isNotEmpty) {
+        courseId = int.tryParse(selectedCourse.id);
+      }
+    }
+
+    final result = await _repository.getPosts(courseId: courseId);
+
+    setState(() {
+      _isLoading = false;
+      if (result['success']) {
+        _posts = result['data'];
+      } else {
+        _errorMessage = result['message'];
+      }
+    });
+  }
+
+  Future<void> _loadCourses() async {
+    final result = await _repository.getCourses();
+    if (result['success']) {
+      final List<dynamic> courseData = result['data'];
+      setState(() {
+        _courses = courseData.map((c) => PostCourse.fromJson(c)).toList();
+      });
+    }
+  }
+
+  Future<void> _handleReaction(Post post, String reactionType) async {
+    final currentReaction = post.attributes.userReaction;
+    Post updatedPost;
+
+    if (currentReaction == reactionType) {
+      // Remove reaction
+      final result = await _repository.removeReaction(post.id);
+      if (result['success']) {
+        updatedPost = Post(
+          id: post.id,
+          type: post.type,
+          attributes: PostAttributes(
+            user: post.attributes.user,
+            course: post.attributes.course,
+            status: post.attributes.status,
+            postType: post.attributes.postType,
+            title: post.attributes.title,
+            content: post.attributes.content,
+            tags: post.attributes.tags,
+            reactionsCount: post.attributes.reactionsCount - 1,
+            userReaction: null,
+            createdAt: post.attributes.createdAt,
+            updatedAt: post.attributes.updatedAt,
+          ),
+        );
+      } else {
+        return;
+      }
+    } else {
+      // Add or change reaction
+      final result = await _repository.reactToPost(post.id, reactionType);
+      if (result['success']) {
+        final newCount = currentReaction != null
+            ? post.attributes.reactionsCount
+            : post.attributes.reactionsCount + 1;
+        updatedPost = Post(
+          id: post.id,
+          type: post.type,
+          attributes: PostAttributes(
+            user: post.attributes.user,
+            course: post.attributes.course,
+            status: post.attributes.status,
+            postType: post.attributes.postType,
+            title: post.attributes.title,
+            content: post.attributes.content,
+            tags: post.attributes.tags,
+            reactionsCount: newCount,
+            userReaction: reactionType,
+            createdAt: post.attributes.createdAt,
+            updatedAt: post.attributes.updatedAt,
+          ),
+        );
+      } else {
+        return;
+      }
+    }
+
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == post.id);
+      if (index != -1) {
+        _posts[index] = updatedPost;
+      }
+    });
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 365) {
+      return '${difference.inDays ~/ 365} years ago';
+    } else if (difference.inDays > 30) {
+      return '${difference.inDays ~/ 30} months ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
+  }
 
   @override
   void dispose() {
@@ -22,13 +158,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
     super.dispose();
   }
 
-  void _navigateToCreatePost() {
-    Navigator.push(
+  void _navigateToCreatePost() async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => const CreatePostScreen(),
       ),
     );
+    if (result == true) {
+      _loadPosts();
+    }
   }
 
   @override
@@ -46,9 +185,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   _buildFilterTabs(),
                   _buildCommunityInfoCard(),
                   _buildQuickLinks(),
-                  _buildPinnedPost(),
-                  _buildCommentInput(),
-                  _buildRegularPosts(),
+                  _isLoading
+                      ? _buildSkeletonPosts()
+                      : _errorMessage != null
+                          ? _buildErrorWidget()
+                          : _posts.isEmpty
+                              ? _buildEmptyWidget()
+                              : _buildPostsList(),
                   const SizedBox(height: 80),
                 ],
               ),
@@ -136,13 +279,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildFilterTabs() {
+    final filters = ['All', ..._courses.map((c) => c.attributes.title)];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         child: Row(
-          children: _filters.map((filter) {
+          children: filters.map((filter) {
             final isSelected = _selectedFilter == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -151,6 +296,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   setState(() {
                     _selectedFilter = filter;
                   });
+                  _loadPosts();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -284,45 +430,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  Widget _buildPinnedPost() {
+  Widget _buildSkeletonPosts() {
+    return Column(
+      children: List.generate(3, (index) => _buildSkeletonPostCard()),
+    );
+  }
+
+  Widget _buildSkeletonPostCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF0F2FF)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              FaIcon(
-                FontAwesomeIcons.thumbtack,
-                color: AppColors.accentBlue,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'PINNED POST',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.accentBlue,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               Container(
@@ -332,197 +457,211 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   color: Colors.grey[200],
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: FaIcon(
-                    FontAwesomeIcons.user,
-                    color: AppColors.textGray,
-                    size: 16,
-                  ),
-                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Dr. Sarah Ahmed',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
+                    Container(
+                      width: 120,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          '2 hours ago',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textGray,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.accountingBg,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Instructor',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.accountingText,
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 80,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.more_horiz,
-                color: AppColors.textGray,
-                size: 20,
-              ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Welcome to the new semester! Please make sure to download the syllabus from the course materials section. Our first live session will be tomorrow at 6 PM.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textDark,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildTagChip('#Announcements'),
-              const SizedBox(width: 8),
-              _buildTagChip('#Accounting'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              FaIcon(
-                FontAwesomeIcons.heart,
-                color: AppColors.textGray,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '45',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textGray,
-                ),
-              ),
-              const SizedBox(width: 16),
-              FaIcon(
-                FontAwesomeIcons.comment,
-                color: AppColors.textGray,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '12',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textGray,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentInput() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FB),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
+          const SizedBox(height: 16),
           Container(
-            width: 32,
-            height: 32,
+            width: double.infinity,
+            height: 60,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              shape: BoxShape.circle,
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _commentController,
-              decoration: const InputDecoration(
-                hintText: 'Hello',
-                hintStyle: TextStyle(
-                  color: AppColors.textGray,
-                  fontSize: 14,
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
               ),
-            ),
-          ),
-          FaIcon(
-            FontAwesomeIcons.paperPlane,
-            color: AppColors.accentBlue,
-            size: 18,
+              const SizedBox(width: 8),
+              Container(
+                width: 60,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRegularPosts() {
-    return Column(
-      children: [
-        _buildPostCard(
-          name: 'Ahmed Hassan',
-          time: '5 hours ago',
-          isInstructor: false,
-          content: 'Can someone explain the difference between FIFO and LIFO methods again? I got confused during the last lecture.',
-          tags: ['#Accounting', '#Questions'],
-          likes: 8,
-          comments: 5,
-        ),
-        const SizedBox(height: 16),
-        _buildPostCard(
-          name: 'Dr. Mohamed Ali',
-          time: '1 day ago',
-          isInstructor: true,
-          content: 'I have uploaded a new summary for Chapter 3. It covers all the key formulas you need for the upcoming quiz.',
-          tags: ['#Economics', '#Materials'],
-          likes: 120,
-          comments: 34,
-        ),
-      ],
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage ?? 'An error occurred',
+            style: const TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadPosts,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildEmptyWidget() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'No posts yet',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostsList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _posts.length,
+      itemBuilder: (context, index) {
+        final post = _posts[index];
+        return _buildPostCard(
+          post: post,
+          isPinned: index == 0 && post.attributes.postType == 'summary',
+        );
+      },
+    );
+  }
+
+  void _showReactionPicker(Post post) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16,
+          children: [
+            _buildReactionButton(post, 'like', FontAwesomeIcons.thumbsUp, Colors.blue),
+            _buildReactionButton(post, 'love', FontAwesomeIcons.heart, Colors.red),
+            _buildReactionButton(post, 'haha', FontAwesomeIcons.faceLaughSquint, Colors.orange),
+            _buildReactionButton(post, 'wow', FontAwesomeIcons.faceSurprise, Colors.yellow),
+            _buildReactionButton(post, 'sad', FontAwesomeIcons.faceSadTear, Colors.purple),
+            _buildReactionButton(post, 'angry', FontAwesomeIcons.faceAngry, Colors.redAccent),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReactionButton(Post post, String type, FaIconData icon, Color color) {
+    final isSelected = post.attributes.userReaction == type;
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        _handleReaction(post, type);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: FaIcon(icon, color: color, size: 32),
+      ),
+    );
+  }
+
+  FaIconData _getReactionIcon(String? reaction) {
+    switch (reaction) {
+      case 'like':
+        return FontAwesomeIcons.solidThumbsUp;
+      case 'love':
+        return FontAwesomeIcons.solidHeart;
+      case 'haha':
+        return FontAwesomeIcons.faceLaughSquint;
+      case 'wow':
+        return FontAwesomeIcons.faceSurprise;
+      case 'sad':
+        return FontAwesomeIcons.faceSadTear;
+      case 'angry':
+        return FontAwesomeIcons.faceAngry;
+      default:
+        return FontAwesomeIcons.heart;
+    }
+  }
+
+  Color _getReactionColor(String? reaction) {
+    switch (reaction) {
+      case 'like':
+        return Colors.blue;
+      case 'love':
+        return Colors.red;
+      case 'haha':
+        return Colors.orange;
+      case 'wow':
+        return Colors.yellow;
+      case 'sad':
+        return Colors.purple;
+      case 'angry':
+        return Colors.redAccent;
+      default:
+        return AppColors.textGray;
+    }
   }
 
   Widget _buildPostCard({
-    required String name,
-    required String time,
-    required bool isInstructor,
-    required String content,
-    required List<String> tags,
-    required int likes,
-    required int comments,
+    required Post post,
+    bool isPinned = false,
   }) {
+    final user = post.attributes.user;
+    final course = post.attributes.course;
+    final userName = user?.attributes.fullName ?? 'Unknown User';
+    final isInstructor = user?.attributes.role.toLowerCase() == 'admin' ||
+        user?.attributes.role.toLowerCase() == 'instructor';
+    final timeAgo = _formatTimeAgo(post.attributes.createdAt);
+    final hasReaction = post.attributes.userReaction != null;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
@@ -541,6 +680,28 @@ class _CommunityScreenState extends State<CommunityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isPinned) ...[
+            Row(
+              children: [
+                FaIcon(
+                  FontAwesomeIcons.thumbtack,
+                  color: AppColors.accentBlue,
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'PINNED POST',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accentBlue,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Container(
@@ -564,7 +725,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      userName,
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -575,7 +736,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     Row(
                       children: [
                         Text(
-                          time,
+                          timeAgo,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textGray,
@@ -612,8 +773,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          if (post.attributes.title.isNotEmpty) ...[
+            Text(
+              post.attributes.title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           Text(
-            content,
+            post.attributes.content,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.textDark,
@@ -621,26 +793,44 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: tags.map((tag) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildTagChip(tag),
-            )).toList(),
-          ),
+          if (course != null) ...[
+            _buildTagChip('#${course.attributes.title}'),
+            const SizedBox(height: 8),
+          ],
+          if (post.attributes.tags.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: post.attributes.tags.map((tag) => _buildTagChip('#$tag')).toList(),
+            ),
           const SizedBox(height: 12),
           Row(
             children: [
-              FaIcon(
-                FontAwesomeIcons.heart,
-                color: AppColors.textGray,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$likes',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textGray,
+              GestureDetector(
+                onTap: () => _showReactionPicker(post),
+                child: Row(
+                  children: [
+                    FaIcon(
+                      hasReaction
+                          ? _getReactionIcon(post.attributes.userReaction)
+                          : FontAwesomeIcons.heart,
+                      color: hasReaction
+                          ? _getReactionColor(post.attributes.userReaction)
+                          : AppColors.textGray,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${post.attributes.reactionsCount}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: hasReaction
+                            ? _getReactionColor(post.attributes.userReaction)
+                            : AppColors.textGray,
+                        fontWeight: hasReaction ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 16),
@@ -651,7 +841,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ),
               const SizedBox(width: 6),
               Text(
-                '$comments',
+                '0',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textGray,

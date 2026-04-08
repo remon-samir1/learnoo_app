@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/library_repository.dart';
 import 'unlock_material_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class ElectronicLibraryScreen extends StatefulWidget {
   const ElectronicLibraryScreen({super.key});
@@ -87,9 +88,25 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
   }
 
   void _openPdf(dynamic library) {
-    final title = library['attributes']?['title']?.toString() ?? 'Material';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Opening $title...')),
+    final attributes = library['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Material';
+    final pdfUrl = attributes['file_url']?.toString() ?? attributes['pdf_url']?.toString() ?? '';
+
+    if (pdfUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF URL not available')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerScreen(
+          pdfUrl: pdfUrl,
+          title: title,
+        ),
+      ),
     );
   }
 

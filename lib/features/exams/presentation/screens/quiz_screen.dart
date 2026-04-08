@@ -47,22 +47,17 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
       final questions = questionResult['data'] as List<QuizQuestion>;
       setState(() {
         _questions = questions;
-      });
-
-      // Load answers for each question
-      for (final question in questions) {
-        final answerResult = await _examRepository.getQuizAnswers(questionId: question.questionId);
-        if (answerResult['success'] && mounted) {
-          setState(() {
-            _answersMap[question.questionId] = answerResult['data'] as List<QuizAnswer>;
-          });
+        // Map questions to their answers from the nested data
+        for (final question in questions) {
+          _answersMap[question.questionId] = question.answers;
         }
-      }
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override

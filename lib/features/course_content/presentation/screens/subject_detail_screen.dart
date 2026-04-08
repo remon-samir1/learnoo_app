@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/course_repository.dart';
+import '../../../exams/data/exam_repository.dart';
+import '../../../exams/models/quiz_models.dart';
 import 'course_detail_screen.dart';
+import '../../../exams/presentation/screens/quiz_screen.dart';
+import 'pdf_reviewer_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
   final String subjectId;
@@ -26,14 +30,46 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _courseRepository = CourseRepository();
+  final _examRepository = ExamRepository();
   bool _isLoadingCourses = true;
+  bool _isLoadingExams = true;
   List<dynamic> _courses = [];
+  List<Quiz> _exams = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadCourses();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadCourses(),
+      _loadExams(),
+    ]);
+  }
+
+  Future<void> _loadExams() async {
+    setState(() => _isLoadingExams = true);
+    try {
+      final result = await _examRepository.getQuizzes();
+      if (result['success'] && mounted) {
+        final allExams = result['data'] as List<Quiz>;
+        // Filter exams by course IDs in this subject
+        final courseIds = _courses.map((c) => int.tryParse(c['id'].toString()) ?? -1).toList();
+        setState(() {
+          _exams = allExams.where((exam) => courseIds.contains(exam.courseId)).toList();
+          _isLoadingExams = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    }
   }
 
   Future<void> _loadCourses() async {
@@ -592,56 +628,94 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _buildFileCard('Chapter 1 Notes', '24 pages • 2.4 MB', hasDownload: false),
-        _buildFileCard('Chapter 2 Summary', '18 pages • 1.8 MB', hasDownload: true),
-        _buildFileCard('Practice Problems', '12 pages • 1.2 MB', hasDownload: false),
-        _buildFileCard('Formula Sheet', '4 pages • 0.5 MB', hasDownload: true),
+        _buildFileCard(
+          context,
+          'Chapter 1 Notes',
+          '24 pages • 2.4 MB',
+          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          hasDownload: false,
+        ),
+        _buildFileCard(
+          context,
+          'Chapter 2 Summary',
+          '18 pages • 1.8 MB',
+          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          hasDownload: true,
+        ),
+        _buildFileCard(
+          context,
+          'Practice Problems',
+          '12 pages • 1.2 MB',
+          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          hasDownload: false,
+        ),
+        _buildFileCard(
+          context,
+          'Formula Sheet',
+          '4 pages • 0.5 MB',
+          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          hasDownload: true,
+        ),
       ],
     );
   }
 
-  Widget _buildFileCard(String title, String info, {required bool hasDownload}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF0F0),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const FaIcon(FontAwesomeIcons.fileLines, color: Color(0xFFFF4B4B), size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937))),
-                const SizedBox(height: 4),
-                Text(info, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
-              ],
+  Widget _buildFileCard(BuildContext context, String title, String info, String url, {required bool hasDownload}) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfReviewerScreen(
+              pdfUrl: url,
+              title: title,
             ),
           ),
-          _buildFileActionButton(FontAwesomeIcons.eye),
-          if (hasDownload) ...[
-            const SizedBox(width: 10),
-            _buildFileActionButton(FontAwesomeIcons.download),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
           ],
-        ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF0F0),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const FaIcon(FontAwesomeIcons.fileLines, color: Color(0xFFFF4B4B), size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937))),
+                  const SizedBox(height: 4),
+                  Text(info, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                ],
+              ),
+            ),
+            _buildFileActionButton(FontAwesomeIcons.eye),
+            if (hasDownload) ...[
+              const SizedBox(width: 10),
+              _buildFileActionButton(FontAwesomeIcons.download),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -658,17 +732,84 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   }
 
   Widget _buildExamsTab() {
-    return ListView(
+    if (_isLoadingExams) {
+      return _buildExamsSkeletonList();
+    }
+
+    if (_exams.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No exams available for this subject',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(20),
-      children: [
-        _buildExamCard('Quiz 1', '15 Questions', '30 min', 'Available', const Color(0xFF263EE2), isAvailable: true),
-        _buildExamCard('Midterm Exam', '30 Questions', '90 min', 'Upcoming', const Color(0xFF9CA3AF), isAvailable: false),
-        _buildExamCard('Final Exam', '50 Questions', '120 min', 'Upcoming', const Color(0xFF9CA3AF), isAvailable: false),
-      ],
+      itemCount: _exams.length,
+      itemBuilder: (context, index) {
+        final exam = _exams[index];
+        final isAvailable = exam.isAvailable;
+        
+        return _buildExamCard(
+          exam: exam,
+          isAvailable: isAvailable,
+        );
+      },
     );
   }
 
-  Widget _buildExamCard(String title, String questions, String time, String status, Color btnColor, {required bool isAvailable}) {
+  Widget _buildExamsSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 12, width: 60, color: Colors.white),
+                const SizedBox(height: 12),
+                Container(height: 16, width: double.infinity, color: Colors.white),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(height: 12, width: 80, color: Colors.white),
+                    const SizedBox(width: 20),
+                    Container(height: 12, width: 80, color: Colors.white),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Container(height: 50, width: double.infinity, color: Colors.white),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExamCard({required Quiz exam, required bool isAvailable}) {
+    final status = isAvailable ? 'Available' : (exam.isExpired ? 'Expired' : 'Upcoming');
+    final statusColor = isAvailable ? const Color(0xFF27AE60) : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
+    final statusBgColor = isAvailable ? const Color(0xFFE6F7F0) : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -689,35 +830,54 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isAvailable ? const Color(0xFFE6F7F0) : const Color(0xFFFFF9F0),
+              color: statusBgColor,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               status,
               style: TextStyle(
-                color: isAvailable ? const Color(0xFF27AE60) : const Color(0xFFF2994A),
+                color: statusColor,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1F2937))),
+          Text(exam.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1F2937))),
           const SizedBox(height: 12),
           Row(
             children: [
-              FaIcon(FontAwesomeIcons.users, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 8),
-              Text(questions, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-              const SizedBox(width: 20),
               FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 8),
-              Text(time, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              Text('${exam.duration} min', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              const SizedBox(width: 20),
+              FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             ],
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: isAvailable ? () {} : null,
+            onPressed: isAvailable ? () async {
+              // Start attempt logic
+              final result = await _examRepository.startQuizAttempt(exam.quizId);
+              if (result['success'] && mounted) {
+                final attempt = result['data'] as QuizAttempt;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QuizScreen(
+                      quiz: exam,
+                      attempt: attempt,
+                    ),
+                  ),
+                );
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
+                );
+              }
+            } : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: isAvailable ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
               foregroundColor: Colors.white,
@@ -728,7 +888,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               elevation: 0,
             ),
             child: Text(
-              isAvailable ? 'START EXAM' : 'COMING SOON',
+              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ),

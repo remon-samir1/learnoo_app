@@ -29,4 +29,7 @@ class ApiConstants {
 
   // Library endpoints
   static const String libraries = '/v1/library';
+
+  // Posts endpoints
+  static const String posts = '/v1/post';
 }

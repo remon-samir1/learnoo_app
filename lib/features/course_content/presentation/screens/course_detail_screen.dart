@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/lecture_repository.dart';
+import '../../../exams/data/exam_repository.dart';
+import '../../../exams/models/quiz_models.dart';
+import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'lecture_detail_screen.dart';
 
 class CourseDetailScreen extends StatefulWidget {
@@ -27,10 +30,13 @@ class CourseDetailScreen extends StatefulWidget {
 class _CourseDetailScreenState extends State<CourseDetailScreen>
     with SingleTickerProviderStateMixin {
   final _lectureRepository = LectureRepository();
+  final _examRepository = ExamRepository();
   late TabController _tabController;
   
   bool _isLoadingLectures = true;
+  bool _isLoadingExams = true;
   List<dynamic> _lectures = [];
+  List<Quiz> _exams = [];
   List<bool> _isExpanded = [];
   String _qaFilter = 'All';
 
@@ -38,7 +44,35 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadLectures();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadLectures(),
+      _loadExams(),
+    ]);
+  }
+
+  Future<void> _loadExams() async {
+    setState(() => _isLoadingExams = true);
+    try {
+      final result = await _examRepository.getQuizzes();
+      if (result['success'] && mounted) {
+        final allExams = result['data'] as List<Quiz>;
+        final courseIdInt = int.tryParse(widget.courseId) ?? -1;
+        setState(() {
+          _exams = allExams.where((exam) => exam.courseId == courseIdInt).toList();
+          _isLoadingExams = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    }
   }
 
   @override
@@ -527,59 +561,158 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   Widget _buildExamsTab() {
-    return Padding(
+    if (_isLoadingExams) {
+      return _buildExamsSkeleton();
+    }
+
+    if (_exams.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text(
+            'No exams available for this course',
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          Container(
+      itemCount: _exams.length,
+      itemBuilder: (context, index) {
+        final exam = _exams[index];
+        return _buildExamCard(exam);
+      },
+    );
+  }
+
+  Widget _buildExamsSkeleton() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(24.0),
+      itemCount: 2,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF1F1F1)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Midterm Exam',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
+                Container(height: 18, width: 200, color: Colors.white),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Text('30 Questions', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+                    Container(height: 14, width: 80, color: Colors.white),
                     const SizedBox(width: 24),
-                    Text('90 Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+                    Container(height: 14, width: 80, color: Colors.white),
                   ],
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF263EE2),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 54),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'START EXAM',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
+                Container(height: 54, width: double.infinity, color: Colors.white),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExamCard(Quiz exam) {
+    final isAvailable = exam.isAvailable;
+    final status = isAvailable ? 'Available' : (exam.isExpired ? 'Expired' : 'Upcoming');
+    final statusColor = isAvailable ? const Color(0xFF27AE60) : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
+    final statusBgColor = isAvailable ? const Color(0xFFE6F7F0) : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusBgColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            exam.title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Text('${exam.duration} Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              const SizedBox(width: 24),
+              FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: isAvailable ? () async {
+              final result = await _examRepository.startQuizAttempt(exam.quizId);
+              if (result['success'] && mounted) {
+                final attempt = result['data'] as QuizAttempt;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QuizScreen(
+                      quiz: exam,
+                      attempt: attempt,
+                    ),
+                  ),
+                );
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
+                );
+              }
+            } : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isAvailable ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFFC4C4C4),
+              disabledForegroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 54),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: Text(
+              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],

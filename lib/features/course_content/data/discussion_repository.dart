@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
 import '../../../core/network/api_constants.dart';
@@ -64,7 +65,7 @@ class DiscussionRepository {
           'Authorization': 'Bearer $token',
         });
 
-        request.fields['chapter_id'] = chapterId.toString();
+        request.fields['chapter_id'] = chapterId.toString() ;
         request.fields['type'] = type;
         request.fields['moment'] = moment.toString();
         if (parentId != null) {
@@ -75,6 +76,7 @@ class DiscussionRepository {
           'content',
           voiceFile.path,
           filename: basename(voiceFile.path),
+          contentType: MediaType('audio', 'm4a'),
         ));
 
         var streamedResponse = await request.send();

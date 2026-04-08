@@ -320,12 +320,15 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> updateAcademicProfile({
     required dynamic universityId,
-    required dynamic centerId,
+    required List<dynamic> centerIds,
     required dynamic facultyId,
   }) async {
+    // Convert center IDs to list of integers
+    final centerIdsList = centerIds.map((id) => int.tryParse(id.toString()) ?? id).toList();
+
     return updateProfile({
       'university_id': int.tryParse(universityId.toString()) ?? universityId,
-      'center_id': int.tryParse(centerId.toString()) ?? centerId,
+      'center_ids': centerIdsList,
       'faculty_id': int.tryParse(facultyId.toString()) ?? facultyId,
     });
   }

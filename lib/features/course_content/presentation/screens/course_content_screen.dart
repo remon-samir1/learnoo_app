@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../../../features/exams/data/exam_repository.dart';
+import '../../../../features/exams/models/quiz_models.dart';
+import '../../../../features/exams/presentation/screens/quiz_screen.dart';
 
 class CourseContentScreen extends StatefulWidget {
   final String courseTitle;
   final String instructorName;
+  final int courseId;
 
   const CourseContentScreen({
     super.key,
     required this.courseTitle,
     required this.instructorName,
+    required this.courseId,
   });
 
   @override
@@ -20,11 +26,38 @@ class _CourseContentScreenState extends State<CourseContentScreen>
   late TabController _tabController;
   final List<bool> _isExpanded = [true, false]; // For chapters
   String _qaFilter = 'All'; // Sub-filter for Q&A tab
+  final _examRepository = ExamRepository();
+  List<Quiz> _exams = [];
+  bool _isLoadingExams = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadExams();
+  }
+
+  Future<void> _loadExams() async {
+    setState(() => _isLoadingExams = true);
+    try {
+      final result = await _examRepository.getQuizzes();
+      if (result['success'] && mounted) {
+        final allExams = result['data'] as List<Quiz>;
+        // Assuming we need to filter by some course title or instructor for now
+        // since I don't have the courseId directly in widget.
+        // In a real scenario, we should pass courseId to this screen.
+        setState(() {
+          _exams = allExams.where((exam) => exam.courseId == widget.courseId).toList();
+          _isLoadingExams = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingExams = false);
+      }
+    }
   }
 
   @override
@@ -372,52 +405,139 @@ class _CourseContentScreenState extends State<CourseContentScreen>
   }
 
   Widget _buildExamsTab() {
-    return Padding(
+    if (_isLoadingExams) {
+      return _buildExamsSkeletonList();
+    }
+
+    if (_exams.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text(
+            'No exams available for this course',
+            style: TextStyle(color: Colors.grey, fontSize: 15),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          Container(
+      itemCount: _exams.length,
+      itemBuilder: (context, index) {
+        final exam = _exams[index];
+        final isAvailable = exam.isAvailable;
+        return _buildExamCard(exam: exam, isAvailable: isAvailable);
+      },
+    );
+  }
+
+  Widget _buildExamsSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(24.0),
+      itemCount: 2,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF1F1F1)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Midterm Exam - Data Structures',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
-                ),
+                Container(height: 18, width: 200, color: Colors.white),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Text('30 Questions', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+                    Container(height: 14, width: 80, color: Colors.white),
                     const SizedBox(width: 24),
-                    Text('90 Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+                    Container(height: 14, width: 80, color: Colors.white),
                   ],
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF263EE2),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 54),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  child: const Text('START EXAM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
+                Container(height: 54, width: double.infinity, color: Colors.white),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExamCard({required Quiz exam, required bool isAvailable}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                exam.title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
+              ),
+              if (!isAvailable && exam.isExpired)
+                const Text('Expired', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Text('${exam.duration} Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              const SizedBox(width: 24),
+              Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: isAvailable ? () async {
+              final result = await _examRepository.startQuizAttempt(exam.quizId);
+              if (result['success'] && mounted) {
+                final attempt = result['data'] as QuizAttempt;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QuizScreen(
+                      quiz: exam,
+                      attempt: attempt,
+                    ),
+                  ),
+                );
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
+                );
+              }
+            } : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF263EE2),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 54),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: Text(
+              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],

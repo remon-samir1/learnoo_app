@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Loading...';
   String _universityName = 'Loading...';
   String _facultyName = 'Loading...';
+  List<String> _centers = [];
   List<dynamic> _courses = [];
   List<dynamic> _subjects = [];
   List<dynamic> _notes = [];
@@ -187,17 +188,27 @@ class _HomeScreenState extends State<HomeScreen> {
         final lastName = (attributes['last_name'] ?? '').toString();
         final fullName = '$firstName $lastName'.trim();
 
+        // Parse university (data.attributes.name)
         final universityName =
-            (attributes['university_id']?['data']?['attributes']?['name'] ??
+            (attributes['university']?['data']?['attributes']?['name'] ??
             'University not set').toString();
+        
+        // Parse faculty (data.attributes.name)
         final facultyName =
-            (attributes['faculty_id']?['data']?['attributes']?['name'] ??
+            (attributes['faculty']?['data']?['attributes']?['name'] ??
             'Faculty not set').toString();
+        
+        // Parse centers (array of categories)
+        final centersData = attributes['centers'] as List<dynamic>? ?? [];
+        final centers = centersData.map((center) {
+          return (center['attributes']?['name'] ?? '').toString();
+        }).where((name) => name.isNotEmpty).toList();
 
         setState(() {
           _userName = fullName.isEmpty ? 'User' : fullName;
           _universityName = universityName;
           _facultyName = facultyName;
+          _centers = centers;
           _isLoading = false;
         });
       }
@@ -268,9 +279,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
 
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
+            child: RefreshIndicator(
+              onRefresh: _onRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
@@ -322,10 +336,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildHeader() {
     return Row(
@@ -367,12 +382,14 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 _isLoading
                     ? 'Loading profile...'
-                    : '$_universityName — $_facultyName',
+                    : _buildSubtitleText(),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: const Color(0xFF4B4B4B).withValues(alpha: 0.6),
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1855,5 +1872,30 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  String _buildSubtitleText() {
+    final parts = <String>[];
+    if (_universityName != 'University not set') {
+      parts.add(_universityName);
+    }
+    if (_facultyName != 'Faculty not set') {
+      parts.add(_facultyName);
+    }
+    if (_centers.isNotEmpty) {
+      parts.add(_centers.join(', '));
+    }
+    return parts.isEmpty ? 'Profile not complete' : parts.join(' — ');
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      _loadUserData(),
+      _loadCourses(),
+      _loadSubjects(),
+      _loadLiveClasses(),
+      _loadNotes(),
+      _loadLibraries(),
+    ]);
   }
 }

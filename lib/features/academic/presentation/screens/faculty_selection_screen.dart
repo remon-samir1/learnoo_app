@@ -6,13 +6,13 @@ import '../../../home/presentation/screens/main_screen.dart';
 
 class FacultySelectionScreen extends StatefulWidget {
   final dynamic universityId;
-  final dynamic centerId;
-  final String centerName;
+  final List<dynamic> centerIds;
+  final Map<dynamic, String> centerNames;
   const FacultySelectionScreen({
     super.key,
     required this.universityId,
-    required this.centerId,
-    required this.centerName,
+    required this.centerIds,
+    required this.centerNames,
   });
 
   @override
@@ -73,7 +73,7 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
 
     final result = await _authRepository.updateAcademicProfile(
       universityId: widget.universityId,
-      centerId: widget.centerId,
+      centerIds: widget.centerIds,
       facultyId: _selectedFacultyId,
     );
 
@@ -187,11 +187,23 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-               children: [
-                 const Text('Centers at ', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
-                 Text(widget.centerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-               ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Selected Centers:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: widget.centerNames.values.map((name) => Chip(
+                    label: Text(name, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: AppColors.inputFill,
+                    side: BorderSide.none,
+                    padding: EdgeInsets.zero,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )).toList(),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

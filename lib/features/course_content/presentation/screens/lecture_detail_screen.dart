@@ -8,9 +8,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
+import 'package:dio/dio.dart';
 import '../../../../core/network/api_constants.dart';
 import '../../data/chapter_repository.dart';
 import '../../data/discussion_repository.dart';
+import 'pdf_viewer_screen.dart';
+import '../../../exams/presentation/screens/quiz_screen.dart';
+import '../../../exams/models/quiz_models.dart';
+import '../../../exams/data/exam_repository.dart';
 
 class LectureDetailScreen extends StatefulWidget {
   final String lectureId;
@@ -982,14 +987,17 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           final size = attrs['size']?.toString() ?? '0';
           final extension = attrs['extension']?.toString() ?? '';
           final isLocked = attrs['is_locked'] as bool? ?? false;
-          
-          return _buildAttachmentItem(name, size, extension, isLocked);
+          final path = attrs['path']?.toString() ?? '';
+
+          return _buildAttachmentItem(name, size, extension, isLocked, path);
         }).toList(),
       ],
     );
   }
 
-  Widget _buildAttachmentItem(String name, String size, String extension, bool isLocked) {
+  Widget _buildAttachmentItem(String name, String size, String extension, bool isLocked, String? path) {
+    final isPdf = extension.toLowerCase() == 'pdf';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1002,12 +1010,12 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEDEDFF),
+              color: isPdf ? const Color(0xFFFFE4E1) : const Color(0xFFEDEDFF),
               borderRadius: BorderRadius.circular(10),
             ),
             child: FaIcon(
-              isLocked ? FontAwesomeIcons.lock : FontAwesomeIcons.paperclip,
-              color: const Color(0xFF3451E5),
+              isLocked ? FontAwesomeIcons.lock : (isPdf ? FontAwesomeIcons.filePdf : FontAwesomeIcons.paperclip),
+              color: isPdf ? const Color(0xFFE74C3C) : const Color(0xFF3451E5),
               size: 18,
             ),
           ),
@@ -1035,9 +1043,53 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               ],
             ),
           ),
-          if (!isLocked)
+          if (!isLocked && isPdf && path != null && path.isNotEmpty)
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _openPdf(path, name),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3451E5),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const FaIcon(FontAwesomeIcons.eye, color: Colors.white, size: 16),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _downloadPdf(path, name),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const FaIcon(FontAwesomeIcons.download, color: Color(0xFF6B7280), size: 16),
+                  ),
+                ),
+              ],
+            )
+          else if (!isLocked)
             GestureDetector(
-              onTap: () {},
+              onTap: () {
+                if (path != null && path.isNotEmpty) {
+                  _downloadFile(path, name);
+                }
+              },
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -1056,6 +1108,92 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         ],
       ),
     );
+  }
+
+  void _openPdf(String path, String name) {
+    String pdfUrl = path;
+    if (!pdfUrl.startsWith('http')) {
+      pdfUrl = '${ApiConstants.baseUrl}$pdfUrl';
+    }
+    pdfUrl = pdfUrl.replaceAll('\\', '/');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerScreen(
+          pdfUrl: pdfUrl,
+          title: name,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadPdf(String path, String name) async {
+    String fileUrl = path;
+    if (!fileUrl.startsWith('http')) {
+      fileUrl = '${ApiConstants.baseUrl}$fileUrl';
+    }
+    fileUrl = fileUrl.replaceAll('\\', '/');
+
+    try {
+      final dio = Dio();
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/${name.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '_')}';
+
+      await dio.download(fileUrl, filePath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded to $filePath'),
+            backgroundColor: const Color(0xFF2DBC77),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: const Color(0xFFFF4B4B),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadFile(String path, String name) async {
+    String fileUrl = path;
+    if (!fileUrl.startsWith('http')) {
+      fileUrl = '${ApiConstants.baseUrl}$fileUrl';
+    }
+    fileUrl = fileUrl.replaceAll('\\', '/');
+
+    try {
+      final dio = Dio();
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/${name.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '_')}';
+
+      await dio.download(fileUrl, filePath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded to $filePath'),
+            backgroundColor: const Color(0xFF2DBC77),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: const Color(0xFFFF4B4B),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildLinkedQuizzes() {
@@ -1083,17 +1221,19 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         const SizedBox(height: 12),
         ..._quizzes.map((quiz) {
           final attrs = quiz['attributes'] ?? {};
+          final id = quiz['id']?.toString() ?? '';
           final title = attrs['title']?.toString() ?? 'Quiz';
           final maxAttempts = attrs['max_attempts'] as int? ?? 0;
           final duration = attrs['duration'] as int? ?? 0;
-          
-          return _buildQuizCard(title, maxAttempts, duration);
+          final quizId = attrs['id'] as int? ?? 0;
+
+          return _buildQuizCard(id, quizId, title, maxAttempts, duration, quiz);
         }).toList(),
       ],
     );
   }
 
-  Widget _buildQuizCard(String title, int maxAttempts, int duration) {
+  Widget _buildQuizCard(String id, int quizId, String title, int maxAttempts, int duration, dynamic quizData) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1156,7 +1296,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => _startQuiz(quizId, quizData),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2DBC77),
                 foregroundColor: Colors.white,
@@ -1176,6 +1316,59 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _startQuiz(int quizId, dynamic quizData) async {
+    if (quizId == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid quiz ID'),
+          backgroundColor: Color(0xFFFF4B4B),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF2DBC77),
+        ),
+      ),
+    );
+
+    final examRepository = ExamRepository();
+
+    // Start quiz attempt
+    final attemptResult = await examRepository.startQuizAttempt(quizId);
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading dialog
+
+    if (attemptResult['success']) {
+      final attempt = attemptResult['data'] as QuizAttempt;
+      final quiz = Quiz.fromJson(quizData);
+
+      // Navigate to quiz screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizScreen(
+            quiz: quiz,
+            attempt: attempt,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(attemptResult['message'] ?? 'Failed to start quiz'),
+          backgroundColor: const Color(0xFFFF4B4B),
+        ),
+      );
+    }
   }
 
   Widget _buildDiscussionPanel() {
@@ -1779,8 +1972,39 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     );
   }
 
+  // Cache for audio durations to show before playback starts
+  final Map<String, Duration> _audioDurations = {};
+
+  Future<void> _fetchAudioDuration(String url) async {
+    if (_audioDurations.containsKey(url)) return;
+    
+    try {
+      final tempPlayer = AudioPlayer();
+      await tempPlayer.setSource(UrlSource(url));
+      final duration = await tempPlayer.getDuration();
+      if (duration != null && mounted) {
+        setState(() {
+          _audioDurations[url] = duration;
+        });
+      }
+      await tempPlayer.dispose();
+    } catch (e) {
+      debugPrint('Error fetching audio duration: $e');
+    }
+  }
+
   Widget _buildAudioPlayer(String url) {
     bool isThisPlaying = _currentlyPlayingUrl == url;
+    
+    // Fetch duration if not cached
+    if (!isThisPlaying && !_audioDurations.containsKey(url)) {
+      _fetchAudioDuration(url);
+    }
+    
+    // Get the duration to display
+    final Duration displayDuration = isThisPlaying 
+        ? _listAudioDuration 
+        : (_audioDurations[url] ?? Duration.zero);
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1800,7 +2024,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                   setState(() {
                     _currentlyPlayingUrl = url;
                     _listAudioPosition = Duration.zero;
-                    _listAudioDuration = Duration.zero;
+                    _listAudioDuration = _audioDurations[url] ?? Duration.zero;
                   });
                 }
                 await _audioPlayer.play(UrlSource(url));
@@ -1838,7 +2062,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                       style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                     ),
                     Text(
-                      isThisPlaying ? _formatDuration(_listAudioDuration) : '00:00',
+                      _formatDuration(displayDuration),
                       style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                     ),
                   ],

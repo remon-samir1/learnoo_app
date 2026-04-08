@@ -23,8 +23,8 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
   
   List<dynamic> _centers = [];
   List<dynamic> _filteredCenters = [];
-  dynamic _selectedCenterId;
-  String? _selectedCenterName;
+  Set<dynamic> _selectedCenterIds = {};
+  Map<dynamic, String> _selectedCenterNames = {};
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -107,8 +107,13 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                 const Text('Step 2 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 const SizedBox(height: 24),
                 const Text(
-                  'Choose Your Center',
+                  'Choose Your Center(s)',
                   style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'You can select multiple centers',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -158,12 +163,17 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                           final id = center['id'];
                           final attributes = center['attributes'];
                           final name = attributes['name'] ?? 'Unknown';
-                          final isSelected = _selectedCenterId == id;
+                          final isSelected = _selectedCenterIds.contains(id);
                           
                           return GestureDetector(
                             onTap: () => setState(() {
-                              _selectedCenterId = id;
-                              _selectedCenterName = name;
+                              if (isSelected) {
+                                _selectedCenterIds.remove(id);
+                                _selectedCenterNames.remove(id);
+                              } else {
+                                _selectedCenterIds.add(id);
+                                _selectedCenterNames[id] = name;
+                              }
                             }),
                             child: Container(
                               padding: const EdgeInsets.all(16),
@@ -199,7 +209,7 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
             padding: const EdgeInsets.all(24),
             child: PrimaryButton(
               text: 'NEXT',
-              onPressed: _selectedCenterId == null
+              onPressed: _selectedCenterIds.isEmpty
                   ? null
                   : () {
                       Navigator.push(
@@ -207,8 +217,8 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                         MaterialPageRoute(
                           builder: (context) => FacultySelectionScreen(
                             universityId: widget.universityId,
-                            centerId: _selectedCenterId,
-                            centerName: _selectedCenterName!,
+                            centerIds: _selectedCenterIds.toList(),
+                            centerNames: _selectedCenterNames,
                           ),
                         ),
                       );

@@ -35,9 +35,16 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final result = await _authRepository.getProfile();
     if (result['success']) {
-      final universityData = result['data']['attributes']['university_id']?['data'];
+      final attributes = result['data']['attributes'];
+      final universityData = attributes['university_id']?['data'];
+      final centerData = attributes['center_id']?['data'];
+      final facultyData = attributes['faculty_id']?['data'];
+
+      // Check if user has completed academic profile setup
+      final hasCompleteProfile = universityData != null && centerData != null && facultyData != null;
+
       if (mounted) {
-        if (universityData != null) {
+        if (hasCompleteProfile) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainScreen()),

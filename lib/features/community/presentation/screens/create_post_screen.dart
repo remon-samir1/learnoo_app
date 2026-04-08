@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/models/post_model.dart';
+import '../../data/repositories/community_repository.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -13,17 +15,30 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String _selectedPostType = 'post';
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  final Set<String> _selectedTags = {};
+  final List<String> _selectedTags = [];
 
-  final List<String> _availableTags = [
-    'Accounting',
-    'Economics',
-    'Questions',
-    'Materials',
-    'Announcements',
-    'Study Tips',
-    'Exam Prep',
-  ];
+  final CommunityRepository _repository = CommunityRepository();
+  List<PostCourse> _availableCourses = [];
+  PostCourse? _selectedCourse;
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    final result = await _repository.getCourses();
+    setState(() {
+      _isLoading = false;
+      if (result['success']) {
+        final List<dynamic> courseData = result['data'];
+        _availableCourses = courseData.map((c) => PostCourse.fromJson(c)).toList();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -32,14 +47,59 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-  void _selectTag(String tag) {
+  void _selectCourse(PostCourse? course) {
     setState(() {
-      if (_selectedTags.contains(tag)) {
-        _selectedTags.remove(tag);
-      } else {
-        _selectedTags.add(tag);
-      }
+      _selectedCourse = course;
     });
+  }
+
+  void _addTag(String tag) {
+    if (tag.trim().isNotEmpty && !_selectedTags.contains(tag.trim())) {
+      setState(() {
+        _selectedTags.add(tag.trim());
+      });
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() {
+      _selectedTags.remove(tag);
+    });
+  }
+
+  Future<void> _createPost() async {
+    if (_contentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter some content')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final request = CreatePostRequest(
+      courseId: _selectedCourse != null ? int.tryParse(_selectedCourse!.id) : null,
+      postType: _selectedPostType,
+      title: _titleController.text.trim(),
+      content: _contentController.text.trim(),
+      tags: _selectedTags,
+    );
+
+    final result = await _repository.createPost(request);
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (result['success']) {
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Failed to create post')),
+      );
+    }
   }
 
   @override
@@ -47,30 +107,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              _buildHeader(),
-              const SizedBox(height: 24),
-              _buildUserInfo(),
-              const Divider(height: 32, color: Color(0xFFE5E7EB)),
-              const SizedBox(height: 16),
-              _buildPostTypeSelector(),
-              const SizedBox(height: 24),
-              _buildTitleField(),
-              const SizedBox(height: 20),
-              _buildContentField(),
-              const SizedBox(height: 24),
-              _buildTagsSection(),
-              const SizedBox(height: 32),
-              _buildActionButtons(),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+                    _buildUserInfo(),
+                    const Divider(height: 32, color: Color(0xFFE5E7EB)),
+                    const SizedBox(height: 16),
+                    _buildPostTypeSelector(),
+                    const SizedBox(height: 24),
+                    _buildTitleField(),
+                    const SizedBox(height: 20),
+                    _buildContentField(),
+                    const SizedBox(height: 24),
+                    _buildCourseSelector(),
+                    const SizedBox(height: 24),
+                    _buildTagsSection(),
+                    const SizedBox(height: 32),
+                    _buildActionButtons(),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -307,7 +371,63 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
+  Widget _buildCourseSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Course Tag (Select one)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.labelGray,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FB),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<PostCourse>(
+              isExpanded: true,
+              hint: const Text(
+                'Select a course...',
+                style: TextStyle(
+                  color: Color(0xFFC5C8D0),
+                  fontSize: 15,
+                ),
+              ),
+              value: _selectedCourse,
+              items: [
+                const DropdownMenuItem<PostCourse>(
+                  value: null,
+                  child: Text('No course tag'),
+                ),
+                ..._availableCourses.map((course) => DropdownMenuItem<PostCourse>(
+                  value: course,
+                  child: Text(
+                    course.attributes.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                )),
+              ],
+              onChanged: (course) => _selectCourse(course),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTagsSection() {
+    final tagController = TextEditingController();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -320,33 +440,79 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _availableTags.map((tag) => _buildTagChip(tag)).toList(),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: tagController,
+                decoration: InputDecoration(
+                  hintText: 'Add a tag...',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFFC5C8D0),
+                    fontSize: 15,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8F9FB),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.add, color: AppColors.primaryBlue),
+                    onPressed: () {
+                      _addTag(tagController.text);
+                      tagController.clear();
+                    },
+                  ),
+                ),
+                onSubmitted: (value) {
+                  _addTag(value);
+                  tagController.clear();
+                },
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
+        if (_selectedTags.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedTags.map((tag) => _buildSelectedTagChip(tag)).toList(),
+          ),
       ],
     );
   }
 
-  Widget _buildTagChip(String tag) {
-    final isSelected = _selectedTags.contains(tag);
-    return GestureDetector(
-      onTap: () => _selectTag(tag),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryBlue : const Color(0xFFF0F2FF),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          '# $tag',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textGray,
+  Widget _buildSelectedTagChip(String tag) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryBlue,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '# $tag',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
           ),
-        ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => _removeTag(tag),
+            child: const Icon(
+              Icons.close,
+              size: 16,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -356,10 +522,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       children: [
         Expanded(
           child: GestureDetector(
-            onTap: () {
-              // Save draft functionality
-              Navigator.of(context).pop();
-            },
+            onTap: _isSubmitting ? null : () => Navigator.of(context).pop(),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
@@ -367,15 +530,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
-              child: const Center(
-                child: Text(
-                  'Save Draft',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
+              child: Center(
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.textDark),
+                        ),
+                      )
+                    : const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -383,25 +555,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: GestureDetector(
-            onTap: () {
-              // Publish post functionality
-              Navigator.of(context).pop();
-            },
+            onTap: _isSubmitting ? null : () => _createPost(),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: AppColors.primaryBlue,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
-                child: Text(
-                  'Publish Post',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+              child: Center(
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Publish Post',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ),

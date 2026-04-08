@@ -147,6 +147,8 @@ class QuizQuestion {
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
     final attributes = json['attributes'] ?? {};
+    final List<dynamic> answersData = attributes['answers'] ?? [];
+    final answers = answersData.map((a) => QuizAnswer.fromJson(a)).toList();
 
     return QuizQuestion(
       id: json['id']?.toString() ?? '',
@@ -157,6 +159,7 @@ class QuizQuestion {
       type: attributes['type'] ?? 'multiple_choice',
       autoCorrect: attributes['auto_correct'] ?? true,
       createdAt: DateTime.tryParse(attributes['created_at'] ?? '') ?? DateTime.now(),
+      answers: answers,
     );
   }
 }
