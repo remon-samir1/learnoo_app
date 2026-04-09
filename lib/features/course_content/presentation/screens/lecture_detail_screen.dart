@@ -505,102 +505,341 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     // course_id is passed directly from the chapter list API via widget parameter
     final courseId = int.tryParse(widget.courseId);
 
-    showDialog(
+    showGeneralDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Row(
-            children: [
-              FaIcon(FontAwesomeIcons.lock, color: Color(0xFFFF4B4B), size: 20),
-              SizedBox(width: 10),
-              Text('Chapter Locked'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'This chapter is locked. Please enter your activation code to unlock it.',
-                style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-              ),
-              const SizedBox(height: 16),
-              // Item Type Dropdown
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                decoration: InputDecoration(
-                  labelText: 'Apply code to',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      transitionDuration: const Duration(milliseconds: 320),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        return ScaleTransition(scale: curved, child: FadeTransition(opacity: animation, child: child));
+      },
+      pageBuilder: (context, animation, secondaryAnimation) => StatefulBuilder(
+        builder: (context, setDialogState) => Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF3451E5).withValues(alpha: 0.18),
+                    blurRadius: 40,
+                    offset: const Offset(0, 16),
                   ),
-                  prefixIcon: const FaIcon(FontAwesomeIcons.layerGroup, size: 16),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'chapter',
-                    child: Text('This Chapter Only'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'course',
-                    child: Text('Full Course'),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
-                onChanged: (value) {
-                  setDialogState(() {
-                    selectedType = value!;
-                  });
-                },
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: codeController,
-                decoration: InputDecoration(
-                  hintText: 'Enter activation code (e.g., ABCD-1234)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const FaIcon(FontAwesomeIcons.key, size: 16),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final code = codeController.text.trim();
-                if (code.isNotEmpty) {
-                  Navigator.pop(context);
-                  final itemId = selectedType == 'chapter'
-                      ? int.tryParse(widget.chapterId) ?? 0
-                      : courseId ?? 0;
-                  if (itemId > 0) {
-                    _activateCode(
-                      code: code,
-                      itemId: itemId,
-                      itemType: selectedType,
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Unable to determine item ID'),
-                        backgroundColor: Color(0xFFFF4B4B),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Gradient Header ──────────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF3451E5), Color(0xFF6C47FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3451E5),
-                foregroundColor: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Lock badge
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                          ),
+                          child: const Center(
+                            child: FaIcon(FontAwesomeIcons.lock, color: Colors.white, size: 28),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Chapter Locked',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Enter your activation code to unlock this chapter',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Body ─────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Scope label
+                        const Text(
+                          'Apply code to',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Scope toggle chips
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setDialogState(() => selectedType = 'chapter'),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: selectedType == 'chapter'
+                                        ? const Color(0xFF3451E5)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selectedType == 'chapter'
+                                          ? const Color(0xFF3451E5)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      FaIcon(
+                                        FontAwesomeIcons.book,
+                                        size: 13,
+                                        color: selectedType == 'chapter' ? Colors.white : const Color(0xFF6B7280),
+                                      ),
+                                      const SizedBox(width: 7),
+                                      Text(
+                                        'This Chapter',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: selectedType == 'chapter' ? Colors.white : const Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setDialogState(() => selectedType = 'course'),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: selectedType == 'course'
+                                        ? const Color(0xFF3451E5)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selectedType == 'course'
+                                          ? const Color(0xFF3451E5)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      FaIcon(
+                                        FontAwesomeIcons.layerGroup,
+                                        size: 13,
+                                        color: selectedType == 'course' ? Colors.white : const Color(0xFF6B7280),
+                                      ),
+                                      const SizedBox(width: 7),
+                                      Text(
+                                        'Full Course',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: selectedType == 'course' ? Colors.white : const Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // Code field label
+                        const Text(
+                          'Activation Code',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: codeController,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: 1.5,
+                            color: Color(0xFF111827),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g.  ABCD-1234',
+                            hintStyle: const TextStyle(
+                              letterSpacing: 0.5,
+                              color: Color(0xFFD1D5DB),
+                              fontWeight: FontWeight.w400,
+                            ),
+                            prefixIcon: Container(
+                              margin: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const FaIcon(FontAwesomeIcons.key, size: 14, color: Color(0xFF3451E5)),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF9FAFB),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFF3451E5), width: 2),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // ── Action Buttons ────────────────────────────
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  foregroundColor: const Color(0xFF6B7280),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF3451E5), Color(0xFF6C47FF)],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF3451E5).withValues(alpha: 0.35),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    final code = codeController.text.trim();
+                                    if (code.isNotEmpty) {
+                                      Navigator.pop(context);
+                                      final itemId = selectedType == 'chapter'
+                                          ? int.tryParse(widget.chapterId) ?? 0
+                                          : courseId ?? 0;
+                                      if (itemId > 0) {
+                                        _activateCode(
+                                          code: code,
+                                          itemId: itemId,
+                                          itemType: selectedType,
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Unable to determine item ID'),
+                                            backgroundColor: Color(0xFFFF4B4B),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const FaIcon(FontAwesomeIcons.unlockKeyhole, size: 14, color: Colors.white),
+                                  label: const Text(
+                                    'Unlock Now',
+                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('Unlock'),
             ),
-          ],
+          ),
         ),
       ),
     );
