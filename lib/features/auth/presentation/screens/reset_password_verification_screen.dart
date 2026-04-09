@@ -96,15 +96,35 @@ class _ResetPasswordVerificationScreenState
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CreateNewPasswordScreen(
-          phoneOrEmail: widget.phoneOrEmail,
-          code: code,
-        ),
-      ),
+    setState(() => _isLoading = true);
+
+    final result = await _authRepository.verifyPasswordReset(
+      phoneOrEmail: widget.phoneOrEmail,
+      code: code,
     );
+
+    setState(() => _isLoading = false);
+
+    if (mounted) {
+      if (result['success']) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CreateNewPasswordScreen(
+              phoneOrEmail: widget.phoneOrEmail,
+              code: code,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Failed to verify code'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

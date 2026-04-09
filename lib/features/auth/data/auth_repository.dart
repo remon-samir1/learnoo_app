@@ -481,6 +481,45 @@ class AuthRepository {
     }
   }
 
+  Future<Map<String, dynamic>> verifyPasswordReset({
+    required String phoneOrEmail,
+    required String code,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.passwordReset}');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'type': 'verify',
+          'code': code,
+          'phone_or_email': phoneOrEmail,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Code verified successfully',
+          'data': data,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to verify code'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> resetPassword({
     required String phoneOrEmail,
     required String code,
@@ -497,8 +536,9 @@ class AuthRepository {
           'Accept': 'application/json',
         },
         body: jsonEncode({
-          'phone_or_email': phoneOrEmail,
+          'type': 'reset',
           'code': code,
+          'phone_or_email': phoneOrEmail,
           'password': password,
           'password_confirmation': passwordConfirmation,
         }),
