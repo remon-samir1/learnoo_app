@@ -73,15 +73,20 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   bool _isRecording = false;
   String? _recordedPath;
   Duration _recordDuration = Duration.zero;
-  Duration _recordedPosition = Duration.zero;
-  Duration _recordedTotalDuration = Duration.zero;
+  
+  // Use ValueNotifiers for audio positions to avoid excessive setState calls
+  final _recordedPosition = ValueNotifier<Duration>(Duration.zero);
+  final _recordedTotalDuration = ValueNotifier<Duration>(Duration.zero);
   StreamSubscription<RecordState>? _recordSub;
-  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<Duration>? _recordedPositionSub;
+  StreamSubscription<Duration>? _recordedDurationSub;
   
   // For list audio playback
   String? _currentlyPlayingUrl;
-  Duration _listAudioPosition = Duration.zero;
-  Duration _listAudioDuration = Duration.zero;
+  final _listAudioPosition = ValueNotifier<Duration>(Duration.zero);
+  final _listAudioDuration = ValueNotifier<Duration>(Duration.zero);
+  StreamSubscription<Duration>? _listPositionSub;
+  StreamSubscription<Duration>? _listDurationSub;
 
   String? _errorMessage;
 
@@ -99,30 +104,30 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     });
 
     // Listen for recorded player position
-    _recordedPlayer.onPositionChanged.listen((p) {
-      setState(() => _recordedPosition = p);
+    _recordedPositionSub = _recordedPlayer.onPositionChanged.listen((p) {
+      _recordedPosition.value = p;
     });
 
-    _recordedPlayer.onDurationChanged.listen((d) {
-      setState(() => _recordedTotalDuration = d);
+    _recordedDurationSub = _recordedPlayer.onDurationChanged.listen((d) {
+      _recordedTotalDuration.value = d;
     });
 
     _recordedPlayer.onPlayerComplete.listen((_) {
-      setState(() => _recordedPosition = Duration.zero);
+      _recordedPosition.value = Duration.zero;
     });
 
     // Listen for list player
-    _audioPlayer.onPositionChanged.listen((p) {
-      setState(() => _listAudioPosition = p);
+    _listPositionSub = _audioPlayer.onPositionChanged.listen((p) {
+      _listAudioPosition.value = p;
     });
-    _audioPlayer.onDurationChanged.listen((d) {
-      setState(() => _listAudioDuration = d);
+    _listDurationSub = _audioPlayer.onDurationChanged.listen((d) {
+      _listAudioDuration.value = d;
     });
     _audioPlayer.onPlayerComplete.listen((_) {
-      setState(() {
-        _currentlyPlayingUrl = null;
-        _listAudioPosition = Duration.zero;
-      });
+      if (mounted) {
+        setState(() => _currentlyPlayingUrl = null);
+      }
+      _listAudioPosition.value = Duration.zero;
     });
   }
 
@@ -135,6 +140,14 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     _chewieController?.dispose();
     _commentController.dispose();
     _recordSub?.cancel();
+    _recordedPositionSub?.cancel();
+    _recordedDurationSub?.cancel();
+    _listPositionSub?.cancel();
+    _listDurationSub?.cancel();
+    _recordedPosition.dispose();
+    _recordedTotalDuration.dispose();
+    _listAudioPosition.dispose();
+    _listAudioDuration.dispose();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _recordedPlayer.dispose();
@@ -399,14 +412,19 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     
     final position = _videoController!.value.position;
     final duration = _videoController!.value.duration;
+    final isPlaying = _videoController!.value.isPlaying;
     
-    setState(() {
-      _currentTime = _formatDuration(position);
-      if (duration.inSeconds > 0) {
-        _progress = position.inSeconds / duration.inSeconds;
-      }
-      _isPlaying = _videoController!.value.isPlaying;
-    });
+    // Only update state if values actually changed to reduce rebuilds
+    final newTime = _formatDuration(position);
+    final newProgress = duration.inSeconds > 0 ? position.inSeconds / duration.inSeconds : 0.0;
+    
+    if (newTime != _currentTime || newProgress != _progress || isPlaying != _isPlaying) {
+      setState(() {
+        _currentTime = newTime;
+        _progress = newProgress;
+        _isPlaying = isPlaying;
+      });
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -1702,23 +1720,38 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: LinearProgressIndicator(
-                  value: _recordedTotalDuration.inMilliseconds > 0 
-                      ? _recordedPosition.inMilliseconds / _recordedTotalDuration.inMilliseconds 
-                      : 0.0,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
-                  borderRadius: BorderRadius.circular(4),
+                child: ValueListenableBuilder<Duration>(
+                  valueListenable: _recordedTotalDuration,
+                  builder: (context, totalDuration, child) {
+                    return ValueListenableBuilder<Duration>(
+                      valueListenable: _recordedPosition,
+                      builder: (context, position, child) {
+                        return LinearProgressIndicator(
+                          value: totalDuration.inMilliseconds > 0
+                              ? position.inMilliseconds / totalDuration.inMilliseconds
+                              : 0.0,
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
+                          borderRadius: BorderRadius.circular(4),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                _formatDuration(_recordedTotalDuration),
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+              ValueListenableBuilder<Duration>(
+                valueListenable: _recordedTotalDuration,
+                builder: (context, totalDuration, child) {
+                  return Text(
+                    _formatDuration(totalDuration),
+                    style: const TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -1728,11 +1761,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
             children: [
               IconButton(
                 onPressed: () {
-                  setState(() {
-                    _recordedPath = null;
-                    _recordedPosition = Duration.zero;
-                    _recordedTotalDuration = Duration.zero;
-                  });
+                  setState(() => _recordedPath = null);
+                  _recordedPosition.value = Duration.zero;
+                  _recordedTotalDuration.value = Duration.zero;
                   _recordedPlayer.stop();
                 },
                 icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 28),
@@ -2021,8 +2052,8 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     }
     
     // Get the duration to display
-    final Duration displayDuration = isThisPlaying 
-        ? _listAudioDuration 
+    final Duration displayDuration = isThisPlaying
+        ? _listAudioDuration.value
         : (_audioDurations[url] ?? Duration.zero);
     
     return Container(
@@ -2040,11 +2071,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               } else {
                 if (_currentlyPlayingUrl != url) {
                   await _audioPlayer.stop();
-                  setState(() {
-                    _currentlyPlayingUrl = url;
-                    _listAudioPosition = Duration.zero;
-                    _listAudioDuration = _audioDurations[url] ?? Duration.zero;
-                  });
+                  setState(() => _currentlyPlayingUrl = url);
+                  _listAudioPosition.value = Duration.zero;
+                  _listAudioDuration.value = _audioDurations[url] ?? Duration.zero;
                 }
                 await _audioPlayer.play(UrlSource(url));
               }
@@ -2062,31 +2091,41 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              children: [
-                LinearProgressIndicator(
-                  value: isThisPlaying && _listAudioDuration.inMilliseconds > 0
-                      ? _listAudioPosition.inMilliseconds / _listAudioDuration.inMilliseconds
-                      : 0.0,
-                  backgroundColor: const Color(0xFFD1D5DB),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      isThisPlaying ? _formatDuration(_listAudioPosition) : '00:00',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
-                    ),
-                    Text(
-                      _formatDuration(displayDuration),
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
-                    ),
-                  ],
-                ),
-              ],
+            child: ValueListenableBuilder<Duration>(
+              valueListenable: _listAudioDuration,
+              builder: (context, listDuration, child) {
+                return ValueListenableBuilder<Duration>(
+                  valueListenable: _listAudioPosition,
+                  builder: (context, listPosition, child) {
+                    return Column(
+                      children: [
+                        LinearProgressIndicator(
+                          value: isThisPlaying && listDuration.inMilliseconds > 0
+                              ? listPosition.inMilliseconds / listDuration.inMilliseconds
+                              : 0.0,
+                          backgroundColor: const Color(0xFFD1D5DB),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3451E5)),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isThisPlaying ? _formatDuration(listPosition) : '00:00',
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                            ),
+                            Text(
+                              _formatDuration(displayDuration),
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],

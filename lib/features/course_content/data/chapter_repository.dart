@@ -39,7 +39,11 @@ class ChapterRepository {
     }
   }
 
-  Future<Map<String, dynamic>> activateCode(String code) async {
+  Future<Map<String, dynamic>> activateCode({
+    required String code,
+    required int itemId,
+    required String itemType,
+  }) async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'No token found'};
 
@@ -52,7 +56,11 @@ class ChapterRepository {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'code': code}),
+        body: jsonEncode({
+          'code': code,
+          'item_id': itemId,
+          'item_type': itemType,
+        }),
       );
 
       final data = jsonDecode(response.body);
