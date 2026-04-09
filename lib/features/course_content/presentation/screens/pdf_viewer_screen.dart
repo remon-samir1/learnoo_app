@@ -6,6 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+// For Android SDK version detection
+import 'package:device_info_plus/device_info_plus.dart';
+
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
   final String title;
@@ -79,45 +82,59 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     });
 
     try {
-      PermissionStatus status;
+      // Check Android SDK version
       if (Platform.isAndroid) {
-        status = await Permission.storage.request();
-      } else {
-        status = await Permission.photos.request();
+        final sdkVersion = int.tryParse(
+          RegExp(r'API (\d+)').firstMatch(await _getAndroidVersion() ?? '')?.group(1) ?? '0',
+        ) ?? 0;
+
+        // For Android 10+ (API 29+), use app directory and share
+        // For Android 9 and below (API 28-), request storage permission
+        if (sdkVersion < 29) {
+          final status = await Permission.storage.request();
+          if (!status.isGranted) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Storage permission denied'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+        }
       }
 
-      if (status.isGranted) {
-        late final String downloadPath;
-        if (Platform.isAndroid) {
-          downloadPath = '/storage/emulated/0/Download';
-        } else {
-          final dir = await getApplicationDocumentsDirectory();
-          downloadPath = dir.path;
-        }
+      // Download to app directory first
+      final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+      late final String downloadPath;
 
-        final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
-        final downloadFilePath = '$downloadPath/$fileName';
-
-        final dio = Dio();
-        await dio.download(widget.pdfUrl, downloadFilePath);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('PDF downloaded to Downloads/$fileName'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      if (Platform.isAndroid) {
+        // Use app documents directory (works on all Android versions)
+        final dir = await getApplicationDocumentsDirectory();
+        downloadPath = dir.path;
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission denied'),
-              backgroundColor: Colors.red,
+        final dir = await getApplicationDocumentsDirectory();
+        downloadPath = dir.path;
+      }
+
+      final downloadFilePath = '$downloadPath/$fileName';
+
+      final dio = Dio();
+      await dio.download(widget.pdfUrl, downloadFilePath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF saved to app storage: $fileName'),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'Share',
+              onPressed: () => _sharePdf(downloadFilePath),
             ),
-          );
-        }
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -135,6 +152,23 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         });
       }
     }
+  }
+
+  Future<void> _sharePdf(String filePath) async {
+    // Share functionality would require share_plus package
+    // For now, just show a message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Share functionality coming soon'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  Future<String?> _getAndroidVersion() async {
+    final deviceInfo = DeviceInfoPlugin();
+    final androidInfo = await deviceInfo.androidInfo;
+    return 'API ${androidInfo.version.sdkInt}';
   }
 
   @override

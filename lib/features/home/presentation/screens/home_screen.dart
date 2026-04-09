@@ -10,7 +10,11 @@ import '../../../course_content/presentation/screens/electronic_library_screen.d
 import '../../../course_content/presentation/screens/lecture_detail_screen.dart';
 import '../../../course_content/presentation/screens/subject_detail_screen.dart';
 import '../../../course_content/presentation/screens/unlock_material_screen.dart';
+import '../../../course_content/presentation/screens/pdf_viewer_screen.dart';
+import '../../../course_content/presentation/screens/live_sessions_screen.dart';
 import '../../../course_content/data/chapter_repository.dart';
+import '../../../course_content/data/live_room_repository.dart';
+import '../../../course_content/data/models/live_room.dart';
 import '../../../notes/data/notes_repository.dart';
 import '../../../notes/presentation/screens/summaries_list_screen.dart';
 import '../../../notes/presentation/screens/summary_detail_screen.dart';
@@ -33,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _libraryRepository = LibraryRepository();
   final _chapterRepository = ChapterRepository();
   final _searchRepository = SearchRepository();
+  final _liveRoomRepository = LiveRoomRepository();
   bool _isLoading = true;
   bool _isContinueWatchingLoading = true;
   bool _isCoursesLoading = true;
@@ -48,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _notes = [];
   List<dynamic> _libraries = [];
   List<dynamic> _continueWatchingList = [];
-  List<dynamic> _liveClasses = [];
+  List<LiveRoom> _liveClasses = [];
   bool _isLiveClassesLoading = true;
 
   // Search state variables
@@ -170,18 +175,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadLiveClasses() async {
     setState(() => _isLiveClassesLoading = true);
     try {
-      // TODO: Replace with actual API call when endpoint is available
-      // final result = await _courseRepository.getLiveClasses();
-      // if (result['success'] && mounted) {
-      //   setState(() {
-      //     _liveClasses = result['data'] ?? [];
-      //     _isLiveClassesLoading = false;
-      //   });
-      // }
-      
-      // For now, just end loading state with empty list
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
+      final result = await _liveRoomRepository.getLiveRooms();
+      if (result['success'] && mounted) {
+        setState(() {
+          _liveClasses = result['data'] as List<LiveRoom>;
+          _isLiveClassesLoading = false;
+        });
+      } else if (mounted) {
         setState(() => _isLiveClassesLoading = false);
       }
     } catch (e) {
@@ -959,6 +959,42 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (context) => SummaryDetailScreen(
           note: note,
+        ),
+      ),
+    );
+  }
+
+  void _openLibraryPdf(dynamic library) {
+    final attributes = library['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Material';
+    final attachments = attributes['attachments'] as List<dynamic>? ?? [];
+
+    // Find first PDF attachment that is not locked or downloadable
+    final pdfAttachment = attachments.firstWhere(
+      (attachment) {
+        final ext = attachment['attributes']?['extension']?.toString().toLowerCase() ?? '';
+        final isLocked = attachment['attributes']?['is_locked'] == true;
+        final downloadable = attachment['attributes']?['downloadable'] == true;
+        return ext == 'pdf' && (!isLocked || downloadable);
+      },
+      orElse: () => null,
+    );
+
+    final pdfUrl = pdfAttachment?['attributes']?['path']?.toString() ?? '';
+
+    if (pdfUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF not available')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerScreen(
+          pdfUrl: pdfUrl,
+          title: title,
         ),
       ),
     );
@@ -2099,6 +2135,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 builder: (context) => UnlockMaterialScreen(library: library),
                               ),
                             );
+                          } else {
+                            _openLibraryPdf(library);
                           }
                         },
                         child: Container(
@@ -2158,25 +2196,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Column(
-      children: _liveClasses.map((liveClass) {
-        final attributes = liveClass['attributes'] ?? {};
-        final title = attributes['title']?.toString() ?? 'Live Session';
-        final instructor = attributes['instructor']?['data']?['attributes']?['name']?.toString() ??
-            attributes['instructor_name']?.toString() ??
-            'Unknown Instructor';
-        final time = attributes['scheduled_at']?.toString() ??
-            attributes['time']?.toString() ??
-            'Time TBD';
-        final isLive = attributes['is_live'] == true ||
-            attributes['status']?.toString() == 'live';
-
+      children: _liveClasses.take(3).map((liveClass) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildLiveClassCard(
-            title: title,
-            instructor: instructor,
-            time: time,
-            isLive: isLive,
+            liveRoom: liveClass,
           ),
         );
       }).toList(),
@@ -2261,10 +2285,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLiveClassCard({
-    required String title,
-    required String instructor,
-    required String time,
-    required bool isLive,
+    required LiveRoom liveRoom,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2291,20 +2312,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.liveBg,
+                  color: liveRoom.isLive ? AppColors.liveBg : const Color(0xFFFFF9F0),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 3,
-                      backgroundColor: AppColors.liveText,
+                      backgroundColor: liveRoom.isLive ? AppColors.liveText : const Color(0xFFF2994A),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'LIVE',
+                      liveRoom.isLive ? 'LIVE' : 'UPCOMING',
                       style: TextStyle(
-                        color: AppColors.liveText,
+                        color: liveRoom.isLive ? AppColors.liveText : const Color(0xFFF2994A),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -2323,7 +2344,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            title,
+            liveRoom.title,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 17,
@@ -2332,7 +2353,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            instructor,
+            liveRoom.instructorName,
             style: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 14,
@@ -2341,7 +2362,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            time,
+            liveRoom.formattedTime,
             style: TextStyle(
               color: const Color(0xFF9CA3AF).withValues(alpha: 0.7),
               fontSize: 12,
@@ -2350,9 +2371,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              // Navigate to live session detail
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LiveSessionsScreen(),
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.joinLiveGreen,
+              backgroundColor: liveRoom.isLive ? AppColors.joinLiveGreen : const Color(0xFF5A75FF),
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
@@ -2360,9 +2389,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               elevation: 0,
             ),
-            child: const Text(
-              'JOIN LIVE',
-              style: TextStyle(
+            child: Text(
+              liveRoom.isLive ? 'JOIN LIVE' : 'VIEW DETAILS',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
@@ -2392,6 +2421,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadUserData();
     await _loadCourses();
     await _loadSubjects();
+    await _loadLiveClasses();
     await _loadNotes();
     await _loadLibraries();
     await _loadContinueWatching();

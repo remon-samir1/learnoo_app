@@ -90,11 +90,24 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
   void _openPdf(dynamic library) {
     final attributes = library['attributes'] ?? {};
     final title = attributes['title']?.toString() ?? 'Material';
-    final pdfUrl = attributes['file_url']?.toString() ?? attributes['pdf_url']?.toString() ?? '';
+    final attachments = attributes['attachments'] as List<dynamic>? ?? [];
+
+    // Find first PDF attachment that is not locked or downloadable
+    final pdfAttachment = attachments.firstWhere(
+      (attachment) {
+        final ext = attachment['attributes']?['extension']?.toString().toLowerCase() ?? '';
+        final isLocked = attachment['attributes']?['is_locked'] == true;
+        final downloadable = attachment['attributes']?['downloadable'] == true;
+        return ext == 'pdf' && (!isLocked || downloadable);
+      },
+      orElse: () => null,
+    );
+
+    final pdfUrl = pdfAttachment?['attributes']?['path']?.toString() ?? '';
 
     if (pdfUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PDF URL not available')),
+        const SnackBar(content: Text('PDF not available')),
       );
       return;
     }

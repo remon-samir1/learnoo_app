@@ -39,7 +39,20 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
     });
 
     try {
-      final result = await _libraryRepository.activateCode(code);
+      // Get library ID from the library data
+      final libraryId = int.tryParse(widget.library['id'].toString()) ?? 0;
+
+      if (libraryId == 0) {
+        setState(() => _isVerifying = false);
+        _showError('Invalid library ID');
+        return;
+      }
+
+      final result = await _libraryRepository.activateCode(
+        code: code,
+        itemId: libraryId,
+        itemType: 'library',
+      );
 
       if (mounted) {
         setState(() {

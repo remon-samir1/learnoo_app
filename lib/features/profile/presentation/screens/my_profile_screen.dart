@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:learnoo/features/auth/data/auth_repository.dart';
+import 'package:learnoo/features/auth/presentation/screens/login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'downloads_screen.dart';
 import 'settings_screen.dart';
@@ -419,13 +420,56 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF4B4B)),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+
+    final result = await _authRepository.logout();
+
+    setState(() => _isLoading = false);
+
+    if (mounted) {
+      if (result['success']) {
+        // Navigate to login screen and clear navigation stack
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Logout failed')),
+        );
+      }
+    }
+  }
+
   Widget _buildLogoutButton() {
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(
-        onPressed: () {
-          // TODO: Implement logout
-        },
+        onPressed: _handleLogout,
         icon: const FaIcon(FontAwesomeIcons.rightFromBracket, size: 16),
         label: const Text('Logout'),
         style: TextButton.styleFrom(

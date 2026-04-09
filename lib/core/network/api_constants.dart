@@ -15,6 +15,7 @@ class ApiConstants {
   static const String courses = '/v1/course';
   static const String updateProfile = '/v1/auth/update';
   static const String me = '/v1/auth/me';
+  static const String logout = '/v1/auth/logout';
   static const String lectures = '/v1/lecture';
   static const String chapters = '/v1/chapter';
   static const String codeActivate = '/v1/code/activate';
@@ -37,4 +38,7 @@ class ApiConstants {
 
   // User progress endpoint
   static const String userProgress = '/v1/user-progress';
+
+  // Live room endpoints
+  static const String liveRooms = '/v1/live-room';
 }

@@ -15,6 +15,10 @@ class AuthRepository {
     return await _storage.read(key: 'auth_token');
   }
 
+  Future<void> deleteToken() async {
+    await _storage.delete(key: 'auth_token');
+  }
+
   String _handleError(dynamic data, String defaultMessage) {
     if (data == null) return defaultMessage;
 
@@ -516,6 +520,40 @@ class AuthRepository {
       }
     } catch (e) {
       return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> logout() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.logout}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      // Clear token regardless of API response
+      await deleteToken();
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return {'success': true, 'message': 'Logged out successfully'};
+      } else {
+        final data = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        return {
+          'success': true, // Still consider success since we cleared local token
+          'message': data?['message'] ?? 'Logged out locally',
+        };
+      }
+    } catch (e) {
+      // Even if API call fails, clear local token
+      await deleteToken();
+      return {'success': true, 'message': 'Logged out locally'};
     }
   }
 }

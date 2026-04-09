@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../data/live_room_repository.dart';
+import '../../data/models/live_room.dart' as lr;
 import 'widgets/session_detail_modal.dart';
 import 'widgets/set_reminder_modal.dart';
 
@@ -12,83 +15,89 @@ class LiveSessionsScreen extends StatefulWidget {
 
 class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
   String _selectedFilter = 'All';
+  final LiveRoomRepository _liveRoomRepository = LiveRoomRepository();
+  List<lr.LiveRoom> _sessions = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  final List<LiveSession> _sessions = [
-    LiveSession(
-      id: '1',
-      title: 'Advanced Sorting Algorithms',
-      instructor: 'Dr. Sarah Ahmed',
-      time: 'Today, 6:00 PM',
-      duration: '90 min',
-      status: SessionStatus.now,
-      category: 'Computer Science',
-      description: 'Join the live session to review the key concepts from Chapter 1 and ask your questions directly.',
-      sessionInfo: 'This session is related to Financial Accounting Basics and can include revision, Q&A, and problem solving.',
-    ),
-    LiveSession(
-      id: '2',
-      title: 'Advanced Sorting Algorithms',
-      instructor: 'Dr. Sarah Ahmed',
-      time: 'Today, 6:00 PM',
-      duration: '90 min',
-      status: SessionStatus.upcoming,
-      category: 'Computer Science',
-      description: 'Join the live session to review the key concepts from Chapter 1 and ask your questions directly.',
-    ),
-    LiveSession(
-      id: '3',
-      title: 'Neural Networks Deep Dive',
-      instructor: 'Dr. Mohamed Ali',
-      time: 'Tomorrow, 4:00 PM',
-      duration: '120 min',
-      status: SessionStatus.now,
-      category: 'AI & Machine Learning',
-      description: 'Deep dive into neural network architectures and implementations.',
-    ),
-    LiveSession(
-      id: '4',
-      title: 'Advanced Sorting Algorithms',
-      instructor: 'Dr. Sarah Ahmed',
-      time: 'Today, 6:00 PM',
-      duration: '90 min',
-      status: SessionStatus.recorded,
-      category: 'Computer Science',
-      description: 'Replay the previous live explanation of financial statements anytime from the app.',
-      sessionInfo: 'This session is related to Financial Accounting Basics and can include revision, Q&A, and problem solving.',
-    ),
-    LiveSession(
-      id: '5',
-      title: 'Neural Networks Deep Dive',
-      instructor: 'Dr. Mohamed Ali',
-      time: 'Tomorrow, 4:00 PM',
-      duration: '120 min',
-      status: SessionStatus.now,
-      category: 'AI & Machine Learning',
-      description: 'Deep dive into neural network architectures and implementations.',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadLiveRooms();
+  }
 
-  List<LiveSession> get _filteredSessions {
+  Future<void> _loadLiveRooms() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _liveRoomRepository.getLiveRooms();
+      if (mounted) {
+        if (result['success']) {
+          setState(() {
+            _sessions = result['data'] as List<lr.LiveRoom>;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = result['message'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load live rooms';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<lr.LiveRoom> get _filteredSessions {
     if (_selectedFilter == 'All') return _sessions;
     if (_selectedFilter == 'Live Now') {
-      return _sessions.where((s) => s.status == SessionStatus.now).toList();
+      return _sessions.where((s) => s.status == lr.SessionStatus.now).toList();
     }
     if (_selectedFilter == 'Upcoming') {
-      return _sessions.where((s) => s.status == SessionStatus.upcoming).toList();
+      return _sessions.where((s) => s.status == lr.SessionStatus.upcoming).toList();
     }
     if (_selectedFilter == 'Recorded') {
-      return _sessions.where((s) => s.status == SessionStatus.recorded).toList();
+      return _sessions.where((s) => s.status == lr.SessionStatus.recorded).toList();
     }
     return _sessions;
   }
 
-  void _showSessionDetail(LiveSession session) {
+  SessionStatus _mapToModalStatus(lr.SessionStatus status) {
+    switch (status) {
+      case lr.SessionStatus.now:
+        return SessionStatus.now;
+      case lr.SessionStatus.upcoming:
+        return SessionStatus.upcoming;
+      case lr.SessionStatus.recorded:
+        return SessionStatus.recorded;
+    }
+  }
+
+  void _showSessionDetail(lr.LiveRoom session) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SessionDetailModal(
-        session: session,
+        session: LiveSession(
+          id: session.id,
+          title: session.title,
+          instructor: session.instructorName,
+          time: session.formattedTime,
+          duration: session.duration,
+          status: _mapToModalStatus(session.status),
+          category: session.courseTitle ?? 'General',
+          description: session.description,
+        ),
         onSetReminder: () {
           Navigator.pop(context);
           _showSetReminder(session);
@@ -105,7 +114,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     );
   }
 
-  void _showSetReminder(LiveSession session) {
+  void _showSetReminder(lr.LiveRoom session) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -137,15 +146,189 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           _buildHeader(),
           _buildFilterTabs(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _filteredSessions.length,
-              itemBuilder: (context, index) {
-                return _buildSessionCard(_filteredSessions[index]);
-              },
+            child: RefreshIndicator(
+              onRefresh: _loadLiveRooms,
+              color: const Color(0xFF4A68F6),
+              backgroundColor: Colors.white,
+              child: _isLoading
+                  ? _buildSkeletonList()
+                  : _errorMessage != null
+                      ? _buildErrorWidget()
+                      : _filteredSessions.isEmpty
+                          ? _buildEmptyWidget()
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: _filteredSessions.length,
+                              itemBuilder: (context, index) {
+                                return _buildSessionCard(_filteredSessions[index]);
+                              },
+                            ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return _buildSkeletonCard();
+      },
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              height: 18,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: 150,
+              height: 14,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 120,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.triangleExclamation,
+              color: Color(0xFFF2994A),
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage ?? 'Something went wrong',
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadLiveRooms,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A68F6),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.towerBroadcast,
+              color: Color(0xFFD1D5DB),
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No $_selectedFilter sessions found',
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -229,7 +412,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     );
   }
 
-  Widget _buildSessionCard(LiveSession session) {
+  Widget _buildSessionCard(lr.LiveRoom session) {
     return GestureDetector(
       onTap: () => _showSessionDetail(session),
       child: Container(
@@ -252,7 +435,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           children: [
             Row(
               children: [
-                _buildStatusBadge(session.status),
+                _buildStatusBadge(_mapToModalStatus(session.status)),
                 const Spacer(),
                 const FaIcon(
                   FontAwesomeIcons.towerBroadcast,
@@ -272,7 +455,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              session.instructor,
+              session.instructorName,
               style: const TextStyle(
                 color: Color(0xFF6B7280),
                 fontSize: 14,
@@ -281,7 +464,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${session.time} • ${session.duration}',
+              '${session.formattedTime} • ${session.duration}',
               style: TextStyle(
                 color: const Color(0xFF9CA3AF),
                 fontSize: 12,
@@ -297,31 +480,26 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
   }
 
   Widget _buildStatusBadge(SessionStatus status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-    Color dotColor;
-
-    switch (status) {
-      case SessionStatus.now:
-        bgColor = const Color(0xFFFFF0F0);
-        textColor = const Color(0xFFFF4B4B);
-        label = 'NOW';
-        dotColor = const Color(0xFFFF4B4B);
-        break;
-      case SessionStatus.upcoming:
-        bgColor = const Color(0xFFFFF9F0);
-        textColor = const Color(0xFFF2994A);
-        label = 'UPCOMING';
-        dotColor = const Color(0xFFF2994A);
-        break;
-      case SessionStatus.recorded:
-        bgColor = const Color(0xFFF0F2FF);
-        textColor = const Color(0xFF5A75FF);
-        label = 'RECORDED';
-        dotColor = const Color(0xFF5A75FF);
-        break;
-    }
+    final (bgColor, textColor, label, dotColor) = switch (status) {
+      SessionStatus.now => (
+          const Color(0xFFFFF0F0),
+          const Color(0xFFFF4B4B),
+          'NOW',
+          const Color(0xFFFF4B4B)
+        ),
+      SessionStatus.upcoming => (
+          const Color(0xFFFFF9F0),
+          const Color(0xFFF2994A),
+          'UPCOMING',
+          const Color(0xFFF2994A)
+        ),
+      SessionStatus.recorded => (
+          const Color(0xFFF0F2FF),
+          const Color(0xFF5A75FF),
+          'RECORDED',
+          const Color(0xFF5A75FF)
+        ),
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -355,8 +533,8 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     );
   }
 
-  Widget _buildActionButtons(LiveSession session) {
-    if (session.status == SessionStatus.now) {
+  Widget _buildActionButtons(lr.LiveRoom session) {
+    if (session.status == lr.SessionStatus.now) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -380,7 +558,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           ),
         ),
       );
-    } else if (session.status == SessionStatus.upcoming) {
+    } else if (session.status == lr.SessionStatus.upcoming) {
       return Row(
         children: [
           Expanded(
@@ -426,8 +604,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           ),
         ],
       );
-    } else {
-      // Recorded
+    } else if (session.status == lr.SessionStatus.recorded) {
       return Row(
         children: [
           Expanded(
@@ -474,5 +651,6 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
         ],
       );
     }
+    return const SizedBox.shrink();
   }
 }

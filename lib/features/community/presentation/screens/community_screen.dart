@@ -999,26 +999,26 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              FaIcon(
-                FontAwesomeIcons.comment,
-                color: AppColors.textGray,
-                size: 16,
-              ),
+              // const SizedBox(width: 16),
+              // FaIcon(
+              //   FontAwesomeIcons.comment,
+              //   color: AppColors.textGray,
+              //   size: 16,
+              // ),
               const SizedBox(width: 6),
-              Text(
-                '0',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textGray,
-                ),
-              ),
-              const Spacer(),
-              FaIcon(
-                FontAwesomeIcons.share,
-                color: AppColors.textGray,
-                size: 16,
-              ),
+              // Text(
+              //   '0',
+              //   style: TextStyle(
+              //     fontSize: 13,
+              //     color: AppColors.textGray,
+              //   ),
+              // ),
+              // const Spacer(),
+            //   FaIcon(
+            //     FontAwesomeIcons.share,
+            //     color: AppColors.textGray,
+            //     size: 16,
+            //   ),
             ],
           ),
         ],

@@ -454,10 +454,18 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     _videoController!.seekTo(position);
   }
 
-  Future<void> _activateCode(String code) async {
+  Future<void> _activateCode({
+    required String code,
+    required int itemId,
+    required String itemType,
+  }) async {
     if (code.isEmpty) return;
 
-    final result = await _chapterRepository.activateCode(code);
+    final result = await _chapterRepository.activateCode(
+      code: code,
+      itemId: itemId,
+      itemType: itemType,
+    );
     
     if (mounted) {
       if (result['success']) {
@@ -487,59 +495,115 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   void _showActivationCodeDialog() {
     final codeController = TextEditingController();
-    
+    String selectedType = 'chapter';
+    int? courseId;
+
+    // Try to get course ID from chapter data if available
+    if (_chapterData != null) {
+      final attributes = _chapterData!['attributes'] ?? {};
+      final courseData = attributes['course']?['data'];
+      if (courseData != null) {
+        courseId = int.tryParse(courseData['id'].toString());
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            FaIcon(FontAwesomeIcons.lock, color: Color(0xFFFF4B4B), size: 20),
-            SizedBox(width: 10),
-            Text('Chapter Locked'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This chapter is locked. Please enter your activation code to unlock it.',
-              style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: codeController,
-              decoration: InputDecoration(
-                hintText: 'Enter activation code (e.g., ABCD-1234)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const FaIcon(FontAwesomeIcons.key, size: 16),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              FaIcon(FontAwesomeIcons.lock, color: Color(0xFFFF4B4B), size: 20),
+              SizedBox(width: 10),
+              Text('Chapter Locked'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This chapter is locked. Please enter your activation code to unlock it.',
+                style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
+              const SizedBox(height: 16),
+              // Item Type Dropdown
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                decoration: InputDecoration(
+                  labelText: 'Apply code to',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const FaIcon(FontAwesomeIcons.layerGroup, size: 16),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'chapter',
+                    child: Text('This Chapter Only'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'course',
+                    child: Text('Full Course'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setDialogState(() {
+                    selectedType = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: codeController,
+                decoration: InputDecoration(
+                  hintText: 'Enter activation code (e.g., ABCD-1234)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const FaIcon(FontAwesomeIcons.key, size: 16),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final code = codeController.text.trim();
+                if (code.isNotEmpty) {
+                  Navigator.pop(context);
+                  final itemId = selectedType == 'chapter'
+                      ? int.tryParse(widget.chapterId) ?? 0
+                      : courseId ?? 0;
+                  if (itemId > 0) {
+                    _activateCode(
+                      code: code,
+                      itemId: itemId,
+                      itemType: selectedType,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Unable to determine item ID'),
+                        backgroundColor: Color(0xFFFF4B4B),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3451E5),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Unlock'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final code = codeController.text.trim();
-              if (code.isNotEmpty) {
-                Navigator.pop(context);
-                _activateCode(code);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3451E5),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Unlock'),
-          ),
-        ],
       ),
     );
   }
