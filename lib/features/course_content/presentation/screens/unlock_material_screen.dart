@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../data/library_repository.dart';
-import 'material_unlocked_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class UnlockMaterialScreen extends StatefulWidget {
   final dynamic library;
@@ -60,12 +60,7 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
         });
 
         if (result['success']) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MaterialUnlockedScreen(library: widget.library),
-            ),
-          );
+          _openPdf();
         } else {
           _showError(result['message'] ?? 'Invalid activation code');
         }
@@ -78,6 +73,39 @@ class _UnlockMaterialScreenState extends State<UnlockMaterialScreen> {
         _showError('Connection error. Please try again.');
       }
     }
+  }
+
+  void _openPdf() {
+    final attributes = widget.library['attributes'] ?? {};
+    final title = attributes['title']?.toString() ?? 'Material';
+    final attachments = attributes['attachments'] as List<dynamic>? ?? [];
+
+    final pdfAttachment = attachments.firstWhere(
+      (attachment) {
+        final ext = attachment['attributes']?['extension']?.toString().toLowerCase() ?? '';
+        return ext == 'pdf';
+      },
+      orElse: () => null,
+    );
+
+    final pdfUrl = pdfAttachment?['attributes']?['path']?.toString() ?? '';
+
+    if (pdfUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF not available')),
+      );
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerScreen(
+          pdfUrl: pdfUrl,
+          title: title,
+        ),
+      ),
+    );
   }
 
   void _showError(String message) {

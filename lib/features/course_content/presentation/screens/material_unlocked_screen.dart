@@ -167,7 +167,7 @@ class MaterialUnlockedScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   // Subtitle
                   Text(
-                    'You can now access this material\nanytime from your Electronic Library.',
+                    'You can now access this material an anytime from your Electronic Library.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -260,29 +260,29 @@ class MaterialUnlockedScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   // Open PDF Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openPdf(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2137D6),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      icon: const FaIcon(FontAwesomeIcons.bookOpen, size: 18),
-                      label: const Text(
-                        'Open PDF',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // SizedBox(
+                  //   width: double.infinity,
+                  //   height: 52,
+                  //   child: ElevatedButton.icon(
+                  //     onPressed: () => _openPdf(context),
+                  //     style: ElevatedButton.styleFrom(
+                  //       backgroundColor: const Color(0xFF2137D6),
+                  //       foregroundColor: Colors.white,
+                  //       shape: RoundedRectangleBorder(
+                  //         borderRadius: BorderRadius.circular(12),
+                  //       ),
+                  //       elevation: 0,
+                  //     ),
+                  //     icon: const FaIcon(FontAwesomeIcons.bookOpen, size: 18),
+                  //     label: const Text(
+                  //       'Open PDF',
+                  //       style: TextStyle(
+                  //         fontSize: 16,
+                  //         fontWeight: FontWeight.w600,
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
                   const SizedBox(height: 20),
                   // Back to Library Button
                   TextButton.icon(

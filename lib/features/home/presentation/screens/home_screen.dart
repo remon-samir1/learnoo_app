@@ -948,6 +948,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final chapterId = chapter['id']?.toString() ?? '';
     final attributes = chapter['attributes'] ?? {};
     final title = attributes['title']?.toString() ?? 'Chapter';
+    // course_id is a flat attribute in the chapter search result
+    final courseId = attributes['course_id']?.toString() ?? '';
 
     Navigator.push(
       context,
@@ -957,6 +959,7 @@ class _HomeScreenState extends State<HomeScreen> {
           lectureTitle: title,
           chapterId: chapterId,
           chapterTitle: title,
+          courseId: courseId,
         ),
       ),
     );
@@ -1969,13 +1972,13 @@ class _HomeScreenState extends State<HomeScreen> {
           final title = attributes['title']?.toString() ?? 'Untitled';
           final price = attributes['price']?.toString() ?? '0';
           final coverImage = attributes['cover_image']?.toString() ?? '';
-          final codeActivation = attributes['code_activation'] == true;
+          final isLocked = attributes['is_locked'] == true;
 
           return _buildLibraryCard(
             title: title,
             price: 'EGP $price',
             imageUrl: coverImage,
-            requiresCode: codeActivation,
+            requiresCode: isLocked,
             library: library,
           );
         }).toList(),
@@ -2158,7 +2161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            requiresCode ? 'Unlock' : 'Free',
+                            requiresCode ? 'Unlock' : 'Open',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -2464,6 +2467,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final chapterTitle = chapterAttributes['title']?.toString() ?? 'Chapter';
     final lectureId = chapterAttributes['lecture_id']?.toString() ?? '';
     final lectureTitle = chapterAttributes['lecture_title']?.toString() ?? 'Lecture';
+    // course_id is a flat attribute in the chapter data
+    final courseId = chapterAttributes['course_id']?.toString() ?? '';
 
     if (chapterId.isNotEmpty && lectureId.isNotEmpty) {
       Navigator.push(
@@ -2474,6 +2479,7 @@ class _HomeScreenState extends State<HomeScreen> {
             lectureTitle: lectureTitle,
             chapterId: chapterId,
             chapterTitle: chapterTitle,
+            courseId: courseId,
           ),
         ),
       );

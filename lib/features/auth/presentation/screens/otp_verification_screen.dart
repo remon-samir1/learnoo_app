@@ -181,7 +181,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         controller: _controllers[index],
         focusNode: _focusNodes[index],
         textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.text,
         maxLength: 1,
         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark),
         decoration: const InputDecoration(

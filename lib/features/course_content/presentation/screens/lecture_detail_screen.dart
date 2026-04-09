@@ -22,6 +22,7 @@ class LectureDetailScreen extends StatefulWidget {
   final String lectureTitle;
   final String chapterId;
   final String chapterTitle;
+  final String courseId;
 
   const LectureDetailScreen({
     super.key,
@@ -29,6 +30,7 @@ class LectureDetailScreen extends StatefulWidget {
     required this.lectureTitle,
     required this.chapterId,
     required this.chapterTitle,
+    required this.courseId,
   });
 
   @override
@@ -155,6 +157,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   }
 
   void _updateProgressBeforeLeaving() {
+    // Don't update progress if the chapter is locked — video was never played
+    if (_isLocked || !_canWatch) return;
+
     final chapterId = int.tryParse(widget.chapterId);
     if (chapterId == null) return;
 
@@ -496,16 +501,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   void _showActivationCodeDialog() {
     final codeController = TextEditingController();
     String selectedType = 'chapter';
-    int? courseId;
 
-    // Try to get course ID from chapter data if available
-    if (_chapterData != null) {
-      final attributes = _chapterData!['attributes'] ?? {};
-      final courseData = attributes['course']?['data'];
-      if (courseData != null) {
-        courseId = int.tryParse(courseData['id'].toString());
-      }
-    }
+    // course_id is passed directly from the chapter list API via widget parameter
+    final courseId = int.tryParse(widget.courseId);
 
     showDialog(
       context: context,

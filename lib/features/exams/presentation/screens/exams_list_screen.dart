@@ -16,7 +16,7 @@ class ExamsListScreen extends StatefulWidget {
 class _ExamsListScreenState extends State<ExamsListScreen> {
   final ExamRepository _examRepository = ExamRepository();
   List<Quiz> _quizzes = [];
-  Map<int, int> _remainingAttempts = {};
+  Map<int, int>  _remainingAttempts = {};
   Map<int, List<QuizAttempt>> _attemptsMap = {};
   bool _isLoading = true;
   String? _errorMessage;
@@ -111,20 +111,30 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
                       ? _buildSkeletonList()
                       : _errorMessage != null
                           ? _buildErrorView()
-                          : _quizzes.isEmpty
-                              ? _buildEmptyView()
-                              : RefreshIndicator(
-                                  onRefresh: _loadQuizzes,
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    itemCount: _quizzes.length,
-                                    itemBuilder: (context, index) {
-                                      final quiz = _quizzes[index];
-                                      final remaining = _remainingAttempts[quiz.quizId] ?? quiz.maxAttempts;
-                                      return _buildQuizCard(context, quiz, remaining);
-                                    },
-                                  ),
-                                ),
+                          : RefreshIndicator(
+                              onRefresh: _loadQuizzes,
+                              child: _quizzes.isEmpty
+                                  ? LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        return SingleChildScrollView(
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                            child: _buildEmptyView(),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      itemCount: _quizzes.length,
+                                      itemBuilder: (context, index) {
+                                        final quiz = _quizzes[index];
+                                        final remaining = _remainingAttempts[quiz.quizId] ?? quiz.maxAttempts;
+                                        return _buildQuizCard(context, quiz, remaining);
+                                      },
+                                    ),
+                            ),
                 ),
               ],
             ),
@@ -154,13 +164,13 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
   }
 
   Widget _buildEmptyView() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FaIcon(FontAwesomeIcons.clipboardList, size: 48, color: Colors.white70),
-          SizedBox(height: 16),
-          Text('No quizzes available', style: TextStyle(color: Colors.white, fontSize: 16)),
+          FaIcon(FontAwesomeIcons.clipboardList, size: 48, color: AppColors.textGray.withValues(alpha: 0.5)),
+          const SizedBox(height: 16),
+          const Text('No quizzes available', style: TextStyle(color: AppColors.textGray, fontSize: 16)),
         ],
       ),
     );

@@ -60,7 +60,7 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredCenters = _centers.where((center) {
-        final name = center['attributes']['name']?.toLowerCase() ?? '';
+        final name = center['name']?.toLowerCase() ?? '';
         return name.contains(query);
       }).toList();
     });
@@ -161,8 +161,7 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                         itemBuilder: (context, index) {
                           final center = _filteredCenters[index];
                           final id = center['id'];
-                          final attributes = center['attributes'];
-                          final name = attributes['name'] ?? 'Unknown';
+                          final name = center['name'] ?? 'Unknown';
                           final isSelected = _selectedCenterIds.contains(id);
                           
                           return GestureDetector(

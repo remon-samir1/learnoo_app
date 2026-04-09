@@ -133,13 +133,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } else {
       if (mounted) {
+        final errors = result['errors'];
+        String errorText = result['message'];
+        if (errors != null && errors is Map) {
+          final errorMessages = errors.entries
+              .where((e) => e.value is List && (e.value as List).isNotEmpty)
+              .map((e) => (e.value as List).first.toString())
+              .join('\n');
+          if (errorMessages.isNotEmpty) {
+            errorText = errorMessages;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(child: Text(result['message'])),
+                Expanded(child: Text(errorText)),
               ],
             ),
             backgroundColor: Colors.red,

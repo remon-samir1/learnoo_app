@@ -113,7 +113,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     final lectureTitle = lecture['attributes']?['title']?.toString() ?? 'Lecture';
     final chapterId = chapter['id']?.toString() ?? '';
     final chapterTitle = chapter['attributes']?['title']?.toString() ?? 'Chapter';
-    
+    // course_id comes directly from the chapter attributes in the chapters API response
+    final courseId = chapter['attributes']?['course_id']?.toString() ?? widget.courseId;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -122,6 +124,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           lectureTitle: lectureTitle,
           chapterId: chapterId,
           chapterTitle: chapterTitle,
+          courseId: courseId,
         ),
       ),
     );
@@ -142,7 +145,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               children: [
                 _isLoadingLectures ? _buildLecturesSkeleton() : _buildLecturesTab(),
                 _buildExamsTab(),
-                _buildQATab(),
+                // _buildQATab(),
               ],
             ),
           ),
@@ -281,7 +284,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         tabs: const [
           Tab(text: 'Lectures & PDF'),
           Tab(text: 'Exams'),
-          Tab(text: 'Q&A'),
+          // Tab(text: 'Q&A'),
         ],
       ),
     );

@@ -279,7 +279,12 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                 const SizedBox(height: 20),
                 // Materials List
                 Expanded(
-                  child: _buildBody(),
+                  child: RefreshIndicator(
+                    onRefresh: _loadLibraries,
+                    color: const Color(0xFF5A75FF),
+                    backgroundColor: Colors.white,
+                    child: _buildBody(),
+                  ),
                 ),
               ],
             ),
@@ -295,10 +300,13 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             Icon(
               Icons.error_outline,
               size: 48,
@@ -324,14 +332,17 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
             ),
           ],
         ),
-      );
+      ]);
     }
 
     if (_libraries.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             Icon(
               Icons.library_books_outlined,
               size: 48,
@@ -347,42 +358,50 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
             ),
           ],
         ),
-      );
+      ]);
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _groupedLibraries.entries.map((entry) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const FaIcon(
-                    FontAwesomeIcons.book,
-                    color: Color(0xFF5A75FF),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    entry.key.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2937),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _groupedLibraries.entries.map((entry) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.book,
+                          color: Color(0xFF5A75FF),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          entry.key.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ...entry.value.map((library) => _buildMaterialCard(library)),
-              const SizedBox(height: 20),
-            ],
-          );
-        }).toList(),
-      ),
+                    const SizedBox(height: 12),
+                    ...entry.value.map((library) => _buildMaterialCard(library)),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -488,7 +507,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
     final description = attributes['description']?.toString() ?? '';
     final materialType = attributes['material_type']?.toString() ?? 'Unknown';
     final coverImage = attributes['cover_image']?.toString() ?? '';
-    final codeActivation = attributes['code_activation'] == true;
+    final isLocked = attributes['is_locked'] == true;
     final price = attributes['price']?.toString() ?? '0';
 
     return Container(
@@ -527,7 +546,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                   },
                 ),
               ),
-              if (codeActivation)
+              if (isLocked)
                 Positioned(
                   top: 6,
                   right: 6,
@@ -589,7 +608,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (codeActivation)
+                if (isLocked)
                   Row(
                     children: [
                       FaIcon(
@@ -599,7 +618,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Requires code - EGP $price',
+                        'Requires unlock - EGP $price',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -618,7 +637,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                       ),
                       const SizedBox(width: 4),
                       const Text(
-                        'Free Access',
+                        'Paid Access',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -630,7 +649,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
               ],
             ),
           ),
-          if (!codeActivation)
+          if (!isLocked)
             OutlinedButton.icon(
               onPressed: () => _openPdf(library),
               style: OutlinedButton.styleFrom(

@@ -252,7 +252,7 @@ class _ResetPasswordVerificationScreenState
         controller: _controllers[index],
         focusNode: _focusNodes[index],
         textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.text,
         maxLength: 1,
         style: const TextStyle(
           fontSize: 20,
