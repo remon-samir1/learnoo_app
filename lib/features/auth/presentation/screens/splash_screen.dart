@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import 'profile_screen.dart';
+import 'verification_method_screen.dart';
 import '../../data/auth_repository.dart';
 import '../../../../features/home/presentation/screens/main_screen.dart';
 
@@ -34,6 +35,33 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final result = await _authRepository.getProfile();
     if (result['success']) {
+      final profileData = result['data'];
+
+      // Check if the user has verified their email or phone.
+      // If both are null, the account is unverified — send to verification flow.
+      final emailVerifiedAt = profileData?['email_verified_at'];
+      final phoneVerifiedAt = profileData?['phone_verified_at'];
+      final isVerified = emailVerifiedAt != null || phoneVerifiedAt != null;
+
+      if (!isVerified) {
+        // User registered but never verified — redirect to verification
+        if (mounted) {
+          final email = profileData?['email'] ?? '';
+          final phone = profileData?['phone'] ?? '';
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerificationMethodScreen(
+                token: token,
+                email: email,
+                phone: phone,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
