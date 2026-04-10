@@ -39,8 +39,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
       // Check if the user has verified their email or phone.
       // If both are null, the account is unverified — send to verification flow.
-      final emailVerifiedAt = profileData?['email_verified_at'];
-      final phoneVerifiedAt = profileData?['phone_verified_at'];
+      final attributes = profileData?['attributes'] ?? profileData;
+      final emailVerifiedAt = attributes?['email_verified_at'];
+      final phoneVerifiedAt = attributes?['phone_verified_at'];
       final isVerified = emailVerifiedAt != null || phoneVerifiedAt != null;
 
       if (!isVerified) {

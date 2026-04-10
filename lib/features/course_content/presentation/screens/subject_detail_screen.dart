@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/course_repository.dart';
+import '../../data/live_room_repository.dart';
+import '../../data/models/live_room.dart' as lr;
 import '../../../exams/data/exam_repository.dart';
 import '../../../exams/models/quiz_models.dart';
 import 'course_detail_screen.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'pdf_reviewer_screen.dart';
+import 'live_stream_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
   final String subjectId;
@@ -33,8 +36,11 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   final _examRepository = ExamRepository();
   bool _isLoadingCourses = true;
   bool _isLoadingExams = true;
+  bool _isLoadingLiveRooms = true;
   List<dynamic> _courses = [];
   List<Quiz> _exams = [];
+  List<lr.LiveRoom> _liveRooms = [];
+  final _liveRoomRepository = LiveRoomRepository();
 
   @override
   void initState() {
@@ -46,7 +52,11 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   Future<void> _loadData() async {
     await Future.wait([
       _loadCourses(),
+    ]);
+    // Load exams and live rooms after courses to have course IDs for filtering
+    await Future.wait([
       _loadExams(),
+      _loadLiveRooms(),
     ]);
   }
 
@@ -527,27 +537,136 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     );
   }
 
+  Future<void> _loadLiveRooms() async {
+    setState(() => _isLoadingLiveRooms = true);
+    try {
+      final result = await _liveRoomRepository.getLiveRooms();
+      if (result['success'] && mounted) {
+        final allLiveRooms = result['data'] as List<lr.LiveRoom>;
+        // Filter live rooms by course IDs in this subject
+        final courseIds = _courses.map((c) => c['id']?.toString()).where((id) => id != null).toSet();
+        setState(() {
+          _liveRooms = allLiveRooms.where((room) => courseIds.contains(room.courseId)).toList();
+          _isLoadingLiveRooms = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingLiveRooms = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLiveRooms = false);
+      }
+    }
+  }
+
   Widget _buildLiveTab() {
-    return ListView(
+    if (_isLoadingLiveRooms) {
+      return _buildLiveRoomsSkeletonList();
+    }
+
+    if (_liveRooms.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No live sessions available for this subject',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(20),
-      children: [
-        _buildLiveCard(
-          'Weekly Review Session',
-          'Dr. Ahmed',
-          'Today, 6:00 PM • 90 min',
-          isLive: true,
-        ),
-        _buildLiveCard(
-          'Q&A Session',
-          'Dr. Ahmed',
-          'Tomorrow, 4:00 PM • 60 min',
-          isLive: true,
-        ),
-      ],
+      itemCount: _liveRooms.length,
+      itemBuilder: (context, index) {
+        final room = _liveRooms[index];
+        return _buildLiveRoomCard(room);
+      },
     );
   }
 
-  Widget _buildLiveCard(String title, String instructor, String time, {required bool isLive}) {
+  Widget _buildLiveRoomsSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: 2,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 18,
+                  width: double.infinity,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 14,
+                  width: 120,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  height: 12,
+                  width: 100,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  height: 50,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLiveRoomCard(lr.LiveRoom room) {
+    final isLive = room.status == lr.SessionStatus.now;
+    final isUpcoming = room.status == lr.SessionStatus.upcoming;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -570,17 +689,20 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0F0),
+                  color: isLive ? const Color(0xFFFFF0F0) : (isUpcoming ? const Color(0xFFFFF9F0) : const Color(0xFFF0F2FF)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    CircleAvatar(radius: 3, backgroundColor: Color(0xFFFF4B4B)),
-                    SizedBox(width: 6),
+                    CircleAvatar(
+                      radius: 3,
+                      backgroundColor: isLive ? const Color(0xFFFF4B4B) : (isUpcoming ? const Color(0xFFF2994A) : const Color(0xFF5A75FF)),
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      'LIVE',
+                      isLive ? 'LIVE' : (isUpcoming ? 'UPCOMING' : 'RECORDED'),
                       style: TextStyle(
-                        color: Color(0xFFFF4B4B),
+                        color: isLive ? const Color(0xFFFF4B4B) : (isUpcoming ? const Color(0xFFF2994A) : const Color(0xFF5A75FF)),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -589,36 +711,114 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 ),
               ),
               const Spacer(),
-              const FaIcon(FontAwesomeIcons.towerBroadcast, color: Color(0xFFFF4B4B), size: 18),
+              FaIcon(
+                FontAwesomeIcons.towerBroadcast,
+                color: isLive ? const Color(0xFFFF4B4B) : const Color(0xFF5A75FF),
+                size: 18,
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF1F2937)),
+            room.title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              color: Color(0xFF1F2937),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            instructor,
-            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+            room.instructorName,
+            style: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
-            time,
-            style: TextStyle(color: const Color(0xFF9CA3AF).withValues(alpha: 0.7), fontSize: 12),
+            '${room.formattedTime} • ${room.duration}',
+            style: TextStyle(
+              color: const Color(0xFF9CA3AF).withValues(alpha: 0.7),
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2DBC77),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
+          if (isLive)
+            ElevatedButton(
+              onPressed: () {
+                // Handle join live
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2DBC77),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'JOIN LIVE',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            )
+          else if (isUpcoming)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      // Handle view details
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF6B7280),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text(
+                      'View Details',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Handle set reminder
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5A75FF),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Set Reminder',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            ElevatedButton(
+              onPressed: () {
+                // Handle watch recorded
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5A75FF),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'WATCH RECORDING',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
             ),
-            child: const Text('JOIN LIVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          ),
         ],
       ),
     );

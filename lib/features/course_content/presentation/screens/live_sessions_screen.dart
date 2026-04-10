@@ -5,6 +5,7 @@ import '../../data/live_room_repository.dart';
 import '../../data/models/live_room.dart' as lr;
 import 'widgets/session_detail_modal.dart';
 import 'widgets/set_reminder_modal.dart';
+import 'live_stream_screen.dart';
 
 class LiveSessionsScreen extends StatefulWidget {
   const LiveSessionsScreen({super.key});
@@ -104,11 +105,21 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
         },
         onJoinNow: () {
           Navigator.pop(context);
-          // Handle join now
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LiveStreamScreen(liveRoom: session),
+            ),
+          );
         },
         onWatch: () {
           Navigator.pop(context);
-          // Handle watch recorded
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LiveStreamScreen(liveRoom: session),
+            ),
+          );
         },
       ),
     );

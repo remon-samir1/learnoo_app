@@ -13,6 +13,7 @@ import '../../../course_content/presentation/screens/subject_detail_screen.dart'
 import '../../../course_content/presentation/screens/unlock_material_screen.dart';
 import '../../../course_content/presentation/screens/pdf_viewer_screen.dart';
 import '../../../course_content/presentation/screens/live_sessions_screen.dart';
+import '../../../course_content/presentation/screens/live_stream_screen.dart';
 import '../../../course_content/data/chapter_repository.dart';
 import '../../../course_content/data/live_room_repository.dart';
 import '../../../course_content/data/models/live_room.dart';
@@ -2384,13 +2385,23 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              // Navigate to live session detail
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LiveSessionsScreen(),
-                ),
-              );
+              if (liveRoom.isLive) {
+                // Navigate to live stream screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LiveStreamScreen(liveRoom: liveRoom),
+                  ),
+                );
+              } else {
+                // Navigate to live sessions screen for upcoming sessions
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LiveSessionsScreen(),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: liveRoom.isLive ? AppColors.joinLiveGreen : const Color(0xFF5A75FF),
