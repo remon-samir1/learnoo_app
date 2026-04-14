@@ -13,7 +13,7 @@ void main() async {
   final patterns = [
     RegExp(r'class\s+\w+\s*(?:extends\s+\w+)?\s*(?:implements\s+[\w,\s]+)?\s*\{[^}]*\}'),
     RegExp(r'(?:String|int|double|bool|void|Future|List|Map|Widget)\s+\w+\s*\([^)]*\)\s*(?:async\s*)?[\{;]'),
-    RegExp(r'import\s+[\'"]\s*[^\'"]+[\'"];'),
+    RegExp(r'''import\s+['"]\s*[^'"]+['"];'''),
     RegExp(r'@override'),
   ];
   

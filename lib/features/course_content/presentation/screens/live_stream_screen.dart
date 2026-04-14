@@ -33,7 +33,7 @@ class ChatMessage {
 /// Replace these values with your actual PeerJS-compatible server details.
 const _kPeerHost = 'peer.learnoo.app'; // your PeerJS server host
 const _kPeerPort = 443;
-const _kPeerPath = '/peerjs';
+const _kPeerPath = '/server';
 const _kPeerSecure = true; // use wss://
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -130,10 +130,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _initPeer() async {
-    // HOST uses the liveRoom.id so every viewer knows the stable peer ID.
+    // HOST uses the liveRoom.id directly as the peer ID.
     // VIEWER uses a short random suffix to avoid ID collisions.
     final peerId = widget.isHost
-        ? 'host-${widget.liveRoom.id}'
+        ? widget.liveRoom.id
         : 'viewer-${_randomSuffix()}';
 
     _peer = Peer(
@@ -143,11 +143,37 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
         port: _kPeerPort,
         path: _kPeerPath,
         secure: _kPeerSecure,
+        config: {
+          'iceServers': [
+            {'urls': 'stun:stun.relay.metered.ca:80'},
+            {
+              'urls': 'turn:global.relay.metered.ca:80',
+              'username': 'f29e7283f4043b41d539ce22',
+              'credential': '+61zZCdLwcLhN0KX',
+            },
+            {
+              'urls': 'turn:global.relay.metered.ca:80?transport=tcp',
+              'username': 'f29e7283f4043b41d539ce22',
+              'credential': '+61zZCdLwcLhN0KX',
+            },
+            {
+              'urls': 'turn:global.relay.metered.ca:443',
+              'username': 'f29e7283f4043b41d539ce22',
+              'credential': '+61zZCdLwcLhN0KX',
+            },
+            {
+              'urls': 'turns:global.relay.metered.ca:443?transport=tcp',
+              'username': 'f29e7283f4043b41d539ce22',
+              'credential': '+61zZCdLwcLhN0KX',
+            },
+          ],
+        },
         debug: LogLevel.All,
       ),
     );
 
     _peer.on('open').listen((id) {
+      debugPrint('✅ Peer opened with ID: $id');
       if (!mounted) return;
       setState(() {
         _statusMessage = widget.isHost ? 'Broadcasting…' : 'Joining stream…';
@@ -160,12 +186,24 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     });
 
     _peer.on('error').listen((err) {
+      debugPrint('❌ Peer error: $err');
       if (!mounted) return;
       setState(() {
         _isConnecting = false;
         _statusMessage = 'Error: $err';
       });
       _showSnack('Connection error: $err');
+    });
+
+    // Connection timeout fallback for peer initialization
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted && _isConnecting && _statusMessage == 'Connecting…') {
+        setState(() {
+          _isConnecting = false;
+          _statusMessage = 'Server unreachable. Check connection.';
+        });
+        _showSnack('Could not connect to peer server. Please check your internet or try again.');
+      }
     });
 
     _peer.on('disconnected').listen((_) {
@@ -177,9 +215,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
       _peer.reconnect();
     });
 
-    // HOST: listen for incoming media calls and data connections.
+    // Listen for incoming media calls and data connections.
+    _peer.on<MediaConnection>('call').listen(_answerCall);
     if (widget.isHost) {
-      _peer.on<MediaConnection>('call').listen(_answerCall);
       _peer.on<DataConnection>('connection').listen(_onIncomingData);
     }
   }
@@ -212,17 +250,45 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     }
   }
 
-  /// Called when a viewer calls the host.
-  void _answerCall(MediaConnection call) {
+  /// Called when a media call is received (from host to viewer or vice versa).
+  void _answerCall(MediaConnection call) async {
+    if (_localStream == null) {
+      _localStream = await createLocalMediaStream('viewer-dummy');
+    }
     call.answer(_localStream!);
+
     _mediaConnection = call;
+
     call.on<MediaStream>('stream').listen((stream) {
-      // Host doesn't need the remote stream in the main view.
+      if (!mounted) return;
+      if (!widget.isHost) {
+        _remoteRenderer.srcObject = stream;
+        setState(() {
+          _isConnecting = false;
+          _isConnected = true;
+          _statusMessage = 'Connected to live stream';
+        });
+      }
     });
+
+    call.on('error').listen((err) {
+      debugPrint('❌ MediaConnection error: $err');
+    });
+
     call.on('close').listen((_) {
-      if (mounted) setState(() => _viewerCount = max(0, _viewerCount - 1));
+      if (mounted) {
+        if (widget.isHost) {
+          setState(() => _viewerCount = max(0, _viewerCount - 1));
+        } else {
+          setState(() {
+            _isConnected = false;
+            _statusMessage = 'Stream ended';
+          });
+        }
+      }
     });
-    if (mounted) setState(() => _viewerCount++);
+
+    if (mounted && widget.isHost) setState(() => _viewerCount++);
   }
 
   /// Called when a viewer opens a data channel to the host.
@@ -237,52 +303,19 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Viewer logic
-  // ─────────────────────────────────────────────────────────────────────────
-
   Future<void> _joinAsViewer() async {
-    final hostId = 'host-${widget.liveRoom.id}';
+    final hostId = widget.liveRoom.id;
 
     // ── Media ──────────────────────────────────────────────────────────────
-    // Viewers still send a dummy audio-only stream so the host's answer works.
+    // Viewers still send a dummy / mic stream so the call handshake works.
     try {
       _localStream = await navigator.mediaDevices.getUserMedia({
         'video': false,
         'audio': true,
       });
     } catch (_) {
-      // Viewer mic not strictly required – create empty stream.
       _localStream = await createLocalMediaStream('viewer-dummy');
     }
-
-    final call = _peer.call(hostId, _localStream!);
-    _mediaConnection = call;
-
-    call.on<MediaStream>('stream').listen((stream) {
-      if (!mounted) return;
-      _remoteRenderer.srcObject = stream;
-      setState(() {
-        _isConnecting = false;
-        _isConnected = true;
-        _statusMessage = 'Connected to live stream';
-      });
-    });
-
-    call.on('error').listen((err) {
-      if (!mounted) return;
-      setState(() {
-        _isConnecting = false;
-        _statusMessage = 'Could not reach host';
-      });
-    });
-
-    call.on('close').listen((_) {
-      if (!mounted) return;
-      setState(() {
-        _isConnected = false;
-        _statusMessage = 'Stream ended';
-      });
-    });
 
     // ── Data channel ───────────────────────────────────────────────────────
     final dataConn = _peer.connect(hostId, options: PeerConnectOption(
@@ -293,8 +326,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     _dataConnections.add(dataConn);
 
     dataConn.on('open').listen((_) {
-      // Announce presence.
-      dataConn.send({'type': 'join', 'name': 'Student'});
+      // Announce presence and request to join (handshake).
+      dataConn.send({
+        'action': 'join',
+        'id': _peer.id,
+        'name': 'Student',
+      });
     });
 
     dataConn.on<dynamic>('data').listen((data) => _onDataReceived(data, dataConn));
@@ -326,7 +363,19 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
 
   void _onDataReceived(dynamic data, DataConnection source) {
     if (data is! Map) return;
+
     final type = data['type'] as String?;
+    final action = data['action'] as String?;
+
+    // Handle handshake join action (Host side)
+    if (action == 'join' && widget.isHost) {
+      final peerId = data['id'] as String?;
+      if (peerId != null && _localStream != null) {
+        debugPrint('🤝 Handshake: Calling back viewer $peerId');
+        _peer.call(peerId, _localStream!);
+      }
+    }
+
     if (type == 'chat') {
       final msg = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -638,9 +687,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.3),
+                    Colors.black.withValues(alpha: 0.3),
                     Colors.transparent,
-                    const Color(0xFF0F172A).withOpacity(0.7),
+                    const Color(0xFF0F172A).withValues(alpha: 0.7),
                   ],
                   stops: const [0, 0.4, 1],
                 ),
@@ -729,7 +778,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4A68F6).withOpacity(0.85),
+                      color: const Color(0xFF4A68F6).withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -758,7 +807,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                 image: NetworkImage(widget.liveRoom.courseThumbnail!),
                 fit: BoxFit.cover,
                 colorFilter: ColorFilter.mode(
-                  Colors.black.withOpacity(0.55),
+                  Colors.black.withValues(alpha: 0.55),
                   BlendMode.darken,
                 ),
               )
@@ -788,7 +837,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.wifi_tethering, color: Colors.white60, size: 34),

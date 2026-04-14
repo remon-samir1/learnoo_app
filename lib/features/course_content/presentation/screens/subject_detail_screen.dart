@@ -9,7 +9,6 @@ import '../../../exams/models/quiz_models.dart';
 import 'course_detail_screen.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'pdf_reviewer_screen.dart';
-import 'live_stream_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
   final String subjectId;
