@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class NotificationItem {
@@ -33,9 +34,9 @@ class NotificationsScreen extends StatelessWidget {
     final newNotifications = [
       NotificationItem(
         id: '1',
-        title: 'Live Session Starting',
-        description: 'Advanced Sorting Algorithms with Dr. Sarah Ahmed is starting now!',
-        time: '2 min ago',
+        title: 'home.live_session_starting'.tr(),
+        description: 'home.advanced_sorting'.tr(),
+        time: 'home.two_min_ago'.tr(),
         icon: FontAwesomeIcons.video,
         iconBackgroundColor: const Color(0xFFFFF0F0),
         iconColor: const Color(0xFFFF4B4B),
@@ -44,9 +45,9 @@ class NotificationsScreen extends StatelessWidget {
       ),
       NotificationItem(
         id: '2',
-        title: 'New Lecture Available',
-        description: 'Chapter 5: Cost Analysis has been uploaded to Cost Accounting.',
-        time: '1 hour ago',
+        title: 'home.new_lecture'.tr(),
+        description: 'home.chapter_5_cost'.tr(),
+        time: 'home.one_hour_ago'.tr(),
         icon: FontAwesomeIcons.bookOpen,
         iconBackgroundColor: const Color(0xFFF0F5FF),
         iconColor: const Color(0xFF5A75FF),
@@ -55,9 +56,9 @@ class NotificationsScreen extends StatelessWidget {
       ),
       NotificationItem(
         id: '3',
-        title: 'Exam Reminder',
-        description: 'Chapter 3 Quiz starts tomorrow at 2:00 PM. Don\'t forget to prepare!',
-        time: '3 hours ago',
+        title: 'home.exam_reminder'.tr(),
+        description: 'home.chapter_3_quiz'.tr(),
+        time: 'home.three_hours_ago'.tr(),
         icon: FontAwesomeIcons.calendarCheck,
         iconBackgroundColor: const Color(0xFFFFF8F0),
         iconColor: const Color(0xFFF2994A),
@@ -69,9 +70,9 @@ class NotificationsScreen extends StatelessWidget {
     final earlierNotifications = [
       NotificationItem(
         id: '4',
-        title: 'New Reply',
-        description: 'Dr. Sarah Ahmed replied to your question about fixed costs.',
-        time: '5 hours ago',
+        title: 'home.new_reply'.tr(),
+        description: 'home.dr_sarah_reply'.tr(),
+        time: 'home.five_hours_ago'.tr(),
         icon: FontAwesomeIcons.commentDots,
         iconBackgroundColor: const Color(0xFFF0FFF6),
         iconColor: const Color(0xFF27AE60),
@@ -80,9 +81,9 @@ class NotificationsScreen extends StatelessWidget {
       ),
       NotificationItem(
         id: '5',
-        title: 'New Summary Added',
-        description: 'Chapter 4 Summary has been added to your Accounting course.',
-        time: 'Yesterday',
+        title: 'home.new_summary'.tr(),
+        description: 'home.chapter_4_summary'.tr(),
+        time: 'home.yesterday'.tr(),
         icon: FontAwesomeIcons.fileLines,
         iconBackgroundColor: const Color(0xFFF0F5FF),
         iconColor: const Color(0xFF5A75FF),
@@ -91,9 +92,9 @@ class NotificationsScreen extends StatelessWidget {
       ),
       NotificationItem(
         id: '6',
-        title: 'Welcome to Learnoo!',
-        description: 'Start exploring your courses and join live sessions.',
-        time: '2 days ago',
+        title: 'home.welcome_learnoo'.tr(),
+        description: 'home.start_exploring'.tr(),
+        time: 'home.two_days_ago'.tr(),
         icon: FontAwesomeIcons.bell,
         iconBackgroundColor: const Color(0xFFF5F5F5),
         iconColor: const Color(0xFF9CA3AF),
@@ -135,11 +136,11 @@ class NotificationsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Center(
                       child: Text(
-                        'Notifications',
-                        style: TextStyle(
+                        'home.notifications_title'.tr(),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF111827),
@@ -164,9 +165,9 @@ class NotificationsScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       color: const Color(0xFFF9FAFB),
-                      child: const Text(
-                        'New',
-                        style: TextStyle(
+                      child: Text(
+                        'home.notifications_new'.tr(),
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF6B7280),
@@ -182,9 +183,9 @@ class NotificationsScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       color: const Color(0xFFF9FAFB),
-                      child: const Text(
-                        'Earlier',
-                        style: TextStyle(
+                      child: Text(
+                        'home.notifications_earlier'.tr(),
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF6B7280),

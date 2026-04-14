@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/library_repository.dart';
@@ -43,7 +44,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
           });
         } else {
           setState(() {
-            _errorMessage = result['message'] ?? 'Failed to load libraries';
+            _errorMessage = result['message'] ?? 'course.failed_load_libraries'.tr();
             _isLoading = false;
           });
         }
@@ -51,7 +52,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Connection error: $e';
+          _errorMessage = 'course.connection_error'.tr(args: [e.toString()]);
           _isLoading = false;
         });
       }
@@ -89,7 +90,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
 
   void _openPdf(dynamic library) {
     final attributes = library['attributes'] ?? {};
-    final title = attributes['title']?.toString() ?? 'Material';
+    final title = attributes['title']?.toString() ?? 'course.material'.tr();
     final attachments = attributes['attachments'] as List<dynamic>? ?? [];
 
     // Find first PDF attachment that is not locked or downloadable
@@ -107,7 +108,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
 
     if (pdfUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PDF not available')),
+        SnackBar(content: Text('course.pdf_not_available'.tr())),
       );
       return;
     }
@@ -176,11 +177,11 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                           ),
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Electronic Library',
+                          'course.electronic_library'.tr(),
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -210,7 +211,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                     ),
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Search materials...',
+                        hintText: 'course.search_materials'.tr(),
                         hintStyle: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,
@@ -261,7 +262,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                               ),
                             ),
                             child: Text(
-                              filter,
+                              filter == 'All' ? 'course.all'.tr() : 'course.$filter'.tr(),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -328,7 +329,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                 backgroundColor: const Color(0xFF5A75FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Retry'),
+              child: Text('course.retry'.tr()),
             ),
           ],
         ),
@@ -350,7 +351,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No materials available',
+              'course.no_materials_available'.tr(),
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,
@@ -383,7 +384,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          entry.key.toUpperCase(),
+                          entry.key == 'Other' ? entry.key.toUpperCase() : 'course.${entry.key.toLowerCase()}'.tr().toUpperCase(),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -503,9 +504,9 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
 
   Widget _buildMaterialCard(dynamic library) {
     final attributes = library['attributes'] ?? {};
-    final title = attributes['title']?.toString() ?? 'Untitled';
+    final title = attributes['title']?.toString() ?? 'course.untitled'.tr();
     final description = attributes['description']?.toString() ?? '';
-    final materialType = attributes['material_type']?.toString() ?? 'Unknown';
+    final materialType = attributes['material_type']?.toString() ?? 'course.unknown'.tr();
     final coverImage = attributes['cover_image']?.toString() ?? '';
     final isLocked = attributes['is_locked'] == true;
     final price = attributes['price']?.toString() ?? '0';
@@ -599,7 +600,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    materialType,
+                    materialType == 'course.unknown'.tr() || materialType == 'Other' ? materialType : 'course.${materialType.toLowerCase()}'.tr(),
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -618,7 +619,7 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Requires unlock - EGP $price',
+                        '${'course.requires_unlock'.tr()} - EGP $price',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -636,9 +637,9 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                         size: 12,
                       ),
                       const SizedBox(width: 4),
-                      const Text(
-                        'Paid Access',
-                        style: TextStyle(
+                      Text(
+                        'course.paid_access'.tr(),
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF27AE60),
@@ -661,9 +662,9 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               icon: const FaIcon(FontAwesomeIcons.bookOpen, size: 12),
-              label: const Text(
-                'Open',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              label: Text(
+                'course.open'.tr(),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             )
           else
@@ -679,9 +680,9 @@ class _ElectronicLibraryScreenState extends State<ElectronicLibraryScreen> {
                 elevation: 0,
               ),
               icon: const FaIcon(FontAwesomeIcons.key, size: 12),
-              label: const Text(
-                'Unlock',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              label: Text(
+                'course.unlock'.tr(),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
         ],

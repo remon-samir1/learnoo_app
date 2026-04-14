@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
@@ -119,8 +120,8 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your academic journey starts here',
-                  style: TextStyle(
+                  'auth.academic_journey'.tr(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                   ),

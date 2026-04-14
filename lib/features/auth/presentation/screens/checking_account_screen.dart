@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'verification_success_screen.dart';
 
@@ -55,19 +56,19 @@ class _CheckingAccountScreenState extends State<CheckingAccountScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Checking account...',
-                style: TextStyle(
+              Text(
+                'auth.checking_account'.tr(),
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Please wait while we verify your\nphone number',
+              Text(
+                'auth.please_wait_verify'.tr(),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   color: AppColors.textGray,
                   height: 1.5,

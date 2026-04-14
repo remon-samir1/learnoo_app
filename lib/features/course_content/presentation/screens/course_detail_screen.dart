@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/lecture_repository.dart';
@@ -32,7 +33,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   final _lectureRepository = LectureRepository();
   final _examRepository = ExamRepository();
   late TabController _tabController;
-  
+
   bool _isLoadingLectures = true;
   bool _isLoadingExams = true;
   List<dynamic> _lectures = [];
@@ -48,10 +49,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   Future<void> _loadData() async {
-    await Future.wait([
-      _loadLectures(),
-      _loadExams(),
-    ]);
+    await Future.wait([_loadLectures(), _loadExams()]);
   }
 
   Future<void> _loadExams() async {
@@ -62,7 +60,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         final allExams = result['data'] as List<Quiz>;
         final courseIdInt = int.tryParse(widget.courseId) ?? -1;
         setState(() {
-          _exams = allExams.where((exam) => exam.courseId == courseIdInt).toList();
+          _exams = allExams
+              .where((exam) => exam.courseId == courseIdInt)
+              .toList();
           _isLoadingExams = false;
         });
       } else if (mounted) {
@@ -92,10 +92,16 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       final courseId = int.tryParse(widget.courseId);
       final result = await _lectureRepository.getLectures(courseId: courseId);
       if (result['success'] && mounted) {
-        final lectures = result['data'] ?? [];
+        final allLectures = result['data'] as List<dynamic>? ?? [];
+        final filteredLectures = allLectures.where((lecture) {
+          final attributes = lecture['attributes'] ?? {};
+          final lectureCourseId = attributes['course_id']?.toString();
+          return lectureCourseId == widget.courseId;
+        }).toList();
+
         setState(() {
-          _lectures = lectures;
-          _isExpanded = List<bool>.filled(lectures.length, false);
+          _lectures = filteredLectures;
+          _isExpanded = List<bool>.filled(filteredLectures.length, false);
           _isLoadingLectures = false;
         });
       } else if (mounted) {
@@ -110,11 +116,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   void _navigateToLecture(dynamic lecture, dynamic chapter) {
     final lectureId = lecture['id']?.toString() ?? '';
-    final lectureTitle = lecture['attributes']?['title']?.toString() ?? 'Lecture';
+    final lectureTitle =
+        lecture['attributes']?['title']?.toString() ?? 'course.untitled_lecture'.tr();
     final chapterId = chapter['id']?.toString() ?? '';
-    final chapterTitle = chapter['attributes']?['title']?.toString() ?? 'Chapter';
+    final chapterTitle =
+        chapter['attributes']?['title']?.toString() ?? 'course.untitled_chapter'.tr();
     // course_id comes directly from the chapter attributes in the chapters API response
-    final courseId = chapter['attributes']?['course_id']?.toString() ?? widget.courseId;
+    final courseId =
+        chapter['attributes']?['course_id']?.toString() ?? widget.courseId;
 
     Navigator.push(
       context,
@@ -137,13 +146,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       body: Column(
         children: [
           _buildHeader(),
-          _buildProgressSection(),
+          // _buildProgressSection(),
           _buildTabBar(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                _isLoadingLectures ? _buildLecturesSkeleton() : _buildLecturesTab(),
+                _isLoadingLectures
+                    ? _buildLecturesSkeleton()
+                    : _buildLecturesTab(),
                 _buildExamsTab(),
                 // _buildQATab(),
               ],
@@ -200,7 +211,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                       color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -216,7 +231,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 Text(
                   widget.description.isNotEmpty
                       ? widget.description.split('\n').first
-                      : 'Course',
+                      : 'course.course'.tr(),
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.7),
@@ -239,9 +254,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Course Progress',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+              Text(
+                'course.course_progress'.tr(),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               const Text(
                 '65%',
@@ -281,9 +296,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         indicatorWeight: 3,
         indicatorPadding: EdgeInsets.zero,
         labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-        tabs: const [
-          Tab(text: 'Lectures & PDF'),
-          Tab(text: 'Exams'),
+        tabs: [
+          Tab(text: 'course.lectures_and_pdf'.tr()),
+          Tab(text: 'course.exams'.tr()),
           // Tab(text: 'Q&A'),
         ],
       ),
@@ -306,11 +321,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             child: Column(
               children: [
                 ListTile(
-                  title: Container(
-                    height: 16,
-                    width: 200,
-                    color: Colors.white,
-                  ),
+                  title: Container(height: 16, width: 200, color: Colors.white),
                   subtitle: Container(
                     height: 12,
                     width: 100,
@@ -327,13 +338,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Widget _buildLecturesTab() {
     if (_lectures.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No lectures available for this course',
-          style: TextStyle(
-            color: Color(0xFF9CA3AF),
-            fontSize: 14,
-          ),
+          'course.no_lectures_available'.tr(),
+          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
         ),
       );
     }
@@ -344,8 +352,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         final index = entry.key;
         final lecture = entry.value;
         final attributes = lecture['attributes'] ?? {};
-        final lectureTitle = attributes['title']?.toString() ?? 'Untitled Lecture';
-        
+        final lectureTitle =
+            attributes['title']?.toString() ?? 'course.untitled_lecture'.tr();
+
         return Column(
           children: [
             _buildChapterItem(index, lectureTitle, lecture),
@@ -360,7 +369,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     bool isExpanded = _isExpanded.length > index ? _isExpanded[index] : false;
     final attributes = lecture['attributes'] ?? {};
     final chapters = attributes['chapters'] as List<dynamic>? ?? [];
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -375,7 +384,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             subtitle: Text(
-              '${chapters.length} chapters',
+              '${chapters.length} ${'course.chapters'.tr()}',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             trailing: Icon(
@@ -396,12 +405,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               final chapterIndex = entry.key;
               final chapter = entry.value;
               final chapterAttrs = chapter['attributes'] ?? {};
-              final chapterTitle = chapterAttrs['title']?.toString() ?? 'Untitled Chapter';
+              final chapterTitle =
+                  chapterAttrs['title']?.toString() ?? 'course.untitled_chapter'.tr();
               final duration = chapterAttrs['duration']?.toString() ?? '--:--';
               final thumbnail = chapterAttrs['thumbnail']?.toString() ?? '';
               final isLocked = chapterAttrs['is_locked'] as bool? ?? false;
-              final isFreePreview = chapterAttrs['is_free_preview'] as bool? ?? false;
-              
+              final isFreePreview =
+                  chapterAttrs['is_free_preview'] as bool? ?? false;
+
               final widgets = <Widget>[
                 _buildLectureListItem(
                   chapterTitle,
@@ -413,11 +424,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   isLocked: isLocked,
                 ),
               ];
-              
+
               if (chapterIndex < chapters.length - 1) {
                 widgets.add(const Divider(height: 1, color: Color(0xFFF1F1F1)));
               }
-              
+
               return widgets;
             }).toList(),
           ],
@@ -459,7 +470,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                                 color: Colors.grey[300],
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.play_arrow, color: Colors.white),
+                              child: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                              ),
                             );
                           },
                         )
@@ -470,7 +484,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                             color: Colors.grey[300],
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.play_arrow, color: Colors.white),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                          ),
                         ),
                 ),
                 Positioned.fill(
@@ -499,7 +516,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                         color: Color(0xFF2DBC77),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 8),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 8,
+                      ),
                     ),
                   ),
               ],
@@ -511,27 +532,43 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                      const Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 4),
-                      Text(duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(
+                        duration,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (isFreePreview)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F9F0),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'Free Preview',
-                        style: TextStyle(
+                      child: Text(
+                        'course.free_preview'.tr(),
+                        style: const TextStyle(
                           color: Color(0xFF2DBC77),
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
@@ -540,15 +577,20 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                     )
                   else
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF0F2FF),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        isLocked ? 'Locked' : 'Watch',
+                        isLocked ? 'course.locked'.tr() : 'course.watch'.tr(),
                         style: TextStyle(
-                          color: isLocked ? Colors.grey : const Color(0xFF3451E5),
+                          color: isLocked
+                              ? Colors.grey
+                              : const Color(0xFF3451E5),
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -569,12 +611,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     }
 
     if (_exams.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24.0),
           child: Text(
-            'No exams available for this course',
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+            'course.no_exams_available'.tr(),
+            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -618,7 +660,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   ],
                 ),
                 const SizedBox(height: 24),
-                Container(height: 54, width: double.infinity, color: Colors.white),
+                Container(
+                  height: 54,
+                  width: double.infinity,
+                  color: Colors.white,
+                ),
               ],
             ),
           ),
@@ -629,9 +675,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Widget _buildExamCard(Quiz exam) {
     final isAvailable = exam.isAvailable;
-    final status = isAvailable ? 'Available' : (exam.isExpired ? 'Expired' : 'Upcoming');
-    final statusColor = isAvailable ? const Color(0xFF27AE60) : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
-    final statusBgColor = isAvailable ? const Color(0xFFE6F7F0) : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
+    final status = isAvailable
+        ? 'course.available'.tr()
+        : (exam.isExpired ? 'course.expired'.tr() : 'course.upcoming'.tr());
+    final statusColor = isAvailable
+        ? const Color(0xFF27AE60)
+        : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
+    final statusBgColor = isAvailable
+        ? const Color(0xFFE6F7F0)
+        : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -669,52 +721,78 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           const SizedBox(height: 12),
           Text(
             exam.title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: Color(0xFF1F2937),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 8),
-              Text('${exam.duration} Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              Text(
+                '${exam.duration} ${'course.minutes'.tr()}',
+                style: TextStyle(color: Colors.grey[600], fontSize: 15),
+              ),
               const SizedBox(width: 24),
-              FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.grey[400]),
+              FaIcon(
+                FontAwesomeIcons.circleInfo,
+                size: 14,
+                color: Colors.grey[400],
+              ),
               const SizedBox(width: 8),
-              Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              Text(
+                exam.type.toUpperCase(),
+                style: TextStyle(color: Colors.grey[600], fontSize: 15),
+              ),
             ],
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: isAvailable ? () async {
-              final result = await _examRepository.startQuizAttempt(exam.quizId);
-              if (result['success'] && mounted) {
-                final attempt = result['data'] as QuizAttempt;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => QuizScreen(
-                      quiz: exam,
-                      attempt: attempt,
-                    ),
-                  ),
-                );
-              } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
-                );
-              }
-            } : null,
+            onPressed: isAvailable
+                ? () async {
+                    final result = await _examRepository.startQuizAttempt(
+                      exam.quizId,
+                    );
+                    if (result['success'] && mounted) {
+                      final attempt = result['data'] as QuizAttempt;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              QuizScreen(quiz: exam, attempt: attempt),
+                        ),
+                      );
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result['message'] ?? 'course.failed_start_exam'.tr(),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isAvailable ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
+              backgroundColor: isAvailable
+                  ? const Color(0xFF263EE2)
+                  : const Color(0xFFC4C4C4),
               foregroundColor: Colors.white,
               disabledBackgroundColor: const Color(0xFFC4C4C4),
               disabledForegroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 54),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 0,
             ),
             child: Text(
-              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
+              isAvailable
+                  ? 'course.start_exam'.tr()
+                  : (exam.isExpired ? 'course.status_expired'.tr() : 'course.coming_soon'.tr()),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
@@ -741,7 +819,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                     'name': 'Dr. Sarah Ahmed',
                     'role': 'Instructor',
                     'time': '1 hour ago',
-                    'text': 'Great question! Merge sort always has O(n log n) complexity, while quick sort has average O(n log n) but worst case O(n²).',
+                    'text':
+                        'Great question! Merge sort always has O(n log n) complexity, while quick sort has average O(n log n) but worst case O(n²).',
                   },
                 ),
               ],
@@ -771,17 +850,26 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   onTap: () => setState(() => _qaFilter = filter),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFF0F2FF) : Colors.white,
+                      color: isSelected
+                          ? const Color(0xFFF0F2FF)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       filter,
                       style: TextStyle(
-                        color: isSelected ? const Color(0xFF3451E5) : Colors.grey,
+                        color: isSelected
+                            ? const Color(0xFF3451E5)
+                            : Colors.grey,
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -809,13 +897,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         children: [
           Row(
             children: [
-              CircleAvatar(radius: 20, backgroundImage: NetworkImage(avatarUrl)),
+              CircleAvatar(
+                radius: 20,
+                backgroundImage: NetworkImage(avatarUrl),
+              ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    time,
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
                 ],
               ),
             ],
@@ -823,7 +923,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.only(left: 52),
-            child: Text(text, style: TextStyle(color: Colors.grey[800], fontSize: 13)),
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.grey[800], fontSize: 13),
+            ),
           ),
           if (response != null) ...[
             const SizedBox(height: 16),
@@ -872,7 +975,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                             ),
                             const SizedBox(height: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF263EE2),
                                 borderRadius: BorderRadius.circular(4),
@@ -889,13 +995,23 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           ],
                         ),
                         const Spacer(),
-                        Text(response['time']!, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                        Text(
+                          response['time']!,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
                       response['text']!,
-                      style: TextStyle(color: Colors.grey[800], fontSize: 13, height: 1.4),
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -927,8 +1043,13 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 ),
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: _qaFilter == 'Comments' ? 'Write a comment...' : 'Type here...',
-                    hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                    hintText: _qaFilter == 'Comments'
+                        ? 'Write a comment...'
+                        : 'Type here...',
+                    hintStyle: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
                     border: InputBorder.none,
                   ),
                 ),
@@ -937,7 +1058,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             const SizedBox(width: 12),
             _buildCircleActionButton(Icons.mic_none, const Color(0xFF263EE2)),
             const SizedBox(width: 12),
-            _buildCircleActionButton(Icons.send_rounded, const Color(0xFF263EE2)),
+            _buildCircleActionButton(
+              Icons.send_rounded,
+              const Color(0xFF263EE2),
+            ),
           ],
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -36,8 +37,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEmailMode
-              ? 'Please enter your email address'
-              : 'Please enter your phone number'),
+              ? 'auth.enter_email_snack'.tr()
+              : 'auth.enter_phone_snack'.tr()),
         ),
       );
       return;
@@ -45,7 +46,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (_isEmailMode && !_isValidEmail(contact)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address')),
+        SnackBar(content: Text('auth.valid_email_snack'.tr())),
       );
       return;
     }
@@ -70,7 +71,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to send verification code'),
+            content: Text(result['message'] ?? 'auth.failed_send_code'.tr()),
             backgroundColor: Colors.red,
           ),
         );
@@ -105,8 +106,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   const SizedBox(height: 24),
                   Text(
                     _isEmailMode
-                        ? 'Enter your email address\nto received verification\ncode'
-                        : 'Enter your phone number\nto received verification\ncode',
+                        ? 'auth.forgot_email_desc'.tr()
+                        : 'auth.forgot_phone_desc'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -128,21 +129,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   const SizedBox(height: 24),
                   if (_isEmailMode)
                     CustomTextField(
-                      label: 'Email Address',
-                      hintText: 'Enter your email address',
+                      label: 'auth.email_label'.tr(),
+                      hintText: 'auth.email_hint'.tr(),
                       keyboardType: TextInputType.emailAddress,
                       controller: _emailController,
                     )
                   else
                     CustomTextField(
-                      label: 'Phone number',
-                      hintText: 'Enter your phone number',
+                      label: 'auth.phone_label'.tr(),
+                      hintText: 'auth.phone_hint'.tr(),
                       keyboardType: TextInputType.phone,
                       controller: _phoneController,
                     ),
                   const SizedBox(height: 40),
                   PrimaryButton(
-                    text: 'SEND',
+                    text: 'auth.send'.tr(),
                     isLoading: _isLoading,
                     onPressed: _isLoading ? null : _handleSend,
                   ),
@@ -183,7 +184,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Email',
+                      'auth.email'.tr(),
                       style: TextStyle(
                         color: _isEmailMode ? Colors.white : AppColors.textGray,
                         fontWeight: FontWeight.w600,
@@ -214,7 +215,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Phone',
+                      'auth.phone'.tr(),
                       style: TextStyle(
                         color: !_isEmailMode ? Colors.white : AppColors.textGray,
                         fontWeight: FontWeight.w600,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -74,7 +75,7 @@ class _ResetPasswordVerificationScreenState
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Code resent successfully'),
+          content: Text(result['message'] ?? 'auth.code_resent'.tr()),
           backgroundColor: result['success'] ? Colors.green : Colors.red,
         ),
       );
@@ -88,8 +89,8 @@ class _ResetPasswordVerificationScreenState
     final code = _controllers.map((c) => c.text).join();
     if (code.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the 6-digit code'),
+        SnackBar(
+          content: Text('auth.enter_six_digit'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -119,7 +120,7 @@ class _ResetPasswordVerificationScreenState
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to verify code'),
+            content: Text(result['message'] ?? 'auth.failed_verify'.tr()),
             backgroundColor: Colors.red,
           ),
         );
@@ -146,8 +147,8 @@ class _ResetPasswordVerificationScreenState
             const SizedBox(height: 40),
             Text(
               widget.isEmail
-                  ? 'Verify your Email address'
-                  : 'Verify your Phone number',
+                  ? 'auth.verify_email_address'.tr()
+                  : 'auth.verify_phone_number'.tr(),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -166,8 +167,8 @@ class _ResetPasswordVerificationScreenState
                 children: [
                   TextSpan(
                     text: widget.isEmail
-                        ? 'We sent a verification code to your email\naddress '
-                        : 'We sent a verification code to your phone\nnumber ',
+                        ? 'auth.sent_code_email'.tr()
+                        : 'auth.sent_code_phone_number'.tr(),
                   ),
                   TextSpan(
                     text: widget.phoneOrEmail,
@@ -206,7 +207,7 @@ class _ResetPasswordVerificationScreenState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Resend code in 0:${_secondsRemaining.toString().padLeft(2, '0')}',
+                    '${'auth.resend_code_in'.tr()}0:${_secondsRemaining.toString().padLeft(2, '0')}',
                     style: const TextStyle(
                       color: AppColors.textDark,
                       fontWeight: FontWeight.w500,
@@ -215,9 +216,9 @@ class _ResetPasswordVerificationScreenState
                 ] else
                   TextButton(
                     onPressed: _isLoading ? null : _handleResend,
-                    child: const Text(
-                      'Resend Code',
-                      style: TextStyle(
+                    child: Text(
+                      'auth.resend_code'.tr(),
+                      style: const TextStyle(
                         color: AppColors.primaryBlue,
                         fontWeight: FontWeight.bold,
                         decoration: TextDecoration.underline,
@@ -228,7 +229,7 @@ class _ResetPasswordVerificationScreenState
             ),
             const Spacer(),
             PrimaryButton(
-              text: 'VERIFY',
+              text: 'auth.verify_btn_caps'.tr(),
               isLoading: _isLoading,
               onPressed: _isLoading ? null : _handleVerify,
             ),

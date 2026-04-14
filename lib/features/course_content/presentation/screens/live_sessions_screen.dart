@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/live_room_repository.dart';
@@ -51,7 +52,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load live rooms';
+          _errorMessage = 'course.failed_load_live_rooms'.tr();
           _isLoading = false;
         });
       }
@@ -96,7 +97,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           time: session.formattedTime,
           duration: session.duration,
           status: _mapToModalStatus(session.status),
-          category: session.courseTitle ?? 'General',
+          category: session.courseTitle ?? 'course.general'.tr(),
           description: session.description,
         ),
         onSetReminder: () {
@@ -136,7 +137,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Reminder set for $minutes minutes before session'),
+              content: Text('course.reminder_set'.tr(args: [minutes.toString()])),
               backgroundColor: const Color(0xFF4A68F6),
             ),
           );
@@ -292,7 +293,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _errorMessage ?? 'Something went wrong',
+              _errorMessage ?? 'course.something_went_wrong'.tr(),
               style: const TextStyle(
                 color: Color(0xFF6B7280),
                 fontSize: 14,
@@ -309,7 +310,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Retry'),
+              child: Text('course.retry'.tr()),
             ),
           ],
         ),
@@ -331,7 +332,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No $_selectedFilter sessions found',
+              'course.no_sessions_found'.tr(args: [_selectedFilter == 'All' ? 'course.all'.tr() : _selectedFilter == 'Live Now' ? 'course.live_now'.tr() : _selectedFilter == 'Upcoming' ? 'course.upcoming_filter'.tr() : 'course.recorded_filter'.tr()]),
               style: const TextStyle(
                 color: Color(0xFF6B7280),
                 fontSize: 14,
@@ -366,9 +367,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
               child: Column(
                 children: [
-                  const Text(
-                    'Live Sessions',
-                    style: TextStyle(
+                  Text(
+                    'course.live_sessions'.tr(),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -407,7 +408,7 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                     ),
                   ),
                   child: Text(
-                    filter,
+                    filter == 'All' ? 'course.all'.tr() : filter == 'Live Now' ? 'course.live_now'.tr() : filter == 'Upcoming' ? 'course.upcoming_filter'.tr() : 'course.recorded_filter'.tr(),
                     style: TextStyle(
                       color: isSelected ? Colors.white : const Color(0xFF6B7280),
                       fontSize: 13,
@@ -495,19 +496,19 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
       SessionStatus.now => (
           const Color(0xFFFFF0F0),
           const Color(0xFFFF4B4B),
-          'NOW',
+          'course.live_uppercase'.tr(),
           const Color(0xFFFF4B4B)
         ),
       SessionStatus.upcoming => (
           const Color(0xFFFFF9F0),
           const Color(0xFFF2994A),
-          'UPCOMING',
+          'course.upcoming_uppercase'.tr(),
           const Color(0xFFF2994A)
         ),
       SessionStatus.recorded => (
           const Color(0xFFF0F2FF),
           const Color(0xFF5A75FF),
-          'RECORDED',
+          'course.recorded_uppercase'.tr(),
           const Color(0xFF5A75FF)
         ),
     };
@@ -559,9 +560,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
             ),
             elevation: 0,
           ),
-          child: const Text(
-            'JOIN LIVE',
-            style: TextStyle(
+          child: Text(
+            'course.join_live'.tr(),
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
@@ -583,9 +584,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'View Details',
-                style: TextStyle(
+              child: Text(
+                'course.view_details'.tr(),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -604,9 +605,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'Set Reminder',
-                style: TextStyle(
+              child: Text(
+                'course.set_reminder'.tr(),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -629,9 +630,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'View Details',
-                style: TextStyle(
+              child: Text(
+                'course.view_details'.tr(),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -650,9 +651,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'Watch',
-                style: TextStyle(
+              child: Text(
+                'course.watch'.tr(),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),

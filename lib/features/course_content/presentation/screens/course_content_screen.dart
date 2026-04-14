@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../features/exams/data/exam_repository.dart';
@@ -173,9 +174,9 @@ class _CourseContentScreenState extends State<CourseContentScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Course Progress',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+              Text(
+                'course.course_progress'.tr(),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               const Text(
                 '65%',
@@ -214,9 +215,9 @@ class _CourseContentScreenState extends State<CourseContentScreen>
         indicatorColor: const Color(0xFF3451E5),
         indicatorWeight: 3,
         indicatorPadding: const EdgeInsets.symmetric(horizontal: 20),
-        tabs: const [
-          Tab(text: 'Lectures & PDF'),
-          Tab(text: 'Exams'),
+        tabs: [
+          Tab(text: 'course.lectures_and_pdf'.tr()),
+          Tab(text: 'course.exams'.tr()),
         ],
       ),
     );
@@ -226,9 +227,9 @@ class _CourseContentScreenState extends State<CourseContentScreen>
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _buildChapterItem(0, 'Chapter 1: Introduction'),
+        _buildChapterItem(0, 'course.chapter_1_intro'.tr()),
         const SizedBox(height: 20),
-        _buildChapterItem(1, 'Chapter 2: Stack & Queue'),
+        _buildChapterItem(1, 'course.chapter_2_stack'.tr()),
       ],
     );
   }
@@ -257,20 +258,20 @@ class _CourseContentScreenState extends State<CourseContentScreen>
           if (isExpanded) ...[
             const Divider(height: 1, color: Color(0xFFF1F1F1)),
             _buildLectureListItem(
-              'What is Financial Accounting?',
+              'course.what_is_financial'.tr(),
               '45:30',
               'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400',
               true,
             ),
             const Divider(height: 1, color: Color(0xFFF1F1F1)),
             _buildLectureListItem(
-              'Accounting Concepts & Principles',
+              'course.accounting_concepts'.tr(),
               '52:15',
               'https://images.unsplash.com/photo-1454165833767-027ffcb7141b?w=400',
               true,
             ),
             const Divider(height: 1, color: Color(0xFFF1F1F1)),
-            _buildPDFListItem('Chapter 1 Notes', '24 pages'),
+            _buildPDFListItem('course.chapter_1_notes'.tr(), 'course.twenty_four_pages'.tr()),
           ],
         ],
       ),
@@ -336,9 +337,9 @@ class _CourseContentScreenState extends State<CourseContentScreen>
                     color: const Color(0xFFF0F2FF),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'Watch',
-                    style: TextStyle(
+                  child: Text(
+                    'course.watch'.tr(),
+                    style: const TextStyle(
                       color: Color(0xFF3451E5),
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
@@ -407,12 +408,12 @@ class _CourseContentScreenState extends State<CourseContentScreen>
     }
 
     if (_exams.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24.0),
           child: Text(
-            'No exams available for this course',
-            style: TextStyle(color: Colors.grey, fontSize: 15),
+            'course.no_exams_available'.tr(),
+            style: const TextStyle(color: Colors.grey, fontSize: 15),
           ),
         ),
       );
@@ -493,13 +494,13 @@ class _CourseContentScreenState extends State<CourseContentScreen>
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
               ),
               if (!isAvailable && exam.isExpired)
-                const Text('Expired', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('course.expired'.tr(), style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('${exam.duration} Minutes', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              Text('${exam.duration} ${'course.minutes'.tr()}', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
               const SizedBox(width: 24),
               Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 15)),
             ],
@@ -521,7 +522,7 @@ class _CourseContentScreenState extends State<CourseContentScreen>
                 );
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
+                  SnackBar(content: Text(result['message'] ?? 'course.failed_start_exam'.tr())),
                 );
               }
             } : null,
@@ -533,7 +534,7 @@ class _CourseContentScreenState extends State<CourseContentScreen>
               elevation: 0,
             ),
             child: Text(
-              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
+              isAvailable ? 'course.start_exam'.tr() : (exam.isExpired ? 'course.status_expired'.tr() : 'course.coming_soon'.tr()),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 
@@ -29,10 +30,10 @@ class VerificationSuccessScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 48),
-            const Text(
-              'Phone number\nverified successfully.',
+            Text(
+              'auth.phone_verified_success'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
@@ -40,17 +41,17 @@ class VerificationSuccessScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Let\'s set up your account to get started.',
+            Text(
+              'auth.setup_account'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 color: AppColors.textGray,
               ),
             ),
             const Spacer(),
             PrimaryButton(
-              text: 'Continue',
+              text: 'auth.continue_btn'.tr(),
               onPressed: () {
                 // Navigate to next part of the app (e.g., Profile Setup or Home)
                 // For now, maybe pop to root or navigate to a placeholder profile screen

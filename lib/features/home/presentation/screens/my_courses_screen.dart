@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../course_content/data/course_repository.dart';
@@ -169,12 +170,12 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
           bottomRight: Radius.circular(32),
         ),
       ),
-      child: const SafeArea(
+      child: SafeArea(
         bottom: false,
         child: Center(
           child: Text(
-            'My Courses',
-            style: TextStyle(
+            'home.my_courses_title'.tr(),
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -210,7 +211,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                 _performSearch(value);
               },
               decoration: InputDecoration(
-                hintText: 'Search courses...',
+                hintText: 'home.search_courses_hint'.tr(),
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
                 suffixIcon: _isSearching
@@ -273,7 +274,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
 
     // Build department chips with "All" as first option
     final chips = [
-      {'id': null, 'name': 'All'},
+      {'id': null, 'name': 'home.filter_all'.tr()},
       ..._departments.map((d) {
         final attributes = d['attributes'] ?? {};
         return {
@@ -367,21 +368,21 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     // Show search results when searching
     if (_showSearchResults) {
       if (_searchResults.isEmpty) {
-        return const SizedBox(
+        return SizedBox(
           height: 200,
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FaIcon(
+                const FaIcon(
                   FontAwesomeIcons.magnifyingGlass,
                   color: Color(0xFFD1D1D1),
                   size: 48,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
-                  'No courses found',
-                  style: TextStyle(
+                  'home.no_courses_found'.tr(),
+                  style: const TextStyle(
                     color: Color(0xFF9CA3AF),
                     fontSize: 14,
                   ),
@@ -416,12 +417,12 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     }
 
     if (_courses.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 200,
         child: Center(
           child: Text(
-            'No courses available',
-            style: TextStyle(
+            'home.no_courses_available'.tr(),
+            style: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 14,
             ),
@@ -554,7 +555,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     final title = attributes['title']?.toString() ?? 'Untitled Course';
     final instructor = attributes['instructor']?['data']?['attributes']?['name']?.toString() ??
         attributes['instructor_name']?.toString() ??
-        'Unknown Instructor';
+        'home.unknown_instructor'.tr();
     final thumbnail = attributes['thumbnail']?.toString() ??
         'https://images.unsplash.com/photo-1554224155-26032ffc0d07?w=400';
     final lectures = attributes['lectures_count']?.toString() ?? '0';
@@ -618,14 +619,14 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                     const FaIcon(FontAwesomeIcons.bookOpen, size: 12, color: Colors.grey),
                     const SizedBox(width: 6),
                     Text(
-                      '$lectures lectures',
+                      '$lectures ${'home.lectures'.tr()}',
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                     const SizedBox(width: 20),
                     const FaIcon(FontAwesomeIcons.users, size: 12, color: Colors.grey),
                     const SizedBox(width: 6),
                     Text(
-                      '$students students',
+                      '$students ${'home.students'.tr()}',
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
@@ -635,9 +636,9 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Course Progress',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    Text(
+                      'home.course_progress'.tr(),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                     Text(
                       '${(progress * 100).toInt()}%',
@@ -673,9 +674,9 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           minimumSize: const Size(0, 48),
                         ),
-                        child: const Text(
-                          'VIEW DETAILS',
-                          style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+                        child: Text(
+                          'home.view_details'.tr(),
+                          style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -692,9 +693,9 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                           minimumSize: const Size(0, 48),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'CONTINUE',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        child: Text(
+                          'home.continue_course'.tr(),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),

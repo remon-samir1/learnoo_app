@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../data/exam_repository.dart';
 import '../../models/quiz_models.dart';
@@ -39,9 +40,9 @@ class ExamNoticeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Important Notice', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+              Text('exams.notice_title'.tr(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
               const SizedBox(height: 8),
-              const Text('Please read carefully before starting', style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF))),
+              Text('exams.notice_subtitle'.tr(), style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF))),
               const SizedBox(height: 32),
               // Quiz Details Card
               Container(
@@ -58,14 +59,14 @@ class ExamNoticeScreen extends StatelessWidget {
                   children: [
                     Text(quiz.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
                     const SizedBox(height: 20),
-                    _buildDetailRow('Type', quiz.type.toUpperCase()),
+                    _buildDetailRow('exams.label_type'.tr(), quiz.type.toUpperCase()),
                     const Divider(height: 16, color: Color(0xFFF1F1F1)),
-                    _buildDetailRow('Duration', '${quiz.duration} min'),
+                    _buildDetailRow('exams.label_duration'.tr(), 'course.duration_min'.tr(args: [quiz.duration.toString()])),
                     const Divider(height: 16, color: Color(0xFFF1F1F1)),
-                    _buildDetailRow('Max Attempts', '${quiz.maxAttempts}'),
+                    _buildDetailRow('exams.label_max_attempts'.tr(), '${quiz.maxAttempts}'),
                     if (quiz.chapter != null) ...[
                       const Divider(height: 16, color: Color(0xFFF1F1F1)),
-                      _buildDetailRow('Chapter', quiz.chapter!.title),
+                      _buildDetailRow('exams.label_chapter'.tr(), quiz.chapter!.title),
                     ],
                   ],
                 ),
@@ -84,17 +85,17 @@ class ExamNoticeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Exam Rules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                    Text('exams.rules_title'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
                     const SizedBox(height: 16),
-                    _buildRuleItem(FontAwesomeIcons.eye, const Color(0xFFFF4B4B), 'You cannot leave the exam once started'),
+                    _buildRuleItem(FontAwesomeIcons.eye, const Color(0xFFFF4B4B), 'exams.rule_no_leave'.tr()),
                     const SizedBox(height: 12),
-                    _buildRuleItem(FontAwesomeIcons.ban, const Color(0xFFF2994A), 'Switching apps or tabs will auto-submit'),
+                    _buildRuleItem(FontAwesomeIcons.ban, const Color(0xFFF2994A), 'exams.rule_no_switch'.tr()),
                     const SizedBox(height: 12),
-                    _buildRuleItem(FontAwesomeIcons.clock, const Color(0xFF5A75FF), 'Timer will start automatically'),
+                    _buildRuleItem(FontAwesomeIcons.clock, const Color(0xFF5A75FF), 'exams.rule_timer'.tr()),
                     const SizedBox(height: 12),
-                    _buildRuleItem(FontAwesomeIcons.fileSignature, const Color(0xFF9B59B6), 'All questions must be answered'),
+                    _buildRuleItem(FontAwesomeIcons.fileSignature, const Color(0xFF9B59B6), 'exams.rule_all_questions'.tr()),
                     const SizedBox(height: 12),
-                    _buildRuleItem(FontAwesomeIcons.rotateRight, const Color(0xFF27AE60), 'Each attempt counts - use wisely'),
+                    _buildRuleItem(FontAwesomeIcons.rotateRight, const Color(0xFF27AE60), 'exams.rule_counts'.tr()),
                   ],
                 ),
               ),
@@ -111,7 +112,7 @@ class ExamNoticeScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: const Text('START EXAM', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  child: Text('exams.btn_start_exam'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -126,7 +127,7 @@ class ExamNoticeScreen extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFE5E7EB)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Go Back', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  child: Text('exams.btn_go_back'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                 ),
               ),
               const SizedBox(height: 24),
@@ -165,7 +166,7 @@ class ExamNoticeScreen extends StatelessWidget {
     } else {
       // Show error
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? 'Failed to start exam'), backgroundColor: Colors.red),
+        SnackBar(content: Text(result['message'] ?? 'exams.failed_start'.tr()), backgroundColor: Colors.red),
       );
     }
   }

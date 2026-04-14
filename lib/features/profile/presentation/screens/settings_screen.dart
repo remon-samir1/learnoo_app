@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:easy_localization/easy_localization.dart';
+
+import 'change_password_screen.dart';
+import 'help_faq_screen.dart';
+import 'terms_privacy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,55 +29,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                _buildSectionHeader('PREFERENCES'),
+                _buildSectionHeader('settings.section_preferences'.tr()),
                 _buildToggleItem(
                   icon: FontAwesomeIcons.bell,
-                  label: 'Notifications',
+                  label: 'settings.notifications'.tr(),
                   value: _notificationsEnabled,
                   onChanged: (val) => setState(() => _notificationsEnabled = val),
                   iconColor: const Color(0xFF3B82F6),
                 ),
                 _buildToggleItem(
                   icon: FontAwesomeIcons.moon,
-                  label: 'Dark Mode',
+                  label: 'settings.dark_mode'.tr(),
                   value: _darkModeEnabled,
                   onChanged: (val) => setState(() => _darkModeEnabled = val),
                   iconColor: const Color(0xFF8B5CF6),
                 ),
                 _buildToggleItem(
                   icon: FontAwesomeIcons.globe,
-                  label: 'Auto-Download on WiFi',
+                  label: 'settings.auto_download'.tr(),
                   value: _autoDownloadEnabled,
                   onChanged: (val) => setState(() => _autoDownloadEnabled = val),
                   iconColor: const Color(0xFF10B981),
                 ),
                 const SizedBox(height: 24),
-                _buildSectionHeader('ACCOUNT'),
+                _buildSectionHeader('settings.section_account'.tr()),
                 _buildNavigationItem(
                   icon: FontAwesomeIcons.lock,
-                  label: 'Change Password',
-                  onTap: () {},
+                  label: 'settings.change_password'.tr(),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
+                      ),
+                    );
+                  },
                   iconColor: const Color(0xFFF59E0B),
                 ),
-                _buildNavigationItem(
-                  icon: FontAwesomeIcons.globe,
-                  label: 'Language',
-                  trailing: 'English',
-                  onTap: () {},
-                  iconColor: const Color(0xFF14B8A6),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: FaIcon(FontAwesomeIcons.globe, color: Color(0xFF14B8A6), size: 16),
+                      ),
+                    ),
+                    title: Text('settings.language'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                    trailing: DropdownButton<String>(
+                      value: context.locale.languageCode,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      items: const [
+                        DropdownMenuItem(value: 'en', child: Text('English')),
+                        DropdownMenuItem(value: 'ar', child: Text('العربية')),
+                      ],
+                      onChanged: (String? newLanguage) {
+                        if (newLanguage != null) {
+                          context.setLocale(Locale(newLanguage));
+                        }
+                      },
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
-                _buildSectionHeader('SUPPORT'),
+                _buildSectionHeader('settings.section_support'.tr()),
                 _buildNavigationItem(
                   icon: FontAwesomeIcons.circleQuestion,
-                  label: 'Help & FAQ',
-                  onTap: () {},
+                  label: 'settings.help_faq'.tr(),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HelpFaqScreen(),
+                      ),
+                    );
+                  },
                   iconColor: const Color(0xFF6366F1),
                 ),
                 _buildNavigationItem(
                   icon: FontAwesomeIcons.shieldHalved,
-                  label: 'Terms & Privacy Policy',
-                  onTap: () {},
+                  label: 'settings.terms_privacy'.tr(),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TermsPrivacyScreen(),
+                      ),
+                    );
+                  },
                   iconColor: const Color(0xFF64748B),
                 ),
                 const SizedBox(height: 32),
@@ -120,9 +174,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const Text(
-              'Settings',
-              style: TextStyle(
+            Text(
+              'settings.title'.tr(),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,

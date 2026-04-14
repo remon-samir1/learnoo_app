@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/course_repository.dart';
@@ -223,7 +224,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                           ),
                         ),
                         Text(
-                          widget.subtitle,
+                          widget.subtitle == 'Course Content' ? 'course.course_content'.tr() : widget.subtitle,
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.8),
@@ -238,9 +239,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildHeaderInfoCard(FontAwesomeIcons.play, '${_courses.length} Courses'),
-                  _buildHeaderInfoCard(FontAwesomeIcons.fileLines, '4 Files'),
-                  _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, '3 Exams'),
+                  _buildHeaderInfoCard(FontAwesomeIcons.play, 'course.courses_count'.tr(args: [_courses.length.toString()])),
+                  _buildHeaderInfoCard(FontAwesomeIcons.fileLines, 'course.files_count'.tr(args: ['4'])),
+                  _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, 'course.exams_count'.tr(args: ['3'])),
                 ],
               ),
               const SizedBox(height: 8),
@@ -299,10 +300,10 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         tabs: [
-          _buildTabItem(FontAwesomeIcons.circlePlay, 'Courses'),
-          _buildTabItem(FontAwesomeIcons.video, 'Live'),
-          _buildTabItem(FontAwesomeIcons.fileLines, 'Files'),
-          _buildTabItem(FontAwesomeIcons.calendarCheck, 'Exams'),
+          _buildTabItem(FontAwesomeIcons.circlePlay, 'course.courses'.tr()),
+          _buildTabItem(FontAwesomeIcons.video, 'course.live'.tr()),
+          _buildTabItem(FontAwesomeIcons.fileLines, 'course.files'.tr()),
+          _buildTabItem(FontAwesomeIcons.calendarCheck, 'course.exams'.tr()),
         ],
       ),
     );
@@ -327,12 +328,12 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     }
 
     if (_courses.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Text(
-            'No courses available for this subject',
-            style: TextStyle(
+            'course.no_courses_subject'.tr(),
+            style: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 14,
             ),
@@ -347,7 +348,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
       itemBuilder: (context, index) {
         final course = _courses[index];
         final attributes = course['attributes'] ?? {};
-        final title = attributes['title']?.toString() ?? 'Untitled Course';
+        final title = attributes['title']?.toString() ?? 'course.untitled_course'.tr();
         final thumbnail = attributes['thumbnail']?.toString() ?? '';
         final price = attributes['price']?.toString() ?? '0';
         
@@ -564,12 +565,12 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     }
 
     if (_liveRooms.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Text(
-            'No live sessions available for this subject',
-            style: TextStyle(
+            'course.no_live_subject'.tr(),
+            style: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 14,
             ),
@@ -699,7 +700,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      isLive ? 'LIVE' : (isUpcoming ? 'UPCOMING' : 'RECORDED'),
+                      isLive ? 'course.live_uppercase'.tr() : (isUpcoming ? 'course.upcoming_uppercase'.tr() : 'course.recorded_uppercase'.tr()),
                       style: TextStyle(
                         color: isLive ? const Color(0xFFFF4B4B) : (isUpcoming ? const Color(0xFFF2994A) : const Color(0xFF5A75FF)),
                         fontSize: 11,
@@ -755,9 +756,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
-              child: const Text(
-                'JOIN LIVE',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              child: Text(
+                'course.join_live'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
             )
           else if (isUpcoming)
@@ -774,9 +775,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                       minimumSize: const Size(double.infinity, 44),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text(
-                      'View Details',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    child: Text(
+                      'course.view_details'.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                   ),
                 ),
@@ -793,9 +794,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Set Reminder',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    child: Text(
+                      'course.set_reminder'.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                   ),
                 ),

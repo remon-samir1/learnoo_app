@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -92,12 +93,12 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
           SafeArea(
             child: Column(
               children: [
-                const Expanded(
+                Expanded(
                   flex: 2,
                   child: Center(
                     child: Text(
-                      'Quizzes & Exams',
-                      style: TextStyle(
+                      'exams.title'.tr(),
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
@@ -156,7 +157,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
           ElevatedButton(
             onPressed: _loadQuizzes,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF5A6AF0)),
-            child: const Text('Retry'),
+            child: Text('exams.retry'.tr()),
           ),
         ],
       ),
@@ -170,7 +171,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
         children: [
           FaIcon(FontAwesomeIcons.clipboardList, size: 48, color: AppColors.textGray.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text('No quizzes available', style: TextStyle(color: AppColors.textGray, fontSize: 16)),
+          Text('exams.no_quizzes'.tr(), style: const TextStyle(color: AppColors.textGray, fontSize: 16)),
         ],
       ),
     );
@@ -204,7 +205,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
               children: [
                 FaIcon(FontAwesomeIcons.clock, size: 14, color: AppColors.textGray.withValues(alpha: 0.7)),
                 const SizedBox(width: 6),
-                Text('${quiz.duration} Minutes', style: const TextStyle(fontSize: 12, color: AppColors.textGray)),
+                Text('course.duration_min'.tr(args: [quiz.duration.toString()]), style: const TextStyle(fontSize: 12, color: AppColors.textGray)),
                 const SizedBox(width: 16),
                 FaIcon(FontAwesomeIcons.calendar, size: 14, color: AppColors.textGray.withValues(alpha: 0.7)),
                 const SizedBox(width: 6),
@@ -217,7 +218,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
                 children: [
                   FaIcon(FontAwesomeIcons.book, size: 14, color: AppColors.textGray.withValues(alpha: 0.7)),
                   const SizedBox(width: 6),
-                  Expanded(child: Text('Chapter: ${quiz.chapter!.title}', style: const TextStyle(fontSize: 12, color: AppColors.textGray), overflow: TextOverflow.ellipsis)),
+                  Expanded(child: Text('exams.chapter_prefix'.tr(args: [quiz.chapter!.title]), style: const TextStyle(fontSize: 12, color: AppColors.textGray), overflow: TextOverflow.ellipsis)),
                 ],
               ),
             ],
@@ -226,7 +227,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
               children: [
                 FaIcon(FontAwesomeIcons.rotateRight, size: 14, color: hasNoAttempts ? Colors.red : AppColors.textGray.withValues(alpha: 0.7)),
                 const SizedBox(width: 6),
-                Text('Attempts: $remainingAttempts/${quiz.maxAttempts}', style: TextStyle(fontSize: 12, color: hasNoAttempts ? Colors.red : AppColors.textGray, fontWeight: hasNoAttempts ? FontWeight.w600 : FontWeight.normal)),
+                Text('exams.attempts_count'.tr(args: [remainingAttempts.toString(), quiz.maxAttempts.toString()]), style: TextStyle(fontSize: 12, color: hasNoAttempts ? Colors.red : AppColors.textGray, fontWeight: hasNoAttempts ? FontWeight.w600 : FontWeight.normal)),
               ],
             ),
             const SizedBox(height: 16),
@@ -242,7 +243,7 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: isExam ? const Color(0xFFFFF0F0) : const Color(0xFFE6F7F0), borderRadius: BorderRadius.circular(20)),
-      child: Text(isExam ? 'EXAM' : 'HOMEWORK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isExam ? const Color(0xFFFF4B4B) : const Color(0xFF27AE60))),
+      child: Text(isExam ? 'exams.badge_exam'.tr() : 'exams.badge_homework'.tr(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isExam ? const Color(0xFFFF4B4B) : const Color(0xFF27AE60))),
     );
   }
 
@@ -252,19 +253,19 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
     Color textColor;
 
     if (quiz.isExpired) {
-      text = 'Expired';
+      text = 'exams.status_expired'.tr();
       bgColor = const Color(0xFFF5F5F5);
       textColor = AppColors.textGray;
     } else if (remainingAttempts <= 0) {
-      text = 'No Attempts';
+      text = 'exams.status_no_attempts'.tr();
       bgColor = const Color(0xFFFFF0F0);
       textColor = const Color(0xFFFF4B4B);
     } else if (quiz.isAvailable) {
-      text = 'Available Now';
+      text = 'exams.status_available'.tr();
       bgColor = const Color(0xFFE6F7F0);
       textColor = const Color(0xFF27AE60);
     } else {
-      text = 'Upcoming';
+      text = 'exams.status_upcoming'.tr();
       bgColor = const Color(0xFFFFF4E6);
       textColor = const Color(0xFFF2994A);
     }
@@ -273,8 +274,8 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
   }
 
   Widget _buildActionButton(BuildContext context, Quiz quiz, bool isAvailable, bool isExpired, bool hasNoAttempts) {
-    if (isExpired) return _buildDisabledButton('Exam Expired');
-    if (hasNoAttempts) return _buildDisabledButton('No Attempts Remaining');
+    if (isExpired) return _buildDisabledButton('exams.btn_exam_expired'.tr());
+    if (hasNoAttempts) return _buildDisabledButton('exams.btn_no_attempts'.tr());
 
     if (isAvailable) {
       return SizedBox(
@@ -284,11 +285,11 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => ExamNoticeScreen(quiz: quiz))).then((_) => _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts));
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-          child: const Text('START EXAM', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          child: Text('exams.btn_start_exam'.tr(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ),
       );
     } else {
-      return _buildDisabledButton('Not Available Yet');
+      return _buildDisabledButton('exams.btn_not_available'.tr());
     }
   }
 

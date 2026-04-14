@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -46,10 +47,19 @@
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Package visibility for Android 11+ -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Common Screen Recording/Sharing Apps -->
+        <package android:name="com.google.android.apps.meetings" /> <!-- Google Meet -->
+        <package android:name="us.zoom.videomeetings" /> <!-- Zoom -->
+        <package android:name="com.microsoft.teams" /> <!-- Teams -->
+        <package android:name="com.duapps.recorder" /> <!-- DU Recorder -->
+        <package android:name="com.hecorat.screenrecorder.free" /> <!-- AZ Recorder -->
+        <package android:name="video.api.android.recorder" />
+        <package android:name="com.kimcy929.screenrecorder" />
     </queries>
 </manifest>

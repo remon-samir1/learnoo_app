@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:learnoo/features/exams/presentation/screens/exams_list_screen.dart';
 import 'package:learnoo/features/home/presentation/screens/home_screen.dart';
@@ -52,11 +53,11 @@ class _MainScreenState extends State<MainScreen> {
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400),
           elevation: 0,
           items: [
-            _buildNavItem(FontAwesomeIcons.house, FontAwesomeIcons.house, 'Home', 0),
-            _buildNavItem(FontAwesomeIcons.bookOpen, FontAwesomeIcons.bookOpen, 'Courses', 1),
-            _buildNavItem(FontAwesomeIcons.users, FontAwesomeIcons.users, 'Community', 2),
-            _buildNavItem(FontAwesomeIcons.video, FontAwesomeIcons.video, 'Live', 3),
-            _buildNavItem(FontAwesomeIcons.fileSignature, FontAwesomeIcons.fileSignature, 'Exams', 4),
+            _buildNavItem(FontAwesomeIcons.house, FontAwesomeIcons.house, 'home.nav_home'.tr(), 0),
+            _buildNavItem(FontAwesomeIcons.bookOpen, FontAwesomeIcons.bookOpen, 'home.nav_courses'.tr(), 1),
+            _buildNavItem(FontAwesomeIcons.users, FontAwesomeIcons.users, 'home.nav_community'.tr(), 2),
+            _buildNavItem(FontAwesomeIcons.video, FontAwesomeIcons.video, 'home.nav_live'.tr(), 3),
+            _buildNavItem(FontAwesomeIcons.fileSignature, FontAwesomeIcons.fileSignature, 'home.nav_exams'.tr(), 4),
           ],
         ),
       ),

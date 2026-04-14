@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -81,7 +82,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           children: [
             const SizedBox(height: 40),
             Text(
-              widget.isEmail ? 'Verify your email' : 'Verify your phone number',
+              widget.isEmail ? 'auth.verify_email_title'.tr() : 'auth.verify_phone_title'.tr(),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -96,8 +97,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 children: [
                   TextSpan(
                     text: widget.isEmail
-                        ? 'We sent a verification code to your email\naddress '
-                        : 'We sent a verification code to your mobile\nnumber ',
+                        ? 'auth.sent_code_email'.tr()
+                        : 'auth.sent_code_phone'.tr(),
                   ),
                   TextSpan(
                     text: widget.phone,
@@ -135,7 +136,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Resend code in 0:${_secondsRemaining.toString().padLeft(2, '0')}',
+                    '${'auth.resend_code_in'.tr()}0:${_secondsRemaining.toString().padLeft(2, '0')}',
                     style: const TextStyle(
                       color: AppColors.textDark,
                       fontWeight: FontWeight.w500,
@@ -144,9 +145,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ] else
                   TextButton(
                     onPressed: _isLoading ? null : _handleResend,
-                    child: const Text(
-                      'Resend Code',
-                      style: TextStyle(
+                    child: Text(
+                      'auth.resend_code'.tr(),
+                      style: const TextStyle(
                         color: AppColors.primaryBlue,
                         fontWeight: FontWeight.bold,
                         decoration: TextDecoration.underline,
@@ -157,7 +158,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
             const Spacer(),
             PrimaryButton(
-              text: 'Verify',
+              text: 'auth.verify_btn'.tr(),
               isLoading: _isLoading,
               onPressed: _isLoading ? null : _handleVerify,
             ),
@@ -223,7 +224,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Code resent successfully'),
+          content: Text(result['message'] ?? 'auth.code_resent'.tr()),
           backgroundColor: result['success'] ? Colors.green : Colors.red,
         ),
       );
@@ -254,21 +255,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 child: const Icon(Icons.check_circle, color: Color(0xFF27AE60), size: 48),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Verification Success',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                'auth.verify_success_title'.tr(),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(
                 widget.isEmail
-                    ? 'Your email address has been verified successfully.'
-                    : 'Your phone number has been verified successfully.',
+                    ? 'auth.email_verified_msg'.tr()
+                    : 'auth.phone_verified_msg'.tr(),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textGray, fontSize: 14),
               ),
               const SizedBox(height: 32),
               PrimaryButton(
-                text: 'GO TO HOME',
+                text: 'auth.go_home'.tr(),
                 onPressed: () {
                   if (widget.universityId != null) {
                     Navigator.pushAndRemoveUntil(
@@ -296,7 +297,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final code = _controllers.map((c) => c.text).join();
     if (code.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the 6-digit code'), backgroundColor: Colors.red),
+        SnackBar(content: Text('auth.enter_six_digit'.tr()), backgroundColor: Colors.red),
       );
       return;
     }

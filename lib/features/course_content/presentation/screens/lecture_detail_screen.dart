@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:io';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
@@ -218,8 +219,8 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         debugPrint('Permission denied');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Microphone permission is required to record voice notes'),
+            SnackBar(
+              content: Text('course.mic_permission_required'.tr()),
             ),
           );
         }
@@ -228,7 +229,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       debugPrint('Error starting recording: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('course.error_msg'.tr(args: [e.toString()]))),
         );
       }
     }
@@ -286,12 +287,12 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       _discussionTab = 'all';
       await _loadDiscussions();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Discussion posted successfully')),
+        SnackBar(content: Text('course.discussion_posted'.tr())),
       );
     } else if (mounted) {
       setState(() => _isLoadingDiscussions = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? 'Failed to post discussion')),
+        SnackBar(content: Text(result['message'] ?? 'course.failed_post_discussion'.tr())),
       );
     }
   }
@@ -300,7 +301,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     if (widget.chapterId.isEmpty) {
       setState(() {
         _isLoadingChapter = false;
-        _errorMessage = 'Invalid chapter ID';
+        _errorMessage = 'course.invalid_chapter_id'.tr();
       });
       return;
     }
@@ -357,14 +358,14 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       } else if (mounted) {
         setState(() {
           _isLoadingChapter = false;
-          _errorMessage = result['message'] ?? 'Failed to load chapter';
+          _errorMessage = result['message'] ?? 'course.failed_load_chapter'.tr();
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoadingChapter = false;
-          _errorMessage = 'Connection error: $e';
+          _errorMessage = 'course.connection_error'.tr(args: [e.toString()]);
         });
       }
     }
@@ -406,7 +407,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       if (mounted) {
         setState(() {
           _isInitializingVideo = false;
-          _errorMessage = 'Failed to load video: $e';
+          _errorMessage = 'course.failed_load_video'.tr(args: [e.toString()]);
         });
       }
     }
@@ -482,15 +483,15 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         _loadChapterDetails();
         
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Chapter unlocked successfully!'),
-            backgroundColor: Color(0xFF2DBC77),
+          SnackBar(
+            content: Text('course.chapter_unlocked'.tr()),
+            backgroundColor: const Color(0xFF2DBC77),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Invalid activation code'),
+            content: Text(result['message'] ?? 'course.invalid_activation_code'.tr()),
             backgroundColor: const Color(0xFFFF4B4B),
           ),
         );
@@ -568,9 +569,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        const Text(
-                          'Chapter Locked',
-                          style: TextStyle(
+                        Text(
+                          'course.chapter_locked'.tr(),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -579,7 +580,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Enter your activation code to unlock this chapter',
+                          'course.enter_activation_code'.tr(),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.82),
@@ -598,9 +599,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Scope label
-                        const Text(
-                          'Apply code to',
-                          style: TextStyle(
+                        Text(
+                          'course.apply_code_to'.tr(),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF374151),
@@ -638,7 +639,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                       ),
                                       const SizedBox(width: 7),
                                       Text(
-                                        'This Chapter',
+                                        'course.this_chapter'.tr(),
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
@@ -678,7 +679,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                       ),
                                       const SizedBox(width: 7),
                                       Text(
-                                        'Full Course',
+                                        'course.full_course'.tr(),
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
@@ -696,9 +697,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                         const SizedBox(height: 18),
 
                         // Code field label
-                        const Text(
-                          'Activation Code',
-                          style: TextStyle(
+                        Text(
+                          'course.activation_code'.tr(),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF374151),
@@ -716,7 +717,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                             color: Color(0xFF111827),
                           ),
                           decoration: InputDecoration(
-                            hintText: 'e.g.  ABCD-1234',
+                            hintText: 'course.eg_code'.tr(),
                             hintStyle: const TextStyle(
                               letterSpacing: 0.5,
                               color: Color(0xFFD1D5DB),
@@ -765,9 +766,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                   ),
                                   foregroundColor: const Color(0xFF6B7280),
                                 ),
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                child: Text(
+                                  'course.cancel'.tr(),
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                                 ),
                               ),
                             ),
@@ -815,9 +816,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                     }
                                   },
                                   icon: const FaIcon(FontAwesomeIcons.unlockKeyhole, size: 14, color: Colors.white),
-                                  label: const Text(
-                                    'Unlock Now',
-                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white),
+                                  label: Text(
+                                    'course.unlock_now'.tr(),
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
@@ -955,7 +956,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _errorMessage ?? 'An error occurred',
+                _errorMessage ?? 'course.an_error_occurred'.tr(),
                 style: const TextStyle(
                   color: Color(0xFF6B7280),
                   fontSize: 16,
@@ -965,7 +966,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               if (isLockedError) ...[
                 const SizedBox(height: 8),
                 Text(
-                  '$_currentViews / $_maxViews views used',
+                  'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 14,
@@ -977,7 +978,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 ElevatedButton.icon(
                   onPressed: _showActivationCodeDialog,
                   icon: const FaIcon(FontAwesomeIcons.key, size: 14),
-                  label: const Text('Enter Activation Code'),
+                  label: Text('course.enter_activation_code_btn'.tr()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3451E5),
                     foregroundColor: Colors.white,
@@ -988,7 +989,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 ElevatedButton.icon(
                   onPressed: _loadChapterDetails,
                   icon: const FaIcon(FontAwesomeIcons.rotateRight, size: 14),
-                  label: const Text('Retry'),
+                  label: Text('course.retry'.tr()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3451E5),
                     foregroundColor: Colors.white,
@@ -1019,9 +1020,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                           children: [
                             const FaIcon(FontAwesomeIcons.lock, color: Colors.white, size: 48),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Chapter Locked',
-                              style: TextStyle(
+                            Text(
+                              'course.chapter_locked'.tr(),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1029,7 +1030,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '$_currentViews / $_maxViews views used',
+                              'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 14,
@@ -1039,7 +1040,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                             ElevatedButton.icon(
                               onPressed: _showActivationCodeDialog,
                               icon: const FaIcon(FontAwesomeIcons.key, size: 14),
-                              label: const Text('Unlock Now'),
+                              label: Text('course.unlock_now'.tr()),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF3451E5),
                                 foregroundColor: Colors.white,
@@ -1077,7 +1078,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                     ElevatedButton.icon(
                                       onPressed: _initializeVideoPlayer,
                                       icon: const FaIcon(FontAwesomeIcons.rotateRight, size: 14),
-                                      label: const Text('Retry Video'),
+                                      label: Text('course.retry_video'.tr()),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF3451E5),
                                         foregroundColor: Colors.white,
@@ -1096,9 +1097,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                   children: [
                                     const FaIcon(FontAwesomeIcons.circlePlay, color: Colors.white54, size: 48),
                                     const SizedBox(height: 16),
-                                    const Text(
-                                      'Views Exhausted',
-                                      style: TextStyle(
+                                    Text(
+                                      'course.views_exhausted'.tr(),
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -1106,7 +1107,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      '$_currentViews / $_maxViews views used',
+                                      'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
                                       style: TextStyle(
                                         color: Colors.white.withValues(alpha: 0.7),
                                         fontSize: 14,
@@ -1114,7 +1115,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'You have reached the maximum number of views for this chapter.',
+                                      'course.max_views_reached'.tr(),
                                       style: TextStyle(
                                         color: Colors.white.withValues(alpha: 0.6),
                                         fontSize: 12,
@@ -1127,8 +1128,8 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                             )
                           : Container(
                               color: const Color(0xFF1F2937),
-                              child: const Center(
-                                child: Text('Video unavailable', style: TextStyle(color: Colors.white)),
+                              child: Center(
+                                child: Text('course.video_unavailable'.tr(), style: const TextStyle(color: Colors.white)),
                               ),
                             ),
     );
@@ -1170,7 +1171,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
             const FaIcon(FontAwesomeIcons.solidCommentDots, color: Colors.white, size: 16),
             const SizedBox(width: 10),
             Text(
-              'Ask about this moment ($_currentTime)',
+              'course.ask_about_moment'.tr(args: [_currentTime]),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -1214,7 +1215,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$_currentViews / $_maxViews views used',
+                'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
                 style: TextStyle(
                   color: _currentViews >= _maxViews
                       ? const Color(0xFFFF4B4B)
@@ -1241,7 +1242,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
             FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
             const SizedBox(width: 6),
             Text(
-              'Duration: $_duration',
+              'course.duration_label'.tr(args: [_duration]),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -1310,9 +1311,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Attachments',
-          style: TextStyle(
+        Text(
+          'course.attachments'.tr(),
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Color(0xFF374151),
@@ -1321,7 +1322,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         const SizedBox(height: 12),
         ..._attachments.map((attachment) {
           final attrs = attachment['attributes'] ?? {};
-          final name = attrs['name']?.toString() ?? 'Attachment';
+          final name = attrs['name']?.toString() ?? 'course.attachment'.tr();
           final size = attrs['size']?.toString() ?? '0';
           final extension = attrs['extension']?.toString() ?? '';
           final isLocked = attrs['is_locked'] as bool? ?? false;
@@ -1372,7 +1373,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$size bytes · $extension',
+                  'course.attachment_size_ext'.tr(args: [size, extension]),
                   style: const TextStyle(
                     color: Color(0xFF9CA3AF),
                     fontSize: 11,
@@ -1483,7 +1484,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Downloaded to $filePath'),
+            content: Text('course.downloaded_to'.tr(args: [filePath])),
             backgroundColor: const Color(0xFF2DBC77),
           ),
         );
@@ -1492,7 +1493,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Download failed: $e'),
+            content: Text('course.download_failed'.tr(args: [e.toString()])),
             backgroundColor: const Color(0xFFFF4B4B),
           ),
         );
@@ -1517,7 +1518,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Downloaded to $filePath'),
+            content: Text('course.downloaded_to'.tr(args: [filePath])),
             backgroundColor: const Color(0xFF2DBC77),
           ),
         );
@@ -1526,7 +1527,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Download failed: $e'),
+            content: Text('course.download_failed'.tr(args: [e.toString()])),
             backgroundColor: const Color(0xFFFF4B4B),
           ),
         );
@@ -1540,18 +1541,18 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Linked Quizzes',
-          style: TextStyle(
+        Text(
+          'course.linked_quizzes'.tr(),
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Color(0xFF374151),
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Take the quiz related to this chapter after finishing the video.',
-          style: TextStyle(
+        Text(
+          'course.take_quiz_desc'.tr(),
+          style: const TextStyle(
             color: Color(0xFF9CA3AF),
             fontSize: 12,
           ),
@@ -1560,7 +1561,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         ..._quizzes.map((quiz) {
           final attrs = quiz['attributes'] ?? {};
           final id = quiz['id']?.toString() ?? '';
-          final title = attrs['title']?.toString() ?? 'Quiz';
+          final title = attrs['title']?.toString() ?? 'course.quiz'.tr();
           final maxAttempts = attrs['max_attempts'] as int? ?? 0;
           final duration = attrs['duration'] as int? ?? 0;
           final quizId = attrs['id'] as int? ?? 0;
@@ -1601,9 +1602,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                   color: const Color(0xFF2DBC77),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  'Available',
-                  style: TextStyle(
+                child: Text(
+                  'course.available'.tr(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -1618,14 +1619,14 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               FaIcon(FontAwesomeIcons.listCheck, size: 12, color: Colors.grey[600]),
               const SizedBox(width: 6),
               Text(
-                '$maxAttempts attempts',
+                'course.attempts'.tr(args: [maxAttempts.toString()]),
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
               const SizedBox(width: 16),
               FaIcon(FontAwesomeIcons.clock, size: 12, color: Colors.grey[600]),
               const SizedBox(width: 6),
               Text(
-                '$duration min',
+                'course.duration_min'.tr(args: [duration.toString()]),
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
             ],
@@ -1642,9 +1643,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 elevation: 0,
               ),
-              child: const Text(
-                'START QUIZ',
-                style: TextStyle(
+              child: Text(
+                'course.start_quiz'.tr(),
+                style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -1659,9 +1660,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   Future<void> _startQuiz(int quizId, dynamic quizData) async {
     if (quizId == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid quiz ID'),
-          backgroundColor: Color(0xFFFF4B4B),
+        SnackBar(
+          content: Text('course.invalid_quiz_id'.tr()),
+          backgroundColor: const Color(0xFFFF4B4B),
         ),
       );
       return;
@@ -1702,7 +1703,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(attemptResult['message'] ?? 'Failed to start quiz'),
+          content: Text(attemptResult['message'] ?? 'course.failed_start_quiz'.tr()),
           backgroundColor: const Color(0xFFFF4B4B),
         ),
       );
@@ -1742,9 +1743,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(24, 8, 8, 0),
                     child: Row(
                       children: [
-                        const Text(
-                          'Ask about this moment',
-                          style: TextStyle(
+                        Text(
+                          'course.ask_about_moment_title'.tr(),
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1F2937),
@@ -1786,9 +1787,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       ),
       child: Row(
         children: [
-          _buildTabItem('All Discussions', 'all'),
-          _buildTabItem('Comment', 'comment'),
-          _buildTabItem('Voice', 'voice'),
+          _buildTabItem('course.all_discussions'.tr(), 'all'),
+          _buildTabItem('course.comment'.tr(), 'comment'),
+          _buildTabItem('course.voice'.tr(), 'voice'),
         ],
       ),
     );
@@ -1850,7 +1851,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           Row(
             children: [
               Text(
-                'About  $_currentTime',
+                'course.about_moment'.tr(args: [_currentTime]),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -1886,7 +1887,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               controller: _commentController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: 'Write a comment about this moment...',
+                hintText: 'course.write_comment_moment'.tr(),
                 hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
@@ -1912,7 +1913,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                 elevation: 0,
               ),
               child: Text(
-                _discussionTab == 'comment' ? 'Post Comment' : 'Post Voice Note',
+                _discussionTab == 'comment' ? 'course.post_comment'.tr() : 'course.post_voice_note'.tr(),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -1943,7 +1944,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            _isRecording ? 'Recording...' : 'Tap to record voice note',
+            _isRecording ? 'course.recording'.tr() : 'course.tap_to_record'.tr(),
             style: TextStyle(
               color: _isRecording ? const Color(0xFF3451E5) : const Color(0xFF6B7280),
               fontSize: 14,
@@ -2145,20 +2146,20 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   }
 
   Widget _buildEmptyDiscussions() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.chat_bubble_outline, size: 48, color: Color(0xFFD1D5DB)),
-          SizedBox(height: 16),
+          const Icon(Icons.chat_bubble_outline, size: 48, color: Color(0xFFD1D5DB)),
+          const SizedBox(height: 16),
           Text(
-            'No discussions yet',
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
+            'course.no_discussions_yet'.tr(),
+            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Be the first to start a conversation!',
-            style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 13),
+            'course.be_the_first_discussion'.tr(),
+            style: const TextStyle(color: Color(0xFFD1D5DB), fontSize: 13),
           ),
         ],
       ),
@@ -2240,7 +2241,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                             text: '${_formatMoment(moment)} ',
                             style: const TextStyle(color: Color(0xFF3451E5), fontWeight: FontWeight.bold),
                           ),
-                          TextSpan(text: type == 'text' ? content : 'Voice question linked to moment'),
+                          TextSpan(text: type == 'text' ? content : 'course.voice_question_linked'.tr()),
                         ],
                       ),
                     ),
@@ -2305,9 +2306,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                     color: const Color(0xFF3451E5),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
-                    'Instructor',
-                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  child: Text(
+                    'course.instructor'.tr(),
+                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

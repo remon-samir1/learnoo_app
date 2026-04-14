@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/auth_repository.dart';
 import 'otp_verification_screen.dart';
@@ -112,10 +113,10 @@ class _VerificationMethodScreenState extends State<VerificationMethodScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            const Text(
-              'Select verification method to register',
+            Text(
+              'auth.select_verification'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
@@ -125,7 +126,7 @@ class _VerificationMethodScreenState extends State<VerificationMethodScreen> {
             _buildMethodCard(
               context,
               icon: Icons.smartphone_outlined,
-              title: 'Send verification code via mobile',
+              title: 'auth.send_via_mobile'.tr(),
               isSelected: true,
               isLoading: _isLoadingPhone,
               onTap: _isLoadingPhone || _isLoadingEmail ? null : _handlePhoneVerification,
@@ -134,7 +135,7 @@ class _VerificationMethodScreenState extends State<VerificationMethodScreen> {
             _buildMethodCard(
               context,
               icon: Icons.email_outlined,
-              title: 'Send verification code via email',
+              title: 'auth.send_via_email'.tr(),
               isSelected: false,
               isLoading: _isLoadingEmail,
               onTap: _isLoadingPhone || _isLoadingEmail ? null : _handleEmailVerification,
@@ -142,9 +143,9 @@ class _VerificationMethodScreenState extends State<VerificationMethodScreen> {
             const Spacer(),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
+              child: Text(
+                'auth.cancel'.tr(),
+                style: const TextStyle(
                   fontSize: 16,
                   color: AppColors.textGray,
                   fontWeight: FontWeight.w500,

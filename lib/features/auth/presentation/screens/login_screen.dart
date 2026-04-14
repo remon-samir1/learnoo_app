@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (identifier.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
+        SnackBar(content: Text('auth.fill_all_fields'.tr())),
       );
       return;
     }
@@ -57,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loginResult['message'] ?? 'Login failed')),
+          SnackBar(content: Text(loginResult['message'] ?? 'auth.login_failed'.tr())),
         );
       }
       return;
@@ -117,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(verifyResult['message'] ?? 'Failed to send verification code')),
+          SnackBar(content: Text(verifyResult['message'] ?? 'auth.failed_send_code'.tr())),
         );
       }
     }
@@ -141,12 +142,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   bottomRight: Radius.circular(50),
                 ),
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                  AppLogo(size: 85),
-                  SizedBox(height: 24),
+                  const AppLogo(size: 85),
+                  const SizedBox(height: 24),
                   Text(
-                    'Welcome To Login',
+                    'auth.welcome_login'.tr(),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -155,9 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   SizedBox(height: 12),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      "We'll send you a verification code to confirm your identity",
+                      'auth.verify_identity_login'.tr(),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -177,15 +178,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CustomTextField(
-                    label: 'Email or Phone', // Dynamic hint
-                    hintText: 'Enter your email or phone number',
+                    label: 'auth.email_or_phone'.tr(), // Dynamic hint
+                    hintText: 'auth.email_phone_hint'.tr(),
                     keyboardType: TextInputType.emailAddress,
                     controller: _identifierController,
                   ),
                   const SizedBox(height: 24),
                   CustomTextField(
-                    label: 'Password',
-                    hintText: 'Enter your password',
+                    label: 'auth.password'.tr(),
+                    hintText: 'auth.enter_password'.tr(),
                     isPassword: true,
                     controller: _passwordController,
                   ),
@@ -202,9 +203,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                       style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      child: const Text(
-                        'Forget password?',
-                        style: TextStyle(
+                      child: Text(
+                        'auth.forget_password'.tr(),
+                        style: const TextStyle(
                           color: AppColors.textGray,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -214,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
                   PrimaryButton(
-                    text: 'LOGIN',
+                    text: 'auth.login'.tr(),
                     isLoading: _isLoading,
                     onPressed: _isLoading ? null : _handleLogin,
                   ),
@@ -222,9 +223,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Don\'t have account? ',
-                        style: TextStyle(color: AppColors.textGray, fontWeight: FontWeight.w500),
+                      Text(
+                        'auth.dont_have_account'.tr(),
+                        style: const TextStyle(color: AppColors.textGray, fontWeight: FontWeight.w500),
                       ),
                       GestureDetector(
                         onTap: () {
@@ -233,9 +234,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             MaterialPageRoute(builder: (context) => const ProfileScreen()),
                           );
                         },
-                        child: const Text(
-                          'Sign up',
-                          style: TextStyle(
+                        child: Text(
+                          'auth.sign_up'.tr(),
+                          style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.bold,
                           ),

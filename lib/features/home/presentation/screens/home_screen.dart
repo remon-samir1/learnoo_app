@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -203,15 +204,14 @@ class _HomeScreenState extends State<HomeScreen> {
         final lastName = (attributes['last_name'] ?? '').toString();
         final fullName = '$firstName $lastName'.trim();
 
-        // Parse university (data.attributes.name)
         final universityName =
             (attributes['university']?['data']?['attributes']?['name'] ??
-            'University not set').toString();
+            'home.university_not_set'.tr()).toString();
         
         // Parse faculty (data.attributes.name)
         final facultyName =
             (attributes['faculty']?['data']?['attributes']?['name'] ??
-            'Faculty not set').toString();
+            'home.faculty_not_set'.tr()).toString();
         
         // Parse centers (array of categories)
         final centersData = attributes['centers'] as List<dynamic>? ?? [];
@@ -308,17 +308,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getTypeDisplayName(String type) {
     switch (type.toLowerCase()) {
       case 'course':
-        return 'Courses';
+        return 'home.type_courses'.tr();
       case 'chapter':
-        return 'Chapters';
+        return 'home.type_chapters'.tr();
       case 'librarie':
-        return 'Libraries';
+        return 'home.type_libraries'.tr();
       case 'post':
-        return 'Posts';
+        return 'home.type_posts'.tr();
       case 'note':
-        return 'Notes';
+        return 'home.type_notes'.tr();
       case 'quizze':
-        return 'Quizzes';
+        return 'home.type_quizzes'.tr();
       default:
         return type.isNotEmpty
             ? type[0].toUpperCase() + type.substring(1)
@@ -402,24 +402,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_searchController.text.isNotEmpty) ...[
                     _buildSearchResults(),
                   ] else ...[
-                    _buildSectionHeader('Continue Watching'),
+                    _buildSectionHeader('home.continue_watching'.tr()),
                     const SizedBox(height: 20),
                     _buildContinueWatching(),
                     const SizedBox(height: 32),
-                    _buildSectionHeader('My Subjects'),
+                    _buildSectionHeader('home.my_subjects'.tr()),
                     const SizedBox(height: 20),
                     _buildSubjectsList(),
                     const SizedBox(height: 32),
-                    _buildSectionHeader('My Courses'),
+                    _buildSectionHeader('home.my_courses_title'.tr()),
                     const SizedBox(height: 20),
                     _buildCoursesList(),
                     const SizedBox(height: 32),
-                    _buildSectionHeader('Upcoming Live Classes'),
+                    _buildSectionHeader('home.upcoming_live_classes'.tr()),
                     const SizedBox(height: 20),
                     _buildLiveClassesList(),
                     const SizedBox(height: 32),
                     _buildSectionHeaderWithAction(
-                      'New Notes & Summaries', 'View All',
+                      'home.new_notes'.tr(), 'home.view_all'.tr(),
                       () {
                         Navigator.push(
                           context,
@@ -431,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildNotesSummariesList(),
                     const SizedBox(height: 32),
                     _buildSectionHeaderWithAction(
-                      'Electronic Library', 'View All',
+                      'home.electronic_library'.tr(), 'home.view_all'.tr(),
                       () {
                         Navigator.push(
                           context,
@@ -482,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Welcome back, $_userName',
+                '${'home.welcome_back'.tr()}$_userName',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -492,7 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 2),
               Text(
                 _isLoading
-                    ? 'Loading profile...'
+                    ? 'home.loading_profile'.tr()
                     : _buildSubtitleText(),
                 style: TextStyle(
                   fontSize: 12,
@@ -606,7 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _performSearch(value);
         },
         decoration: InputDecoration(
-          hintText: 'Search courses, lectures...',
+          hintText: 'home.search_hint'.tr(),
           hintStyle: const TextStyle(color: Color(0xFFD1D1D1), fontSize: 14),
           prefixIcon: const Padding(
             padding: EdgeInsets.all(14),
@@ -654,20 +654,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_searchResults.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
+          padding: const EdgeInsets.symmetric(vertical: 40),
           child: Column(
             children: [
-              FaIcon(
+              const FaIcon(
                 FontAwesomeIcons.magnifyingGlass,
                 color: Color(0xFFD1D1D1),
                 size: 48,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
-                'No results found',
-                style: TextStyle(
+                'home.no_results'.tr(),
+                style: const TextStyle(
                   color: Color(0xFF9CA3AF),
                   fontSize: 14,
                 ),
@@ -688,7 +688,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(
-              'Found ${_searchResults.length} results',
+              'home.found_results'.tr(args: [_searchResults.length.toString()]),
               style: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFF9CA3AF),

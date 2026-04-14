@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -26,12 +27,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _authRepository = AuthRepository();
 
   final List<Map<String, String>> _countryCodes = [
-    {'code': '20', 'flag': '🇪🇬', 'name': 'Egypt'},
-    {'code': '966', 'flag': '🇸🇦', 'name': 'Saudi Arabia'},
-    {'code': '971', 'flag': '🇦🇪', 'name': 'UAE'},
-    {'code': '965', 'flag': '🇰🇼', 'name': 'Kuwait'},
-    {'code': '974', 'flag': '🇶🇦', 'name': 'Qatar'},
-    {'code': '962', 'flag': '🇯🇴', 'name': 'Jordan'},
+    {'code': '20', 'flag': '🇪🇬', 'name': 'auth.country_egypt'},
+    {'code': '966', 'flag': '🇸🇦', 'name': 'auth.country_ksa'},
+    {'code': '971', 'flag': '🇦🇪', 'name': 'auth.country_uae'},
+    {'code': '965', 'flag': '🇰🇼', 'name': 'auth.country_kuwait'},
+    {'code': '974', 'flag': '🇶🇦', 'name': 'auth.country_qatar'},
+    {'code': '962', 'flag': '🇯🇴', 'name': 'auth.country_jordan'},
   ];
   String _selectedCountryCode = '20';
   String _selectedFlag = '🇪🇬';
@@ -49,8 +50,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleRegister() async {
     if (!_acceptTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please accept the Terms & Conditions'),
+        SnackBar(
+          content: Text('auth.accept_terms_snack'.tr()),
           backgroundColor: Colors.blue,
         ),
       );
@@ -63,8 +64,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _phoneController.text.isEmpty ||
         _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields'),
+        SnackBar(
+          content: Text('auth.fill_all_fields_snack'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -183,9 +184,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const AppLogo(size: 85),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Complete your profile',
-                    style: TextStyle(
+                  Text(
+                    'auth.complete_profile'.tr(),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -195,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      "We'll send you a verification code to confirm your identity",
+                      'auth.profile_verify_desc'.tr(),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
@@ -218,27 +219,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CustomTextField(
-                    label: 'First Name',
-                    hintText: 'Enter your first name',
+                    label: 'auth.first_name'.tr(),
+                    hintText: 'auth.first_name_hint'.tr(),
                     controller: _firstNameController,
                   ),
                   const SizedBox(height: 18),
                   CustomTextField(
-                    label: 'Last Name',
-                    hintText: 'Enter your last name',
+                    label: 'auth.last_name'.tr(),
+                    hintText: 'auth.last_name_hint'.tr(),
                     controller: _lastNameController,
                   ),
                   const SizedBox(height: 18),
                   CustomTextField(
-                    label: 'Email Address',
-                    hintText: 'Enter your email address',
+                    label: 'auth.email_label'.tr(),
+                    hintText: 'auth.email_hint'.tr(),
                     keyboardType: TextInputType.emailAddress,
                     controller: _emailController,
                   ),
                   const SizedBox(height: 18),
-                  const Text(
-                    'Phone number',
-                    style: TextStyle(
+                  Text(
+                    'auth.phone_label'.tr(),
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: AppColors.labelGray,
@@ -276,7 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    country['name']!,
+                                    country['name']!.tr(),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppColors.textGray,
@@ -324,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
-                            hintText: 'Enter your phone number',
+                            hintText: 'auth.phone_hint'.tr(),
                             hintStyle: const TextStyle(
                               color: AppColors.inputHint,
                             ),
@@ -353,8 +354,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 18),
                   CustomTextField(
-                    label: 'Password',
-                    hintText: 'Create a strong password',
+                    label: 'auth.password'.tr(),
+                    hintText: 'auth.create_strong'.tr(),
                     isPassword: true,
                     controller: _passwordController,
                   ),
@@ -377,17 +378,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
+                          text: TextSpan(
+                            style: const TextStyle(
                               color: AppColors.textGray,
                               fontSize: 13,
                               height: 1.4,
                               fontFamily: 'Inter',
                             ),
                             children: [
-                              TextSpan(text: 'I\'ve read and accept the '),
+                              TextSpan(text: 'auth.read_accept'.tr()),
                               TextSpan(
-                                text: 'Terms & Conditions',
+                                text: 'auth.terms_conditions'.tr(),
                                 style: TextStyle(
                                   color: Colors.blue,
                                   fontWeight: FontWeight.w600,
@@ -401,7 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 32),
                   PrimaryButton(
-                    text: 'Create account',
+                    text: 'auth.create_account'.tr(),
                     isLoading: _isLoading,
                     onPressed: _handleRegister,
                   ),
@@ -409,9 +410,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Do you have account? ',
-                        style: TextStyle(
+                      Text(
+                        'auth.have_account'.tr(),
+                        style: const TextStyle(
                           color: AppColors.textGray,
                           fontWeight: FontWeight.w500,
                         ),
@@ -425,9 +426,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          'Login',
-                          style: TextStyle(
+                        child: Text(
+                          'auth.login_link'.tr(),
+                          style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.bold,
                           ),

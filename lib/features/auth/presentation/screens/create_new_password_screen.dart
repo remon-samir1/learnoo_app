@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../data/auth_repository.dart';
@@ -49,15 +50,15 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
 
     if (password.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
+        SnackBar(content: Text('auth.fill_all_fields'.tr())),
       );
       return;
     }
 
     if (!_isValidPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please meet all password requirements'),
+        SnackBar(
+          content: Text('auth.meet_password_reqs'.tr()),
           backgroundColor: Colors.red,
         ),
       );
@@ -81,7 +82,7 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to reset password'),
+            content: Text(result['message'] ?? 'auth.failed_reset'.tr()),
             backgroundColor: Colors.red,
           ),
         );
@@ -111,19 +112,19 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
                     const Icon(Icons.check_circle, color: Color(0xFF27AE60), size: 48),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Password Reset Successfully',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                'auth.password_reset_success'.tr(),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Your password has been reset successfully. Please log in with your new password.',
+              Text(
+                'auth.password_reset_msg'.tr(),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textGray, fontSize: 14),
+                style: const TextStyle(color: AppColors.textGray, fontSize: 14),
               ),
               const SizedBox(height: 32),
               PrimaryButton(
-                text: 'GO TO LOGIN',
+                text: 'auth.go_to_login'.tr(),
                 onPressed: () {
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -181,21 +182,21 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
-                        'Create New Password',
-                        style: TextStyle(
+                      Text(
+                        'auth.create_new_password_title'.tr(),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 40),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
                         child: Text(
-                          'Your new password must be different\nfrom previous passwords.',
+                          'auth.new_password_different'.tr(),
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             height: 1.4,
@@ -212,8 +213,8 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPasswordField(
-                        label: 'New Password',
-                        hintText: '********',
+                        label: 'auth.new_password'.tr(),
+                        hintText: 'auth.password_hint'.tr(),
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         onToggleVisibility: () {
@@ -222,8 +223,8 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
                       ),
                       const SizedBox(height: 20),
                       _buildPasswordField(
-                        label: 'Confirm Password',
-                        hintText: 'Create a strong password',
+                        label: 'auth.confirm_password'.tr(),
+                        hintText: 'auth.create_strong'.tr(),
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         onToggleVisibility: () {
@@ -235,7 +236,7 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
                       _buildPasswordRequirements(),
                       const SizedBox(height: 32),
                       PrimaryButton(
-                        text: 'SAVE PASSWORD',
+                        text: 'auth.save_password'.tr(),
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _handleSavePassword,
                       ),
@@ -318,9 +319,9 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Password Requirements:',
-            style: TextStyle(
+          Text(
+            'auth.password_reqs'.tr(),
+            style: const TextStyle(
               color: AppColors.primaryBlue,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -328,22 +329,22 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> {
           ),
           const SizedBox(height: 12),
           _buildRequirementItem(
-            'At least 6 characters',
+            'auth.req_six_chars'.tr(),
             _hasMinLength,
           ),
           const SizedBox(height: 8),
           _buildRequirementItem(
-            'One uppercase letter',
+            'auth.req_upper'.tr(),
             _hasUppercase,
           ),
           const SizedBox(height: 8),
           _buildRequirementItem(
-            'One number',
+            'auth.req_number'.tr(),
             _hasNumber,
           ),
           const SizedBox(height: 8),
           _buildRequirementItem(
-            'Passwords match',
+            'auth.req_match'.tr(),
             _passwordsMatch,
           ),
         ],

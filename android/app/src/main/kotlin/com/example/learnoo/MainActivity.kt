@@ -1,31 +1,25 @@
 package com.example.learnoo
 
 import android.app.ActivityManager
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
+import android.provider.Settings
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.*
 
 /**
- * MainActivity with Screen Protection implementation for Android
- *
- * ARCHITECTURE:
- * - Uses FLAG_SECURE for hardware-level screenshot/screen recording blocking
- * - Maintains reference counting for nested protected screens
- * - Provides global and local protection modes
- *
- * SECURITY FEATURES:
- * - FLAG_SECURE: Blocks screenshots, screen recording, and recent apps preview
- * - Protection is hardware-level on Android - cannot be bypassed by apps
- * - Recent apps thumbnail is black when FLAG_SECURE is active
- *
- * PLATFORM CHANNELS:
- * - MethodChannel: com.learnoo.screen_protection (commands)
- * - EventChannel: com.learnoo.screen_protection/events (not used on Android - FLAG_SECURE is silent)
+ * MainActivity with Extreme Screen Protection implementation for Android
  */
 class MainActivity : FlutterActivity() {
 
@@ -33,54 +27,51 @@ class MainActivity : FlutterActivity() {
         private const val SCREEN_PROTECTION_CHANNEL = "com.learnoo.screen_protection"
         private const val SCREEN_PROTECTION_EVENTS_CHANNEL = "com.learnoo.screen_protection/events"
         
-        // Native state tracking
         @Volatile
-        private var isGlobalProtectionEnabled = false
+        private var isGlobalProtectionEnabled = true // Enforce global by default as per requirement
         
         @Volatile
         private var localProtectionCount = 0
     }
 
     private lateinit var methodChannel: MethodChannel
-    private lateinit var eventChannel: EventChannel
     private var eventSink: EventChannel.EventSink? = null
+    private lateinit var displayManager: DisplayManager
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {
+            checkScreenRecording()
+        }
+        override fun onDisplayRemoved(displayId: Int) {
+            checkScreenRecording()
+        }
+        override fun onDisplayChanged(displayId: Int) {
+            checkScreenRecording()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Note: FlutterActivity handles the FlutterEngine setup
+        // Enforce FLAG_SECURE immediately
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        
+        displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayManager.registerDisplayListener(displayListener, null)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        // Setup method channel for commands
-        methodChannel = MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            SCREEN_PROTECTION_CHANNEL
-        )
-        methodChannel.setMethodCallHandler { call, result ->
-            handleMethodCall(call, result)
-        }
+        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCREEN_PROTECTION_CHANNEL)
+        methodChannel.setMethodCallHandler { call, result -> handleMethodCall(call, result) }
         
-        // Setup event channel (for consistency with iOS, though mostly unused on Android)
-        eventChannel = EventChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            SCREEN_PROTECTION_EVENTS_CHANNEL
-        )
-        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                eventSink = events
-            }
-            
-            override fun onCancel(arguments: Any?) {
-                eventSink = null
-            }
-        })
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SCREEN_PROTECTION_EVENTS_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(args: Any?, events: EventChannel.EventSink?) { eventSink = events }
+                override fun onCancel(args: Any?) { eventSink = null }
+            })
     }
 
-    /**
-     * Handle method calls from Flutter
-     */
     private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "enableGlobalProtection" -> {
@@ -91,141 +82,124 @@ class MainActivity : FlutterActivity() {
                 disableGlobalProtection()
                 result.success(true)
             }
-            "enableLocalProtection" -> {
-                enableLocalProtection()
+            "isUsageStatsPermissionGranted" -> {
+                result.success(isUsageStatsPermissionGranted())
+            }
+            "requestUsageStatsPermission" -> {
+                requestUsageStatsPermission()
                 result.success(true)
             }
-            "disableLocalProtection" -> {
-                disableLocalProtection()
-                result.success(true)
+            "detectSuspiciousApps" -> {
+                result.success(detectSuspiciousApps())
+            }
+            "isScreenRecording" -> {
+                result.success(isScreenRecordingActive())
+            }
+            "isInMultiWindowMode" -> {
+                result.success(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInMultiWindowMode else false)
             }
             "getProtectionStatus" -> {
                 result.success(getProtectionStatus())
             }
-            "enableBlurOverlay" -> {
-                // No-op on Android - FLAG_SECURE handles this automatically
-                result.success(true)
-            }
-            "disableBlurOverlay" -> {
-                // No-op on Android
-                result.success(true)
-            }
-            else -> {
-                result.notImplemented()
-            }
+            else -> result.notImplemented()
         }
     }
 
-    /**
-     * Enable global protection for the entire app
-     * This sets FLAG_SECURE on the main window and persists until disabled
-     */
     private fun enableGlobalProtection() {
         runOnUiThread {
-            try {
-                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                isGlobalProtectionEnabled = true
-                android.util.Log.d("ScreenProtection", "Global protection enabled")
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenProtection", "Failed to enable global protection", e)
-            }
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            isGlobalProtectionEnabled = true
         }
     }
 
-    /**
-     * Disable global protection
-     * Note: If local screens still have protection, FLAG_SECURE remains
-     */
     private fun disableGlobalProtection() {
         runOnUiThread {
-            try {
-                // Only remove FLAG_SECURE if no local protection is active
-                if (localProtectionCount <= 0) {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                }
-                isGlobalProtectionEnabled = false
-                android.util.Log.d("ScreenProtection", "Global protection disabled")
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenProtection", "Failed to disable global protection", e)
+            if (localProtectionCount <= 0) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
+            isGlobalProtectionEnabled = false
         }
     }
 
     /**
-     * Enable local protection for current screen
-     * Uses reference counting - multiple screens can request protection
+     * Hybrid detection: Check for external displays / virtual displays
      */
-    private fun enableLocalProtection() {
-        runOnUiThread {
-            try {
-                localProtectionCount++
-                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                android.util.Log.d("ScreenProtection", "Local protection enabled (count: $localProtectionCount)")
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenProtection", "Failed to enable local protection", e)
-                localProtectionCount-- // Rollback on failure
+    private fun isScreenRecordingActive(): Boolean {
+        val displays = displayManager.displays
+        if (displays.size > 1) {
+            return true
+        }
+        for (display in displays) {
+            if (display.displayId != android.view.Display.DEFAULT_DISPLAY) {
+                return true
             }
+        }
+        return false
+    }
+
+    private fun checkScreenRecording() {
+        if (isScreenRecordingActive()) {
+            eventSink?.success(mapOf("event" to "recording_started"))
+        } else {
+            eventSink?.success(mapOf("event" to "recording_stopped"))
         }
     }
 
     /**
-     * Disable local protection for current screen
-     * Decrements reference count, removes FLAG_SECURE if count reaches 0
+     * UsageStats based detection for suspicious apps
      */
-    private fun disableLocalProtection() {
-        runOnUiThread {
-            try {
-                if (localProtectionCount > 0) {
-                    localProtectionCount--
-                }
-                
-                // Only remove FLAG_SECURE if count is 0 and global is disabled
-                if (localProtectionCount <= 0 && !isGlobalProtectionEnabled) {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                }
-                
-                android.util.Log.d("ScreenProtection", "Local protection disabled (count: $localProtectionCount)")
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenProtection", "Failed to disable local protection", e)
-                localProtectionCount++ // Rollback on failure
-            }
-        }
+    private fun detectSuspiciousApps(): List<String> {
+        if (!isUsageStatsPermissionGranted()) return emptyList()
+        
+        val suspiciousPackages = listOf(
+            "us.zoom.videomeetings", "com.google.android.apps.meetings", 
+            "com.microsoft.teams", "com.duapps.recorder", "com.hecorat.screenrecorder.free"
+        )
+        
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val time = System.currentTimeMillis()
+        val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, time - 1000 * 60, time)
+        
+        return stats?.filter { it.lastTimeUsed > (time - 1000 * 10) }
+                    ?.map { it.packageName }
+                    ?.filter { suspiciousPackages.contains(it) }
+                    ?: emptyList()
     }
 
-    /**
-     * Get current protection status
-     */
+    private fun isUsageStatsPermissionGranted(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+        } else {
+            appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestUsageStatsPermission() {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        startActivity(intent)
+    }
+
     private fun getProtectionStatus(): Map<String, Any> {
         val hasSecureFlag = (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
-        
         return mapOf(
-            "platform" to "android",
-            "apiLevel" to Build.VERSION.SDK_INT,
             "isGlobalEnabled" to isGlobalProtectionEnabled,
-            "localProtectionCount" to localProtectionCount,
-            "hasSecureFlag" to hasSecureFlag,
-            "isSecure" to hasSecureFlag
+            "isSecure" to hasSecureFlag,
+            "isRecording" to isScreenRecordingActive(),
+            "isMultiWindow" to (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInMultiWindowMode else false)
         )
     }
 
     override fun onResume() {
         super.onResume()
-        // Re-apply FLAG_SECURE if protection is active (handles edge cases)
         if (isGlobalProtectionEnabled || localProtectionCount > 0) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        // FLAG_SECURE persists automatically, but we log for debugging
-        android.util.Log.d("ScreenProtection", "Activity paused - protection persists via FLAG_SECURE")
-    }
-
     override fun onDestroy() {
-        // Cleanup channels
-        methodChannel.setMethodCallHandler(null)
-        eventChannel.setStreamHandler(null)
+        displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
     }
 }
