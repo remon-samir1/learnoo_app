@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import 'profile_screen.dart';
@@ -18,6 +21,10 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final _authRepository = AuthRepository();
+  final Dio _dio = Dio();
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
+  String _downloadStatus = '';
 
   @override
   void initState() {
@@ -53,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
       context: context,
       barrierDismissible: !isForceUpdate,
       builder: (context) => WillPopScope(
-        onWillPop: () async => !isForceUpdate,
+        onWillPop: () async => !isForceUpdate && !_isDownloading,
         child: AlertDialog(
           title: Text('update_available'.tr()),
           content: Column(
@@ -73,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ],
           ),
           actions: [
-            if (!isForceUpdate)
+            if (!isForceUpdate && !_isDownloading)
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
@@ -82,20 +89,172 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: Text('skip'.tr()),
               ),
             ElevatedButton(
-              onPressed: () async {
-                if (downloadUrl.isNotEmpty) {
-                  final uri = Uri.parse(downloadUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                }
-              },
-              child: Text('update_now'.tr()),
+              onPressed: _isDownloading || downloadUrl.isEmpty
+                  ? null
+                  : () => _downloadAndInstallApk(downloadUrl),
+              child: _isDownloading
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('${(_downloadProgress * 100).toStringAsFixed(0)}%'),
+                      ],
+                    )
+                  : Text('update_now'.tr()),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Download APK and show progress, then install
+  Future<void> _downloadAndInstallApk(String downloadUrl) async {
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0.0;
+      _downloadStatus = 'Starting download...';
+    });
+
+    try {
+      // Get app-specific cache directory (no storage permission needed)
+      final Directory cacheDir = await getTemporaryDirectory();
+      final String fileName = 'learnoo_update.apk';
+      final String savePath = '${cacheDir.path}/$fileName';
+
+      // Delete old file if exists
+      final oldFile = File(savePath);
+      if (await oldFile.exists()) {
+        await oldFile.delete();
+      }
+
+      // Download file with progress
+      await _dio.download(
+        downloadUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            setState(() {
+              _downloadProgress = received / total;
+              _downloadStatus =
+                  '${_formatBytes(received)} / ${_formatBytes(total)}';
+            });
+          }
+        },
+      );
+
+      setState(() {
+        _isDownloading = false;
+        _downloadStatus = 'Download complete. Installing...';
+      });
+
+      // Close the update dialog
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      // Install the APK
+      await _installApk(savePath);
+    } catch (e) {
+      setState(() {
+        _isDownloading = false;
+      });
+      _showError('Download failed: $e');
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const suffixes = ['B', 'KB', 'MB', 'GB'];
+    var i = 0;
+    double size = bytes.toDouble();
+    while (size >= 1024 && i < suffixes.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  /// Install APK file
+  Future<void> _installApk(String filePath) async {
+    try {
+      final result = await OpenFile.open(
+        filePath,
+        type: 'application/vnd.android.package-archive',
+      );
+
+      if (result.type != ResultType.done) {
+        // Show manual install dialog if automatic install fails
+        _showManualInstallDialog(filePath, result.message);
+      }
+    } catch (e) {
+      _showManualInstallDialog(filePath, e.toString());
+    }
+  }
+
+  /// Show dialog to manually install APK when automatic install fails
+  void _showManualInstallDialog(String filePath, String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Install Update'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('The APK has been downloaded but automatic install failed.'),
+            const SizedBox(height: 8),
+            Text(
+              'File location: $filePath',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            if (errorMessage.isNotEmpty)
+              Text(
+                '\nError: $errorMessage',
+                style: const TextStyle(fontSize: 12, color: Colors.red),
+              ),
+            const SizedBox(height: 16),
+            const Text(
+              'Please enable "Install unknown apps" permission for this app in Settings, then try again.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _checkAuth();
+            },
+            child: const Text('Continue to App'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Try opening the file again
+              await OpenFile.open(filePath);
+            },
+            child: const Text('Try Install Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _checkAuth() async {

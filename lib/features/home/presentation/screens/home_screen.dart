@@ -24,6 +24,7 @@ import '../../../notes/presentation/screens/summary_detail_screen.dart';
 import '../../../profile/presentation/screens/my_profile_screen.dart';
 import '../../data/department_repository.dart';
 import '../../../search/data/search_repository.dart';
+import 'sub_departments_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1323,12 +1324,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Filter only root departments (no parent)
+  List<dynamic> get _rootDepartments {
+    return _subjects.where((subject) {
+      final parent = subject['attributes']?['parent'];
+      return parent == null;
+    }).toList();
+  }
+
+  // Check if a department has children
+  bool _hasChildren(String departmentId) {
+    return _subjects.any((subject) {
+      final parent = subject['attributes']?['parent'];
+      if (parent == null) return false;
+      final parentData = parent['data'];
+      if (parentData == null) return false;
+      return parentData['id']?.toString() == departmentId;
+    });
+  }
+
   Widget _buildSubjectsList() {
     if (_isSubjectsLoading) {
       return _buildSubjectsShimmerList();
     }
 
-    if (_subjects.isEmpty) {
+    final rootDepartments = _rootDepartments;
+
+    if (rootDepartments.isEmpty) {
       return const SizedBox(
         height: 100,
         child: Center(
@@ -1348,7 +1370,7 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const BouncingScrollPhysics(),
       clipBehavior: Clip.none,
       child: Row(
-        children: _subjects.asMap().entries.map((entry) {
+        children: rootDepartments.asMap().entries.map((entry) {
           final index = entry.key;
           final subject = entry.value;
           final attributes = subject['attributes'] ?? {};
@@ -1365,6 +1387,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final colors = AppColors.subjectColors[colorIndex];
 
           return _buildSubjectItem(
+            subject,
             id,
             title,
             image,
@@ -1423,6 +1446,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSubjectItem(
+    dynamic subject,
     String subjectId,
     String title,
     String imageUrl,
@@ -1440,7 +1464,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: InkWell(
-        onTap: () => _navigateToSubjectDetail(subjectId, title, imageUrl),
+        onTap: () => _navigateToSubjectDetail(subject, subjectId, title, imageUrl),
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
@@ -1496,17 +1520,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _navigateToSubjectDetail(String subjectId, String title, String imageUrl) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SubjectDetailScreen(
-          subjectId: subjectId,
-          subjectTitle: title,
-          subjectImage: imageUrl,
+  void _navigateToSubjectDetail(dynamic subject, String subjectId, String title, String imageUrl) {
+    // Check if this department has children (sub-departments)
+    final hasChildren = _hasChildren(subjectId);
+
+    if (hasChildren) {
+      // Navigate to sub-departments screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubDepartmentsScreen(
+            parentId: subjectId,
+            parentTitle: title,
+            parentImage: imageUrl,
+            allDepartments: _subjects,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // Navigate directly to subject detail
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubjectDetailScreen(
+            subjectId: subjectId,
+            subjectTitle: title,
+            subjectImage: imageUrl,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildCoursesList() {
