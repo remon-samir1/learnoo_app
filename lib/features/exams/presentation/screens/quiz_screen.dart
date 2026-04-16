@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:easy_localization/easy_localization.dart';
+
 import '../../data/exam_repository.dart';
 import '../../models/quiz_models.dart';
 import 'exam_results_screen.dart';
+import '../../../../core/widgets/watermark_overlay.dart';
+import '../../../../core/services/download_service.dart';
 
 class QuizScreen extends StatefulWidget {
   final Quiz quiz;
@@ -28,6 +32,11 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   Map<int, List<QuizAnswer>> _answersMap = {}; // questionId -> answers
   bool _isLoading = true;
   bool _isSubmitting = false;
+
+  // User info for watermark
+  String _userName = '';
+  String _userId = '';
+  bool _showWatermark = true;
 
   @override
   void initState() {
@@ -316,14 +325,16 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
 
     return WillPopScope(
       onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      child: Stack(
+        children: [
+          Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 const SizedBox(height: 16),
                 // Header Row
                 Row(
@@ -508,7 +519,22 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
-      ),
+        ),
+        // Watermark overlay for exam protection
+        if (_showWatermark)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: WatermarkOverlay(
+                userName: _userName.isNotEmpty ? _userName : 'Student',
+                userId: _userId.isNotEmpty ? _userId : 'ID:0',
+                opacity: 0.08,
+                mode: WatermarkMode.grid,
+                animated: false,
+              ),
+            ),
+          ),
+      ],
+    ),
     );
   }
 

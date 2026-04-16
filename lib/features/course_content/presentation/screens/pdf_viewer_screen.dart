@@ -1,13 +1,13 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
-// For Android SDK version detection
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../../../../core/services/download_service.dart';
+import '../../../../core/widgets/watermark_overlay.dart';
+import '../../../../core/widgets/subscription_badge.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -26,11 +26,21 @@ class PdfViewerScreen extends StatefulWidget {
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
   String? _localFilePath;
   bool _isLoading = true;
-  bool _isDownloading = false;
   String? _errorMessage;
   int _totalPages = 0;
   int _currentPage = 0;
   PDFViewController? _pdfViewController;
+  
+  // Download service
+  final DownloadService _downloadService = DownloadService();
+  ValueNotifier<DownloadProgress>? _downloadNotifier;
+  
+  // User info for watermark
+  String _userName = '';
+  String _userId = '';
+  bool _isSubscribed = true;
+  bool _showWatermark = true;
+  double _watermarkOpacity = 0.15;
 
   @override
   void initState() {
@@ -40,36 +50,39 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   Future<void> _downloadAndOpenPdf() async {
     try {
-      final tempDir = await getTemporaryDirectory();
       final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
-      final filePath = '${tempDir.path}/$fileName';
-
-      final file = File(filePath);
-      if (await file.exists()) {
-        await file.delete();
-      }
-
-      final dio = Dio();
-      await dio.download(
-        widget.pdfUrl,
-        filePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            debugPrint('Download progress: ${(received / total * 100).toStringAsFixed(0)}%');
-          }
-        },
+      
+      // Initialize progress notifier
+      _downloadNotifier = _downloadService.getProgressNotifier(widget.pdfUrl, fileName);
+      
+      final result = await _downloadService.downloadFile(
+        url: widget.pdfUrl,
+        fileName: fileName,
+        subDirectory: 'temp',
       );
 
       if (mounted) {
-        setState(() {
-          _localFilePath = filePath;
-          _isLoading = false;
-        });
+        if (result.status == DownloadStatus.completed && result.localPath != null) {
+          setState(() {
+            _localFilePath = result.localPath;
+            _isLoading = false;
+          });
+        } else if (result.status == DownloadStatus.failed) {
+          setState(() {
+            _errorMessage = result.errorMessage ?? 'course.failed_load_pdf'.tr();
+            _isLoading = false;
+          });
+        } else if (result.status == DownloadStatus.cancelled) {
+          setState(() {
+            _errorMessage = 'course.download_cancelled'.tr();
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load PDF: $e';
+          _errorMessage = 'course.failed_load_pdf'.tr(args: [e.toString()]);
           _isLoading = false;
         });
       }
@@ -77,98 +90,65 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   Future<void> _downloadToDevice() async {
-    setState(() {
-      _isDownloading = true;
-    });
-
+    final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+    
     try {
-      // Check Android SDK version
-      if (Platform.isAndroid) {
-        final sdkVersion = int.tryParse(
-          RegExp(r'API (\d+)').firstMatch(await _getAndroidVersion() ?? '')?.group(1) ?? '0',
-        ) ?? 0;
-
-        // For Android 10+ (API 29+), use app directory and share
-        // For Android 9 and below (API 28-), request storage permission
-        if (sdkVersion < 29) {
-          final status = await Permission.storage.request();
-          if (!status.isGranted) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Storage permission denied'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-            return;
-          }
-        }
-      }
-
-      // Download to app directory first
-      final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
-      late final String downloadPath;
-
-      if (Platform.isAndroid) {
-        // Use app documents directory (works on all Android versions)
-        final dir = await getApplicationDocumentsDirectory();
-        downloadPath = dir.path;
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        downloadPath = dir.path;
-      }
-
-      final downloadFilePath = '$downloadPath/$fileName';
-
-      final dio = Dio();
-      await dio.download(widget.pdfUrl, downloadFilePath);
+      final result = await _downloadService.downloadFile(
+        url: widget.pdfUrl,
+        fileName: fileName,
+        subDirectory: 'downloads',
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF saved to app storage: $fileName'),
-            backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: 'Share',
-              onPressed: () => _sharePdf(downloadFilePath),
+        if (result.status == DownloadStatus.completed && result.localPath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('course.pdf_saved'.tr(args: [fileName])),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: 'share.share'.tr(),
+                onPressed: () => _sharePdf(result.localPath!),
+                textColor: Colors.white,
+              ),
             ),
-          ),
-        );
+          );
+        } else if (result.status == DownloadStatus.failed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'course.download_failed'.tr()),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: 'course.retry'.tr(),
+                onPressed: _downloadToDevice,
+                textColor: Colors.white,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Download failed: $e'),
+            content: Text('course.download_failed'.tr(args: [e.toString()])),
             backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'course.retry'.tr(),
+              onPressed: _downloadToDevice,
+              textColor: Colors.white,
+            ),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloading = false;
-        });
       }
     }
   }
 
   Future<void> _sharePdf(String filePath) async {
-    // Share functionality would require share_plus package
-    // For now, just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share functionality coming soon'),
-        backgroundColor: Colors.blue,
-      ),
-    );
+    await Share.shareUri(Uri.parse(filePath));
   }
 
-  Future<String?> _getAndroidVersion() async {
-    final deviceInfo = DeviceInfoPlugin();
-    final androidInfo = await deviceInfo.androidInfo;
-    return 'API ${androidInfo.version.sdkInt}';
+  Future<void> _shareUrl() async {
+    await Share.shareUri(Uri.parse(widget.pdfUrl));
   }
 
   @override
@@ -189,24 +169,39 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (_isDownloading)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else
-            IconButton(
-              onPressed: _downloadToDevice,
-              icon: const FaIcon(FontAwesomeIcons.download, size: 18),
-              tooltip: 'Download PDF',
+          // Share URL button
+          IconButton(
+            onPressed: _shareUrl,
+            icon: const FaIcon(FontAwesomeIcons.shareNodes, size: 18),
+            tooltip: 'share.share_link'.tr(),
+          ),
+          // Download progress or download button
+          ValueListenableBuilder<DownloadProgress>(
+            valueListenable: _downloadNotifier ?? ValueNotifier(
+              DownloadProgress(url: widget.pdfUrl, fileName: widget.title),
             ),
+            builder: (context, progress, child) {
+              if (progress.status == DownloadStatus.downloading) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      value: progress.progress > 0 ? progress.progress : null,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                );
+              }
+              return IconButton(
+                onPressed: _downloadToDevice,
+                icon: const FaIcon(FontAwesomeIcons.download, size: 18),
+                tooltip: 'course.download_pdf'.tr(),
+              );
+            },
+          ),
         ],
         bottom: _totalPages > 0
             ? PreferredSize(
@@ -287,35 +282,47 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     }
 
     if (_localFilePath != null) {
-      return PDFView(
-        filePath: _localFilePath,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: false,
-        pageFling: false,
-        onRender: (pages) {
-          setState(() {
-            _totalPages = pages!;
-          });
-        },
-        onViewCreated: (controller) {
-          _pdfViewController = controller;
-        },
-        onPageChanged: (page, total) {
-          setState(() {
-            _currentPage = page!;
-          });
-        },
-        onError: (error) {
-          setState(() {
-            _errorMessage = 'Error loading PDF: $error';
-          });
-        },
+      return Stack(
+        children: [
+          PDFView(
+            filePath: _localFilePath,
+            enableSwipe: true,
+            swipeHorizontal: false,
+            autoSpacing: false,
+            pageFling: false,
+            onRender: (pages) {
+              setState(() {
+                _totalPages = pages!;
+              });
+            },
+            onViewCreated: (controller) {
+              _pdfViewController = controller;
+            },
+            onPageChanged: (page, total) {
+              setState(() {
+                _currentPage = page!;
+              });
+            },
+            onError: (error) {
+              setState(() {
+                _errorMessage = 'Error loading PDF: $error';
+              });
+            },
+          ),
+          // Watermark overlay
+          if (_showWatermark)
+            WatermarkOverlay(
+              userName: _userName.isNotEmpty ? _userName : 'Guest User',
+              userId: _userId.isNotEmpty ? _userId : '0',
+              opacity: _watermarkOpacity,
+              mode: WatermarkMode.diagonal,
+            ),
+        ],
       );
     }
 
-    return const Center(
-      child: Text('Unable to load PDF'),
+    return Center(
+      child: Text('course.unable_load_pdf'.tr()),
     );
   }
 }

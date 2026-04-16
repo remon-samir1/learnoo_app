@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import 'profile_screen.dart';
@@ -21,13 +22,83 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _checkForUpdates();
   }
 
-  Future<void> _checkAuth() async {
+  /// First check for app updates, then proceed with auth
+  Future<void> _checkForUpdates() async {
     // Artificial delay for splash effect
     await Future.delayed(const Duration(seconds: 2));
 
+    final updateInfo = await _authRepository.checkForUpdate();
+
+    if (updateInfo != null && updateInfo['hasUpdate'] == true) {
+      if (mounted) {
+        _showUpdateDialog(updateInfo);
+      }
+    } else {
+      // No update needed, proceed with auth check
+      _checkAuth();
+    }
+  }
+
+  /// Show update dialog with optional skip based on is_force_update
+  void _showUpdateDialog(Map<String, dynamic> updateInfo) {
+    final isForceUpdate = updateInfo['isForceUpdate'] ?? false;
+    final versionName = updateInfo['versionName'] ?? '';
+    final fileSize = updateInfo['fileSize'] ?? '';
+    final downloadUrl = updateInfo['downloadUrl'] ?? '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isForceUpdate,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => !isForceUpdate,
+        child: AlertDialog(
+          title: Text('update_available'.tr()),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${'new_version'.tr()}: $versionName'),
+              if (fileSize != null && fileSize.isNotEmpty)
+                Text('${'file_size'.tr()}: $fileSize'),
+              const SizedBox(height: 16),
+              Text(
+                isForceUpdate
+                    ? 'force_update_message'.tr()
+                    : 'optional_update_message'.tr(),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            if (!isForceUpdate)
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _checkAuth();
+                },
+                child: Text('skip'.tr()),
+              ),
+            ElevatedButton(
+              onPressed: () async {
+                if (downloadUrl.isNotEmpty) {
+                  final uri = Uri.parse(downloadUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                }
+              },
+              child: Text('update_now'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkAuth() async {
     final token = await _authRepository.getToken();
     if (token == null) {
       _navigateToProfile();

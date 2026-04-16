@@ -41,4 +41,7 @@ class ApiConstants {
 
   // Live room endpoints
   static const String liveRooms = '/v1/live-room';
+
+  // OTA (Over-The-Air) update endpoint
+  static const String otaLatest = '/v1/ota/latest';
 }

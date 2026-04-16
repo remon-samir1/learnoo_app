@@ -7,6 +7,57 @@ import '../../../core/services/device_service.dart';
 class AuthRepository {
   final _storage = const FlutterSecureStorage();
 
+  // Current app version code - update this with each release
+  static const int currentVersionCode = 1;
+
+  /// Check for OTA (Over-The-Air) app updates
+  /// Returns update info if a newer version is available, null otherwise
+  Future<Map<String, dynamic>?> checkForUpdate() async {
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.otaLatest}');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-OTA-Key':"196716f9c69164c7b8ef9e2a4bfb9bced668065997b3e987cc900803c7b78c43"
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final attributes = data['data']?['attributes'];
+
+        if (attributes == null) return null;
+
+        final versionCode = attributes['version_code'];
+        final isForceUpdate = attributes['is_force_update'] ?? false;
+        final downloadUrl = attributes['download_url'];
+        final versionName = attributes['version_name'];
+        final releaseNotes = attributes['release_notes'];
+        final fileSizeHuman = attributes['file_size_human'];
+
+        // Check if update is needed
+        if (versionCode != null && versionCode > currentVersionCode) {
+          return {
+            'hasUpdate': true,
+            'versionCode': versionCode,
+            'versionName': versionName,
+            'isForceUpdate': isForceUpdate,
+            'downloadUrl': downloadUrl,
+            'releaseNotes': releaseNotes,
+            'fileSize': fileSizeHuman,
+          };
+        }
+      }
+      return null;
+    } catch (e) {
+      // Silently fail - don't block app startup on update check failure
+      return null;
+    }
+  }
+
   Future<void> saveToken(String token) async {
     await _storage.write(key: 'auth_token', value: token);
   }

@@ -305,7 +305,26 @@
     "no_discussions_yet": "لا توجد مناقشات بعد",
     "be_the_first_discussion": "كن أول من يبدأ المحادثة!",
     "voice_question_linked": "سؤال صوتي مرتبط باللحظة",
-    "instructor": "معلم"
+    "instructor": "معلم",
+    "video_already_downloaded": "تم تحميل الفيديو بالفعل",
+    "video_downloaded": "تم تحميل الفيديو بنجاح",
+    "download_started": "جاري التحميل...",
+    "download_failed": "فشل التحميل",
+    "play_downloaded": "تشغيل المحمل"
+  },
+  "downloads": {
+    "delete_title": "حذف الفيديو",
+    "delete_confirm": "هل أنت متأكد أنك تريد حذف هذا الفيديو المحمل؟",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "video_deleted": "تم حذف الفيديو بنجاح",
+    "delete_all_title": "حذف كل الفيديوهات",
+    "delete_all_confirm": "هل أنت متأكد أنك تريد حذف جميع الفيديوهات المحملة؟",
+    "delete_all": "حذف الكل",
+    "all_deleted": "تم حذف جميع الفيديوهات بنجاح",
+    "no_downloads": "لا توجد تنزيلات بعد",
+    "no_downloads_desc": "حمّل الفيديوهات لمشاهدتها بدون اتصال في أي وقت",
+    "storage_used": "التخزين المستخدم"
   },
   "exams": {
     "title": "الاختبارات والامتحانات",
@@ -458,6 +477,13 @@
     "you": "أنت",
     "student": "طالب"
   },
+  "update_available": "تحديث متاح",
+  "new_version": "إصدار جديد",
+  "file_size": "حجم الملف",
+  "force_update_message": "إصدار جديد من التطبيق مطلوب. يرجى التحديث للمتابعة في استخدام التطبيق.",
+  "optional_update_message": "يتوفر إصدار جديد من التطبيق. قم بالتحديث الآن للحصول على أفضل تجربة.",
+  "skip": "تخطي",
+  "update_now": "تحديث الآن",
   "community": {
     "title": "المجتمع",
     "post": "منشور",

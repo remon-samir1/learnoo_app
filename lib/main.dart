@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'core/services/screen_protection_service.dart';
+import 'core/services/notification_service.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 
 void main() async {
@@ -12,6 +13,11 @@ void main() async {
   // This must be done before runApp()
   final screenProtection = ScreenProtectionService();
   await screenProtection.initialize();
+  
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermissions();
   
   // Optional: Enable global protection for the entire app
   // Uncomment to protect all screens by default

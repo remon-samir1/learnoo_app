@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:video_player/video_player.dart';
@@ -8,9 +11,13 @@ import 'package:chewie/chewie.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import 'dart:async';
-import 'package:dio/dio.dart';
 import '../../../../core/network/api_constants.dart';
+import '../../../../core/services/download_service.dart';
+import '../../../../core/services/encrypted_video_service.dart';
+import '../../../../core/widgets/subscription_badge.dart';
 import '../../data/chapter_repository.dart';
 import '../../data/discussion_repository.dart';
 import 'pdf_viewer_screen.dart';
@@ -24,6 +31,9 @@ class LectureDetailScreen extends StatefulWidget {
   final String chapterId;
   final String chapterTitle;
   final String courseId;
+  final String? offlineVideoPath;
+  final String? offlineVideoKey;
+  final int initialPosition;
 
   const LectureDetailScreen({
     super.key,
@@ -32,6 +42,9 @@ class LectureDetailScreen extends StatefulWidget {
     required this.chapterId,
     required this.chapterTitle,
     required this.courseId,
+    this.offlineVideoPath,
+    this.offlineVideoKey,
+    this.initialPosition = 0,
   });
 
   @override
@@ -47,6 +60,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   bool _isLoadingChapter = true;
   bool _isLoadingDiscussions = false;
   bool _isInitializingVideo = false;
+  bool _isOfflineMode = false;
   Map<String, dynamic>? _chapterData;
   
   bool _isLocked = true;
@@ -93,12 +107,36 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   String? _errorMessage;
 
+  // Video download state
+  final _encryptedVideoService = EncryptedVideoService();
+  ValueNotifier<EncryptedDownloadProgress>? _downloadProgressNotifier;
+  bool _isDownloaded = false;
+  bool _isDownloading = false;
+
   @override
   void initState() {
+    _encryptedVideoService.loadDownloadedVideos();
     super.initState();
-    _loadChapterDetails();
-    _loadDiscussions();
-    
+
+    // Check if offline mode
+    if (widget.offlineVideoPath != null && widget.offlineVideoKey != null) {
+      setState(() {
+        _isOfflineMode = true;
+        _isLocked = false;
+        _canWatch = true;
+        _isLoadingChapter = false;
+        _videoUrl = 'offline'; // Placeholder to indicate offline video
+      });
+      _initializeOfflineVideo();
+    } else {
+      _loadChapterDetails();
+      _loadDiscussions();
+      // Check download status after a short delay to ensure service is loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _checkDownloadStatus();
+      });
+    }
+
     // Listen for recording state changes
     _recordSub = _audioRecorder.onStateChanged().listen((state) {
       if (state == RecordState.record) {
@@ -154,7 +192,30 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _recordedPlayer.dispose();
+    if (_downloadProgressNotifier != null) {
+      _encryptedVideoService.disposeNotifier(_videoUrl);
+    }
+
+    // Clean up temp offline video file
+    if (_isOfflineMode) {
+      _cleanupTempOfflineVideo();
+    }
+
     super.dispose();
+  }
+
+  Future<void> _cleanupTempOfflineVideo() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final tempFilePath = '${tempDir.path}/offline_video_${widget.chapterId}.mp4';
+      final tempFile = File(tempFilePath);
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+        debugPrint('Cleaned up temp offline video file');
+      }
+    } catch (e) {
+      debugPrint('Error cleaning up temp offline video: $e');
+    }
   }
 
   void _updateProgressBeforeLeaving() {
@@ -174,6 +235,178 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       progressSeconds: progressSeconds,
       isCompleted: isCompleted,
     );
+  }
+
+  void _checkDownloadStatus() {
+    final videoId = '${widget.courseId}_${widget.chapterId}';
+    final isDownloaded = _encryptedVideoService.isVideoDownloaded(videoId);
+    debugPrint('Checking download status for videoId: $videoId, isDownloaded: $isDownloaded');
+    if (mounted) {
+      setState(() {
+        _isDownloaded = isDownloaded;
+      });
+    }
+  }
+
+  Future<void> _downloadVideo() async {
+    debugPrint('Download button clicked - videoUrl: $_videoUrl, isLocked: $_isLocked, canWatch: $_canWatch, isOfflineMode: $_isOfflineMode');
+
+    if (!mounted) {
+      debugPrint('Cannot download: widget not mounted');
+      return;
+    }
+
+    // For offline mode, video is already downloaded
+    if (_isOfflineMode) {
+      debugPrint('Cannot download in offline mode');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('course.video_already_downloaded'.tr()),
+            backgroundColor: const Color(0xFF2DBC77),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_videoUrl.isEmpty) {
+      debugPrint('Cannot download: video URL is empty');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video URL not available'),
+            backgroundColor: Color(0xFFFF4B4B),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_isLocked) {
+      debugPrint('Cannot download: chapter is locked');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unlock the chapter to download video'),
+            backgroundColor: Color(0xFFFF4B4B),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!_canWatch) {
+      debugPrint('Cannot download: cannot watch video');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot download this video'),
+            backgroundColor: Color(0xFFFF4B4B),
+          ),
+        );
+      }
+      return;
+    }
+
+    final videoId = '${widget.courseId}_${widget.chapterId}';
+    debugPrint('Attempting to download video: $videoId');
+
+    // Check if already downloaded
+    if (_encryptedVideoService.isVideoDownloaded(videoId)) {
+      debugPrint('Video already downloaded: $videoId');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('course.video_already_downloaded'.tr()),
+            backgroundColor: const Color(0xFF2DBC77),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Show download started toast
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('course.download_started'.tr()),
+        backgroundColor: const Color(0xFF3451E5),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Set up progress notifier
+    final fileName = 'video_${videoId}.enc';
+    _downloadProgressNotifier = _encryptedVideoService.getProgressNotifier(_videoUrl, fileName);
+
+    if (mounted) {
+      setState(() => _isDownloading = true);
+    }
+
+    // Listen for progress updates
+    _downloadProgressNotifier!.addListener(() {
+      final progress = _downloadProgressNotifier!.value;
+      if (progress.status == EncryptedDownloadStatus.completed) {
+        if (mounted) {
+          setState(() {
+            _isDownloaded = true;
+            _isDownloading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('course.video_downloaded'.tr()),
+              backgroundColor: const Color(0xFF2DBC77),
+            ),
+          );
+        }
+      } else if (progress.status == EncryptedDownloadStatus.failed) {
+        if (mounted) {
+          setState(() => _isDownloading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(progress.errorMessage ?? 'course.download_failed'.tr()),
+              backgroundColor: const Color(0xFFFF4B4B),
+            ),
+          );
+        }
+      }
+    });
+
+    // Start download with current view count
+    try {
+      debugPrint('Starting download for videoId: $videoId, URL: $_videoUrl');
+      await _encryptedVideoService.downloadVideo(
+        url: _videoUrl,
+        chapterId: widget.chapterId,
+        chapterTitle: widget.chapterTitle,
+        lectureTitle: widget.lectureTitle,
+        courseId: widget.courseId,
+        duration: _duration,
+        currentViews: _currentViews,
+        maxViews: _maxViews,
+      );
+      debugPrint('Download method completed for videoId: $videoId');
+    } catch (e) {
+      debugPrint('Error during download: $e');
+      if (mounted) {
+        setState(() => _isDownloading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download error: $e'),
+            backgroundColor: const Color(0xFFFF4B4B),
+          ),
+        );
+      }
+    }
+  }
+
+  void _cancelDownload() {
+    if (_isDownloading) {
+      _encryptedVideoService.cancelDownload(_videoUrl);
+      setState(() => _isDownloading = false);
+    }
   }
 
   Future<void> _loadDiscussions() async {
@@ -323,37 +556,34 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           _duration = attributes['duration']?.toString() ?? '00:00';
           _totalTime = _duration;
           
-          final attachments = attributes['attachments'] as List<dynamic>? ?? [];
-          _attachments = attachments;
-          if (attachments.isNotEmpty) {
-            // Find the video attachment (extension mp4)
-            final videoAttachment = attachments.firstWhere(
-              (a) => (a['attributes']?['extension']?.toString().toLowerCase() == 'mp4'),
-              orElse: () => attachments.first,
-            );
-            
-            final attachmentAttrs = videoAttachment['attributes'] ?? {};
-            String path = attachmentAttrs['path']?.toString() ?? '';
-            
-            // Fix backslashes in URL and ensure it's absolute
-            if (path.isNotEmpty) {
-              path = path.replaceAll('\\', '/');
-              if (!path.startsWith('http')) {
-                _videoUrl = '${ApiConstants.baseUrl}$path';
-              } else {
-                _videoUrl = path;
+          // Get video URL from attributes (new API response structure)
+          String video = attributes['video']?.toString() ?? '';
+          if (video.isNotEmpty) {
+            video = video.replaceAll('\\', '/');
+            if (!video.startsWith('http')) {
+              if (!video.startsWith('/')) {
+                video = '/$video';
               }
+              _videoUrl = '${ApiConstants.baseUrl}$video';
+            } else {
+              _videoUrl = video;
             }
           }
+
+          final attachments = attributes['attachments'] as List<dynamic>? ?? [];
+          _attachments = attachments;
           
           _quizzes = attributes['quizzes'] as List<dynamic>? ?? [];
           _discussions = attributes['discussions'] as List<dynamic>? ?? [];
           
           _isLoadingChapter = false;
-          
+
           if (!_isLocked && _videoUrl.isNotEmpty) {
             _initializeVideoPlayer();
           }
+
+          // Check if video is already downloaded
+          _checkDownloadStatus();
         });
       } else if (mounted) {
         setState(() {
@@ -400,7 +630,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           _isInitializingVideo = false;
           _totalTime = _formatDuration(_videoController!.value.duration);
         });
-        
+
+        // Seek to initial position if provided
+        if (widget.initialPosition > 0) {
+          final initialDuration = Duration(seconds: widget.initialPosition);
+          await _videoController!.seekTo(initialDuration);
+        }
+
         _videoController!.addListener(_videoListener);
       }
     } catch (e) {
@@ -408,6 +644,108 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         setState(() {
           _isInitializingVideo = false;
           _errorMessage = 'course.failed_load_video'.tr(args: [e.toString()]);
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeOfflineVideo() async {
+    if (widget.offlineVideoPath == null || widget.offlineVideoKey == null) return;
+
+    // Load downloaded video to check view counts
+    await _encryptedVideoService.loadDownloadedVideos();
+    final videoId = '${widget.courseId}_${widget.chapterId}';
+    final downloadedVideo = _encryptedVideoService.getDownloadedVideo(videoId);
+
+    if (downloadedVideo != null) {
+      // Check if views are exhausted
+      if (downloadedVideo.currentViews >= downloadedVideo.maxViews) {
+        debugPrint('Views exhausted for video: $videoId. Deleting downloaded video.');
+        // Delete the downloaded video
+        await _encryptedVideoService.deleteDownloadedVideo(videoId);
+        if (mounted) {
+          setState(() {
+            _isInitializingVideo = false;
+            _errorMessage = 'Views exhausted. Downloaded video has been deleted.';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Views exhausted. Downloaded video has been deleted.'),
+              backgroundColor: Color(0xFFFF4B4B),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    setState(() => _isInitializingVideo = true);
+
+    try {
+      debugPrint('Initializing offline video from: ${widget.offlineVideoPath}');
+
+      // Decrypt the video file
+      final encryptedFile = File(widget.offlineVideoPath!);
+      if (!await encryptedFile.exists()) {
+        throw Exception('Downloaded video file not found');
+      }
+
+      // Read encrypted data
+      final encryptedData = await encryptedFile.readAsBytes();
+
+      // Decrypt data using XOR
+      final keyBytes = base64.decode(widget.offlineVideoKey!);
+      final decryptedData = Uint8List(encryptedData.length);
+      for (var i = 0; i < encryptedData.length; i++) {
+        decryptedData[i] = encryptedData[i] ^ keyBytes[i % keyBytes.length];
+      }
+
+      // Write to temp file for playback
+      final tempDir = await getTemporaryDirectory();
+      final tempFilePath = '${tempDir.path}/offline_video_${widget.chapterId}.mp4';
+      final tempFile = File(tempFilePath);
+      await tempFile.writeAsBytes(decryptedData);
+
+      // Initialize video player with temp file
+      _videoController = VideoPlayerController.file(tempFile);
+      await _videoController!.initialize();
+
+      if (mounted) {
+        _chewieController = ChewieController(
+          videoPlayerController: _videoController!,
+          autoPlay: false,
+          looping: false,
+          aspectRatio: _videoController!.value.aspectRatio,
+          errorBuilder: (context, errorMessage) {
+            return Center(
+              child: Text(
+                errorMessage,
+                style: const TextStyle(color: Colors.white),
+              ),
+            );
+          },
+        );
+
+        setState(() {
+          _isInitializingVideo = false;
+          _totalTime = _formatDuration(_videoController!.value.duration);
+          _duration = _totalTime;
+        });
+
+        // Seek to initial position if provided
+        if (widget.initialPosition > 0) {
+          final initialDuration = Duration(seconds: widget.initialPosition);
+          await _videoController!.seekTo(initialDuration);
+        }
+
+        _videoController!.addListener(_videoListener);
+      }
+    } catch (e) {
+      debugPrint('Error initializing offline video: $e');
+      if (mounted) {
+        setState(() {
+          _isInitializingVideo = false;
+          _errorMessage = 'Failed to play offline video: $e';
         });
       }
     }
@@ -1007,131 +1345,162 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       height: 220,
       width: double.infinity,
       color: Colors.black,
-      child: _chewieController != null && _videoController != null && _videoController!.value.isInitialized
-          ? Chewie(controller: _chewieController!)
-          : _isInitializingVideo
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : _isLocked
-                  ? Container(
-                      color: const Color(0xFF1F2937),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const FaIcon(FontAwesomeIcons.lock, color: Colors.white, size: 48),
-                            const SizedBox(height: 16),
-                            Text(
-                              'course.chapter_locked'.tr(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: _showActivationCodeDialog,
-                              icon: const FaIcon(FontAwesomeIcons.key, size: 14),
-                              label: Text('course.unlock_now'.tr()),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF3451E5),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Video player
+          if (_chewieController != null && _videoController != null && _videoController!.value.isInitialized)
+            Chewie(controller: _chewieController!)
+          else if (_isInitializingVideo)
+            const Center(child: CircularProgressIndicator(color: Colors.white))
+          else if (_isLocked)
+            Container(
+              color: const Color(0xFF1F2937),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const FaIcon(FontAwesomeIcons.lock, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'course.chapter_locked'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
-                  : _videoUrl.isEmpty
-                      ? Container(
-                          color: const Color(0xFF1F2937),
-                          child: const Center(
-                            child: FaIcon(FontAwesomeIcons.film, color: Colors.white, size: 48),
-                          ),
-                        )
-                      : (_errorMessage != null)
-                          ? Container(
-                              color: const Color(0xFF1F2937),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const FaIcon(FontAwesomeIcons.circleExclamation, color: Color(0xFFFF4B4B), size: 48),
-                                    const SizedBox(height: 16),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                                      child: Text(
-                                        _errorMessage!,
-                                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton.icon(
-                                      onPressed: _initializeVideoPlayer,
-                                      icon: const FaIcon(FontAwesomeIcons.rotateRight, size: 14),
-                                      label: Text('course.retry_video'.tr()),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF3451E5),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : !_canWatch
-                          ? Container(
-                              color: const Color(0xFF1F2937),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const FaIcon(FontAwesomeIcons.circlePlay, color: Colors.white54, size: 48),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'course.views_exhausted'.tr(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.7),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'course.max_views_reached'.tr(),
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.6),
-                                        fontSize: 12,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: const Color(0xFF1F2937),
-                              child: Center(
-                                child: Text('course.video_unavailable'.tr(), style: const TextStyle(color: Colors.white)),
-                              ),
-                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _showActivationCodeDialog,
+                      icon: const FaIcon(FontAwesomeIcons.key, size: 14),
+                      label: Text('course.unlock_now'.tr()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3451E5),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_videoUrl.isEmpty)
+            Container(
+              color: const Color(0xFF1F2937),
+              child: const Center(
+                child: FaIcon(FontAwesomeIcons.film, color: Colors.white, size: 48),
+              ),
+            )
+          else if (_errorMessage != null)
+            Container(
+              color: const Color(0xFF1F2937),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const FaIcon(FontAwesomeIcons.circleExclamation, color: Color(0xFFFF4B4B), size: 48),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _initializeVideoPlayer,
+                      icon: const FaIcon(FontAwesomeIcons.rotateRight, size: 14),
+                      label: Text('course.retry_video'.tr()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3451E5),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (!_canWatch)
+            Container(
+              color: const Color(0xFF1F2937),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const FaIcon(FontAwesomeIcons.circlePlay, color: Colors.white54, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'course.views_exhausted'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'course.views_used'.tr(args: [_currentViews.toString(), _maxViews.toString()]),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'course.max_views_reached'.tr(),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              color: const Color(0xFF1F2937),
+              child: Center(
+                child: Text('course.video_unavailable'.tr(), style: const TextStyle(color: Colors.white)),
+              ),
+            ),
+          // Download button overlay - show when video is available
+          // In offline mode, show downloaded indicator instead
+          if (_isOfflineMode)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2DBC77).withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: FaIcon(FontAwesomeIcons.check, color: Colors.white, size: 16),
+                ),
+              ),
+            )
+          else if (_videoUrl.isNotEmpty && !_isLocked && _canWatch)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: _buildDownloadButton(),
+            ),
+        ],
+      ),
     );
   }
 
@@ -1147,6 +1516,83 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         ),
         child: Center(
           child: FaIcon(icon, color: Colors.white, size: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadButton() {
+    // Show downloading progress
+    if (_isDownloading && _downloadProgressNotifier != null) {
+      return ValueListenableBuilder<EncryptedDownloadProgress>(
+        valueListenable: _downloadProgressNotifier!,
+        builder: (context, progress, child) {
+          return GestureDetector(
+            onTap: _cancelDownload,
+            child: Container(
+              height: 36,
+              width: 36,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress.progress,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                    const FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 12),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    // Show downloaded icon if already downloaded
+    if (_isDownloaded) {
+      return Container(
+        height: 36,
+        width: 36,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2DBC77).withValues(alpha: 0.8),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: FaIcon(FontAwesomeIcons.check, color: Colors.white, size: 16),
+        ),
+      );
+    }
+
+    // Show download button
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          debugPrint('Download button tapped - starting download');
+          _downloadVideo();
+        },
+        customBorder: const CircleBorder(),
+        splashColor: Colors.white.withValues(alpha: 0.3),
+        highlightColor: Colors.white.withValues(alpha: 0.1),
+        child: Container(
+          height: 44,
+          width: 44,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: FaIcon(FontAwesomeIcons.download, color: Colors.white, size: 18),
+          ),
         ),
       ),
     );
@@ -1385,6 +1831,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           if (!isLocked && isPdf && path != null && path.isNotEmpty)
             Row(
               children: [
+                // View PDF button
                 GestureDetector(
                   onTap: () => _openPdf(path, name),
                   child: Container(
@@ -1403,6 +1850,20 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
                     child: const FaIcon(FontAwesomeIcons.eye, color: Colors.white, size: 16),
                   ),
                 ),
+                // Share button
+                GestureDetector(
+                  onTap: () => _shareAttachment(path, name),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const FaIcon(FontAwesomeIcons.shareNodes, color: Color(0xFF25D366), size: 16),
+                  ),
+                ),
+                // Download button
                 GestureDetector(
                   onTap: () => _downloadPdf(path, name),
                   child: Container(
@@ -1423,26 +1884,48 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
               ],
             )
           else if (!isLocked)
-            GestureDetector(
-              onTap: () {
-                if (path != null && path.isNotEmpty) {
-                  _downloadFile(path, name);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
+            Row(
+              children: [
+                // Share button for non-PDF attachments
+                GestureDetector(
+                  onTap: () {
+                    if (path != null && path.isNotEmpty) {
+                      _shareAttachment(path, name);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
+                    child: const FaIcon(FontAwesomeIcons.shareNodes, color: Color(0xFF25D366), size: 16),
+                  ),
                 ),
-                child: const FaIcon(FontAwesomeIcons.download, color: Color(0xFF6B7280), size: 16),
-              ),
+                // Download button for non-PDF attachments
+                GestureDetector(
+                  onTap: () {
+                    if (path != null && path.isNotEmpty) {
+                      _downloadFile(path, name);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const FaIcon(FontAwesomeIcons.download, color: Color(0xFF6B7280), size: 16),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
@@ -1451,10 +1934,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   void _openPdf(String path, String name) {
     String pdfUrl = path;
+    pdfUrl = pdfUrl.replaceAll('\\', '/');
     if (!pdfUrl.startsWith('http')) {
+      if (!pdfUrl.startsWith('/')) {
+        pdfUrl = '/$pdfUrl';
+      }
       pdfUrl = '${ApiConstants.baseUrl}$pdfUrl';
     }
-    pdfUrl = pdfUrl.replaceAll('\\', '/');
 
     Navigator.push(
       context,
@@ -1469,10 +1955,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   Future<void> _downloadPdf(String path, String name) async {
     String fileUrl = path;
+    fileUrl = fileUrl.replaceAll('\\', '/');
     if (!fileUrl.startsWith('http')) {
+      if (!fileUrl.startsWith('/')) {
+        fileUrl = '/$fileUrl';
+      }
       fileUrl = '${ApiConstants.baseUrl}$fileUrl';
     }
-    fileUrl = fileUrl.replaceAll('\\', '/');
 
     try {
       final dio = Dio();
@@ -1503,25 +1992,48 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
 
   Future<void> _downloadFile(String path, String name) async {
     String fileUrl = path;
+    fileUrl = fileUrl.replaceAll('\\', '/');
     if (!fileUrl.startsWith('http')) {
+      if (!fileUrl.startsWith('/')) {
+        fileUrl = '/$fileUrl';
+      }
       fileUrl = '${ApiConstants.baseUrl}$fileUrl';
     }
-    fileUrl = fileUrl.replaceAll('\\', '/');
 
     try {
-      final dio = Dio();
-      final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/${name.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '_')}';
-
-      await dio.download(fileUrl, filePath);
+      final downloadService = DownloadService();
+      final result = await downloadService.downloadFile(
+        url: fileUrl,
+        fileName: name.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '_'),
+        subDirectory: 'downloads',
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('course.downloaded_to'.tr(args: [filePath])),
-            backgroundColor: const Color(0xFF2DBC77),
-          ),
-        );
+        if (result.status == DownloadStatus.completed && result.localPath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('course.downloaded'.tr(args: [name])),
+              backgroundColor: const Color(0xFF2DBC77),
+              action: SnackBarAction(
+                label: 'share.share'.tr(),
+                onPressed: () => _shareFile(result.localPath!, name),
+                textColor: Colors.white,
+              ),
+            ),
+          );
+        } else if (result.status == DownloadStatus.failed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'course.download_failed'.tr()),
+              backgroundColor: const Color(0xFFFF4B4B),
+              action: SnackBarAction(
+                label: 'course.retry'.tr(),
+                onPressed: () => _downloadFile(path, name),
+                textColor: Colors.white,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1533,6 +2045,23 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         );
       }
     }
+  }
+
+  Future<void> _shareAttachment(String path, String name) async {
+    String fileUrl = path;
+    fileUrl = fileUrl.replaceAll('\\', '/');
+    if (!fileUrl.startsWith('http')) {
+      if (!fileUrl.startsWith('/')) {
+        fileUrl = '/$fileUrl';
+      }
+      fileUrl = '${ApiConstants.baseUrl}$fileUrl';
+    }
+
+    await Share.shareUri(Uri.parse(fileUrl));
+  }
+
+  Future<void> _shareFile(String filePath, String name) async {
+    await Share.shareUri(Uri.parse(filePath));
   }
 
   Widget _buildLinkedQuizzes() {

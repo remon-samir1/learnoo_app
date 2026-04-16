@@ -375,22 +375,20 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF1F1F1)),
+        boxShadow: [
+          if (isExpanded)
+            BoxShadow(
+              color: const Color(0xFF5A75FF).withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            title: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            subtitle: Text(
-              '${chapters.length} ${'course.chapters'.tr()}',
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
-            trailing: Icon(
-              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              color: Colors.grey,
-            ),
+          // Parent lecture header with tree indicator
+          InkWell(
             onTap: () {
               setState(() {
                 if (_isExpanded.length > index) {
@@ -398,41 +396,208 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 }
               });
             },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Tree structure indicator
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isExpanded 
+                          ? const Color(0xFF5A75FF).withValues(alpha: 0.1)
+                          : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isExpanded ? Icons.folder_open : Icons.folder,
+                      color: isExpanded ? const Color(0xFF5A75FF) : Colors.grey,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            fontSize: 15,
+                            color: isExpanded ? const Color(0xFF5A75FF) : const Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${chapters.length} ${chapters.length == 1 ? 'course.chapter'.tr() : 'course.chapters'.tr()}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Expand/collapse indicator
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isExpanded 
+                            ? const Color(0xFF5A75FF).withValues(alpha: 0.1)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: isExpanded ? const Color(0xFF5A75FF) : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          if (isExpanded && chapters.isNotEmpty) ...[
-            const Divider(height: 1, color: Color(0xFFF1F1F1)),
-            ...chapters.asMap().entries.expand((entry) {
-              final chapterIndex = entry.key;
-              final chapter = entry.value;
-              final chapterAttrs = chapter['attributes'] ?? {};
-              final chapterTitle =
-                  chapterAttrs['title']?.toString() ?? 'course.untitled_chapter'.tr();
-              final duration = chapterAttrs['duration']?.toString() ?? '--:--';
-              final thumbnail = chapterAttrs['thumbnail']?.toString() ?? '';
-              final isLocked = chapterAttrs['is_locked'] as bool? ?? false;
-              final isFreePreview =
-                  chapterAttrs['is_free_preview'] as bool? ?? false;
-
-              final widgets = <Widget>[
-                _buildLectureListItem(
-                  chapterTitle,
-                  duration,
-                  thumbnail,
-                  !isLocked,
-                  onTap: () => _navigateToLecture(lecture, chapter),
-                  isFreePreview: isFreePreview,
-                  isLocked: isLocked,
+          // Nested chapters with visual tree indentation
+          if (isExpanded && chapters.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFBFF),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
                 ),
-              ];
+              ),
+              child: Column(
+                children: [
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  ...chapters.asMap().entries.expand((entry) {
+                    final chapterIndex = entry.key;
+                    final chapter = entry.value;
+                    final chapterAttrs = chapter['attributes'] ?? {};
+                    final chapterTitle =
+                        chapterAttrs['title']?.toString() ?? 'course.untitled_chapter'.tr();
+                    final duration = chapterAttrs['duration']?.toString() ?? '--:--';
+                    final thumbnail = chapterAttrs['thumbnail']?.toString() ?? '';
+                    final isLocked = chapterAttrs['is_locked'] as bool? ?? false;
+                    final isFreePreview =
+                        chapterAttrs['is_free_preview'] as bool? ?? false;
+                    final isLastItem = chapterIndex == chapters.length - 1;
 
-              if (chapterIndex < chapters.length - 1) {
-                widgets.add(const Divider(height: 1, color: Color(0xFFF1F1F1)));
-              }
+                    final widgets = <Widget>[
+                      _buildNestedChapterItem(
+                        chapterTitle,
+                        duration,
+                        thumbnail,
+                        !isLocked,
+                        index: chapterIndex,
+                        totalCount: chapters.length,
+                        onTap: () => _navigateToLecture(lecture, chapter),
+                        isFreePreview: isFreePreview,
+                        isLocked: isLocked,
+                        isLastItem: isLastItem,
+                      ),
+                    ];
 
-              return widgets;
-            }).toList(),
-          ],
+                    return widgets;
+                  }).toList(),
+                ],
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  // New nested chapter item with tree visualization
+  Widget _buildNestedChapterItem(
+    String title,
+    String duration,
+    String imageUrl,
+    bool isCompleted, {
+    required VoidCallback onTap,
+    bool isFreePreview = false,
+    bool isLocked = false,
+    required int index,
+    required int totalCount,
+    required bool isLastItem,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Tree connector lines
+            SizedBox(
+              width: 32,
+              height: 60,
+              child: Stack(
+                children: [
+                  // Vertical line from parent
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 2,
+                      color: const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                  // Horizontal connector
+                  Positioned(
+                    left: 8,
+                    top: 20,
+                    child: Container(
+                      width: 16,
+                      height: 2,
+                      color: const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                  // Last item corner or continue line
+                  if (!isLastItem)
+                    Positioned(
+                      left: 8,
+                      top: 22,
+                      bottom: 0,
+                      child: Container(
+                        width: 2,
+                        color: const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                  // Node indicator
+                  Positioned(
+                    left: 4,
+                    top: 16,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: isLocked ? Colors.grey : const Color(0xFF5A75FF),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Content
+            Expanded(
+              child: _buildLectureListItem(
+                title,
+                duration,
+                imageUrl,
+                isCompleted,
+                onTap: onTap,
+                isFreePreview: isFreePreview,
+                isLocked: isLocked,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

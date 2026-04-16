@@ -1075,31 +1075,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Calculate progress percentage from duration and progress_seconds
     double progress = 0.0;
+    int totalSeconds = 0;
     final durationParts = duration.split(':');
     if (durationParts.length == 2) {
       final minutes = int.tryParse(durationParts[0]) ?? 0;
       final seconds = int.tryParse(durationParts[1]) ?? 0;
-      final totalSeconds = minutes * 60 + seconds;
+      totalSeconds = minutes * 60 + seconds;
       if (totalSeconds > 0) {
         progress = progressSeconds / totalSeconds;
       }
     }
 
-    // Calculate time remaining
-    String timeRemaining = '00:00';
-    final durationParts2 = duration.split(':');
-    if (durationParts2.length == 2) {
-      final minutes = int.tryParse(durationParts2[0]) ?? 0;
-      final seconds = int.tryParse(durationParts2[1]) ?? 0;
-      final totalSeconds = minutes * 60 + seconds;
-      final remainingSeconds = totalSeconds - progressSeconds;
-      if (remainingSeconds > 0) {
-        final remMinutes = remainingSeconds ~/ 60;
-        final remSecs = remainingSeconds % 60;
-        timeRemaining = '${remMinutes.toString().padLeft(2, '0')}:${remSecs.toString().padLeft(2, '0')} remaining';
-      } else {
-        timeRemaining = isCompleted ? 'Completed' : '00:00 remaining';
-      }
+    // Format current position (where user left off) and total duration
+    String timeDisplay;
+    if (isCompleted) {
+      timeDisplay = 'Completed';
+    } else {
+      // Format current position
+      final currMinutes = progressSeconds ~/ 60;
+      final currSecs = progressSeconds % 60;
+      final currentTimeStr = '${currMinutes.toString().padLeft(2, '0')}:${currSecs.toString().padLeft(2, '0')}';
+
+      // Format total duration
+      final totalMinutes = totalSeconds ~/ 60;
+      final totalSecs = totalSeconds % 60;
+      final totalTimeStr = '${totalMinutes.toString().padLeft(2, '0')}:${totalSecs.toString().padLeft(2, '0')}';
+
+      timeDisplay = '$currentTimeStr / $totalTimeStr';
     }
 
     return _buildContinueWatchingCard(
@@ -1107,7 +1109,7 @@ class _HomeScreenState extends State<HomeScreen> {
       lectureName: chapterTitle,
       thumbnail: thumbnail,
       progress: progress,
-      timeRemaining: timeRemaining,
+      timeDisplay: timeDisplay,
       onContinue: () => _navigateToLectureDetail(progressItem),
     );
   }
@@ -1191,7 +1193,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String lectureName,
     required String thumbnail,
     required double progress,
-    required String timeRemaining,
+    required String timeDisplay,
     required VoidCallback onContinue,
   }) {
     return Container(
@@ -1278,7 +1280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          timeRemaining,
+                          timeDisplay,
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF9CA3AF),
@@ -1382,9 +1384,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: List.generate(4, (index) {
           return Container(
-            width: 76,
+            width: 90,
             margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
               color: Colors.grey[200],
               borderRadius: BorderRadius.circular(16),
@@ -1395,17 +1397,17 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: 48,
+                    height: 48,
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Container(
-                    width: 50,
-                    height: 11,
+                    width: 60,
+                    height: 12,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(4),
@@ -1430,9 +1432,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final firstLetter = title.isNotEmpty ? title[0].toUpperCase() : '?';
 
     return Container(
-      width: 76,
+      width: 90,
       margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
@@ -1446,8 +1448,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ClipOval(
                 child: Image.network(
                   imageUrl,
-                  width: 32,
-                  height: 32,
+                  width: 48,
+                  height: 48,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return _buildSubjectIconFallback(firstLetter, iconColor);
@@ -1456,13 +1458,13 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               _buildSubjectIconFallback(firstLetter, iconColor),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               title,
               style: TextStyle(
                 color: iconColor,
-                fontWeight: FontWeight.w500,
-                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1475,8 +1477,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSubjectIconFallback(String letter, Color color) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.2),
         shape: BoxShape.circle,
@@ -1487,7 +1489,7 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 20,
           ),
         ),
       ),
@@ -1626,7 +1628,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final color = accentColor ?? const Color(0xFF2137D6);
     return Container(
-      width: 260,
+      width: 240,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1651,13 +1653,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Image.network(
                 imageUrl,
-                height: 130,
+                height: 100,
                 width: double.infinity,
                 fit: BoxFit.cover,
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1667,12 +1669,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                      fontSize: 14,
                       color: Color(0xFF1F2937),
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     instructor,
                     style: TextStyle(
@@ -2480,6 +2482,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final lectureTitle = chapterAttributes['lecture_title']?.toString() ?? 'Lecture';
     // course_id is a flat attribute in the chapter data
     final courseId = chapterAttributes['course_id']?.toString() ?? '';
+    // Get the saved progress seconds to resume from where user left off
+    final progressSeconds = (attributes['progress_seconds'] as num?)?.toInt() ?? 0;
 
     if (chapterId.isNotEmpty && lectureId.isNotEmpty) {
       Navigator.push(
@@ -2491,6 +2495,7 @@ class _HomeScreenState extends State<HomeScreen> {
             chapterId: chapterId,
             chapterTitle: chapterTitle,
             courseId: courseId,
+            initialPosition: progressSeconds,
           ),
         ),
       );

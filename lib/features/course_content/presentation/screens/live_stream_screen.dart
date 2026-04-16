@@ -1152,8 +1152,8 @@ class _ControlButton extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: active
-                  ? (activeColor != null ? activeColor!.withOpacity(0.15) : const Color(0xFF1E3A8A).withOpacity(0.4))
-                  : Colors.red.withOpacity(0.15),
+                  ? (activeColor != null ? activeColor!.withValues(alpha: 0.15) : const Color(0xFF1E3A8A).withValues(alpha: 0.4))
+                  : Colors.red.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 22),

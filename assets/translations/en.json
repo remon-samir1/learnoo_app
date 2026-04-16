@@ -305,7 +305,12 @@
     "no_discussions_yet": "No discussions yet",
     "be_the_first_discussion": "Be the first to start a conversation!",
     "voice_question_linked": "Voice question linked to moment",
-    "instructor": "Instructor"
+    "instructor": "Instructor",
+    "video_already_downloaded": "Video already downloaded",
+    "video_downloaded": "Video downloaded successfully",
+    "download_started": "Download started...",
+    "download_failed": "Download failed",
+    "play_downloaded": "Play Downloaded"
   },
   "exams": {
     "title": "Quizzes & Exams",
@@ -428,6 +433,20 @@
     "video_note": "Video Note",
     "note": "Note"
   },
+  "downloads": {
+    "delete_title": "Delete Video",
+    "delete_confirm": "Are you sure you want to delete this downloaded video?",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "video_deleted": "Video deleted successfully",
+    "delete_all_title": "Delete All Videos",
+    "delete_all_confirm": "Are you sure you want to delete all downloaded videos?",
+    "delete_all": "Delete All",
+    "all_deleted": "All videos deleted successfully",
+    "no_downloads": "No Downloads Yet",
+    "no_downloads_desc": "Download videos to watch them offline anytime",
+    "storage_used": "Storage Used"
+  },
   "profile": {
     "title": "My Profile",
     "account_info": "Account Information",
@@ -458,6 +477,13 @@
     "you": "You",
     "student": "Student"
   },
+  "update_available": "Update Available",
+  "new_version": "New Version",
+  "file_size": "File Size",
+  "force_update_message": "A new version of the app is required. Please update to continue using the app.",
+  "optional_update_message": "A new version of the app is available. Update now for the best experience.",
+  "skip": "Skip",
+  "update_now": "Update Now",
   "community": {
     "title": "Community",
     "post": "Post",
