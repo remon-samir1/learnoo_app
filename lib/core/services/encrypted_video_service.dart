@@ -578,6 +578,56 @@ class EncryptedVideoService {
     return _downloadedVideos.values.fold(0, (sum, video) => sum + video.fileSize);
   }
 
+  /// Increment view count for a downloaded video
+  /// Returns the updated view count or -1 if video not found
+  Future<int> incrementViewCount(String videoId) async {
+    try {
+      final video = _downloadedVideos[videoId];
+      if (video == null) return -1;
+
+      final newViewCount = video.currentViews + 1;
+      final updatedVideo = DownloadedVideo(
+        id: video.id,
+        chapterId: video.chapterId,
+        chapterTitle: video.chapterTitle,
+        lectureTitle: video.lectureTitle,
+        courseId: video.courseId,
+        originalUrl: video.originalUrl,
+        encryptedFilePath: video.encryptedFilePath,
+        thumbnailUrl: video.thumbnailUrl,
+        fileSize: video.fileSize,
+        duration: video.duration,
+        downloadDate: video.downloadDate,
+        encryptionKey: video.encryptionKey,
+        currentViews: newViewCount,
+        maxViews: video.maxViews,
+      );
+
+      _downloadedVideos[videoId] = updatedVideo;
+      await _saveDownloadedVideos();
+
+      return newViewCount;
+    } catch (e) {
+      debugPrint('Error incrementing view count: $e');
+      return -1;
+    }
+  }
+
+  /// Check if video has exhausted its views
+  bool hasExhaustedViews(String videoId) {
+    final video = _downloadedVideos[videoId];
+    if (video == null) return true;
+    return video.currentViews >= video.maxViews;
+  }
+
+  /// Delete video if views are exhausted
+  Future<bool> deleteIfViewsExhausted(String videoId) async {
+    if (hasExhaustedViews(videoId)) {
+      return await deleteDownloadedVideo(videoId);
+    }
+    return false;
+  }
+
   /// Dispose notifier for a URL
   void disposeNotifier(String url) {
     _progressNotifiers.remove(url);

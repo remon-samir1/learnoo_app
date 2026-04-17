@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/post_model.dart';
+import '../../data/models/social_link_model.dart' hide CourseAttributes;
 import '../../data/repositories/community_repository.dart';
 import 'create_post_screen.dart';
 import '../../../search/data/search_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -22,7 +24,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   List<Post> _posts = [];
   List<PostCourse> _courses = [];
+  List<SocialLink> _socialLinks = [];
   bool _isLoading = true;
+  bool _isLoadingSocialLinks = false;
   String? _errorMessage;
 
   // Search state variables
@@ -74,6 +78,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
         _courses = courseData.map((c) => PostCourse.fromJson(c)).toList();
       });
     }
+  }
+
+  Future<void> _loadSocialLinks() async {
+    if (_selectedFilter == 'All') {
+      setState(() {
+        _socialLinks = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingSocialLinks = true;
+    });
+
+    int? courseId;
+    final selectedCourse = _courses.firstWhere(
+      (c) => c.attributes.title == _selectedFilter,
+      orElse: () => PostCourse(id: '', type: '', attributes: CourseAttributes(title: '', subTitle: '', description: '', thumbnail: '', objectives: '', price: '0', maxViewsPerStudent: 0, visibility: 'public', approval: 0, status: 0, reason: '')),
+    );
+    if (selectedCourse.id.isNotEmpty) {
+      courseId = int.tryParse(selectedCourse.id);
+    }
+
+    final result = await _repository.getSocialLinks(courseId: courseId);
+
+    setState(() {
+      _isLoadingSocialLinks = false;
+      if (result['success']) {
+        _socialLinks = result['data'];
+      }
+    });
   }
 
   Future<void> _handleReaction(Post post, String reactionType) async {
@@ -241,7 +276,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   if (!_showSearchResults) ...[
                     _buildFilterTabs(),
                     _buildCommunityInfoCard(),
-                    _buildQuickLinks(),
+                    if (_selectedFilter != 'All') _buildQuickLinks(),
                   ],
                   _isSearching
                       ? _buildSkeletonPosts()
@@ -388,6 +423,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     _selectedFilter = filter;
                   });
                   _loadPosts();
+                  _loadSocialLinks();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -458,31 +494,67 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildQuickLinks() {
+    if (_isLoadingSocialLinks) {
+      return Container(
+        margin: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(child: _buildSkeletonQuickLink()),
+            const SizedBox(width: 12),
+            Expanded(child: _buildSkeletonQuickLink()),
+            const SizedBox(width: 12),
+            Expanded(child: _buildSkeletonQuickLink()),
+          ],
+        ),
+      );
+    }
+
+    final activeLinks = _socialLinks.where((link) => link.attributes.status).toList();
+
+    if (activeLinks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.all(20),
       child: Row(
+        children: activeLinks.map((link) {
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: activeLinks.last == link ? 0 : 12),
+              child: _buildQuickLinkCard(link),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonQuickLink() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(
-            child: _buildQuickLinkCard(
-              'Join WhatsApp\nGroup',
-              FontAwesomeIcons.whatsapp,
-              const Color(0xFF25D366),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildQuickLinkCard(
-              'Join Telegram\nChannel',
-              FontAwesomeIcons.telegram,
-              AppColors.primaryBlue,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildQuickLinkCard(
-              'Our Courses\nWebsite',
-              FontAwesomeIcons.globe,
-              const Color(0xFFFF6B6B),
+          const SizedBox(height: 8),
+          Container(
+            width: 60,
+            height: 11,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
         ],
@@ -490,33 +562,70 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  Widget _buildQuickLinkCard(String title, FaIconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          FaIcon(
-            icon,
-            color: Colors.white,
-            size: 24,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-              height: 1.3,
+  Widget _buildQuickLinkCard(SocialLink link) {
+    Color cardColor = AppColors.primaryBlue;
+    if (link.attributes.color != null && link.attributes.color!.isNotEmpty) {
+      try {
+        String colorStr = link.attributes.color!;
+        if (colorStr.startsWith('#')) {
+          colorStr = '0xFF${colorStr.substring(1)}';
+        }
+        cardColor = Color(int.parse(colorStr));
+      } catch (_) {
+        cardColor = AppColors.primaryBlue;
+      }
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        final url = Uri.parse(link.attributes.link);
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (link.attributes.icon.isNotEmpty)
+              Image.network(
+                link.attributes.icon,
+                width: 24,
+                height: 24,
+                errorBuilder: (context, error, stackTrace) {
+                  return const FaIcon(
+                    FontAwesomeIcons.link,
+                    color: Colors.white,
+                    size: 24,
+                  );
+                },
+              )
+            else
+              const FaIcon(
+                FontAwesomeIcons.link,
+                color: Colors.white,
+                size: 24,
+              ),
+            const SizedBox(height: 8),
+            Text(
+              link.attributes.title.isNotEmpty ? link.attributes.title : link.attributes.subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

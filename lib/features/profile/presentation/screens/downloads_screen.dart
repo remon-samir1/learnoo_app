@@ -181,8 +181,64 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     }
   }
 
-  void _playOfflineVideo(DownloadedVideo video) {
-    Navigator.push(
+  Future<void> _playOfflineVideo(DownloadedVideo video) async {
+    // Check if views are already exhausted
+    if (video.currentViews >= video.maxViews) {
+      // Delete the video
+      await _encryptedVideoService.deleteDownloadedVideo(video.id);
+      _loadDownloads();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Views exhausted. Video has been deleted.'),
+            backgroundColor: Color(0xFFFF4B4B),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Increment view count before playing
+    final newViewCount = await _encryptedVideoService.incrementViewCount(video.id);
+
+    if (newViewCount < 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error accessing video. Please try again.'),
+            backgroundColor: Color(0xFFFF4B4B),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if this was the last view
+    final updatedVideo = _encryptedVideoService.getDownloadedVideo(video.id);
+    if (updatedVideo != null && updatedVideo.currentViews >= updatedVideo.maxViews) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('This was your last view (${updatedVideo.currentViews}/${updatedVideo.maxViews}). Video will be deleted after watching.'),
+            backgroundColor: const Color(0xFFFF9800),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } else if (updatedVideo != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Views used: ${updatedVideo.currentViews}/${updatedVideo.maxViews}'),
+            backgroundColor: const Color(0xFF2DBC77),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+
+    // Navigate to video player
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LectureDetailScreen(
@@ -196,6 +252,23 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         ),
       ),
     );
+
+    // After returning from video player, refresh the list to show updated view counts
+    await _loadDownloads();
+
+    // Check if views are now exhausted and delete if needed
+    if (updatedVideo != null && updatedVideo.currentViews >= updatedVideo.maxViews) {
+      await _encryptedVideoService.deleteDownloadedVideo(video.id);
+      _loadDownloads();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Views exhausted. Video has been deleted.'),
+            backgroundColor: Color(0xFF2DBC77),
+          ),
+        );
+      }
+    }
   }
 
   String get _formattedAppStorage {
@@ -632,6 +705,25 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       Text(
                         video.duration,
                         style: const TextStyle(color: Colors.grey, fontSize: 11),
+                      ),
+                      const SizedBox(width: 12),
+                      FaIcon(
+                        FontAwesomeIcons.eye,
+                        size: 10,
+                        color: video.currentViews >= video.maxViews
+                            ? const Color(0xFFFF4B4B)
+                            : const Color(0xFF2DBC77),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${video.currentViews}/${video.maxViews}',
+                        style: TextStyle(
+                          color: video.currentViews >= video.maxViews
+                              ? const Color(0xFFFF4B4B)
+                              : const Color(0xFF2DBC77),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

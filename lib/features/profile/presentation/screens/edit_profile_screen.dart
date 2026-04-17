@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:learnoo/features/auth/data/auth_repository.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -18,6 +21,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
   final _authRepository = AuthRepository();
+  final _imagePicker = ImagePicker();
+  File? _selectedImage;
+  String? _currentImageUrl;
 
   @override
   void initState() {
@@ -27,6 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _lastNameController.text = (attributes?['last_name'] ?? '').toString();
     _emailController.text = (attributes?['email'] ?? '').toString();
     _phoneController.text = (attributes?['phone'] ?? attributes?['phone_number'] ?? '').toString();
+    _currentImageUrl = attributes?['image']?.toString();
   }
 
   @override
@@ -38,15 +45,150 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Change Profile Photo',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildPickerOption(
+                      icon: FontAwesomeIcons.camera,
+                      label: 'Camera',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.camera);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildPickerOption(
+                      icon: FontAwesomeIcons.image,
+                      label: 'Gallery',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.gallery);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              if (_selectedImage != null || (_currentImageUrl != null && _currentImageUrl!.isNotEmpty)) ...[
+                const SizedBox(height: 16),
+                _buildPickerOption(
+                  icon: FontAwesomeIcons.trash,
+                  label: 'Remove Photo',
+                  color: Colors.red,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _selectedImage = null;
+                      _currentImageUrl = null;
+                    });
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required FaIconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: color?.withOpacity(0.1) ?? const Color(0xFFF0F2FF),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            FaIcon(
+              icon,
+              color: color ?? const Color(0xFF5A75FF),
+              size: 24,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color ?? const Color(0xFF1F2937),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleSave() async {
     setState(() => _isLoading = true);
-    
-    final result = await _authRepository.updateProfile({
-      'first_name': _firstNameController.text,
-      'last_name': _lastNameController.text,
-      'email': _emailController.text,
-    });
-    
+
+    final result = await _authRepository.updateProfileWithImage(
+      profileData: {
+        'first_name': _firstNameController.text,
+        'last_name': _lastNameController.text,
+        'email': _emailController.text,
+      },
+      imageFile: _selectedImage,
+    );
+
     if (mounted) {
       setState(() => _isLoading = false);
       if (result['success']) {
@@ -55,6 +197,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'last_name': _lastNameController.text,
           'email': _emailController.text,
           'phone': _phoneController.text,
+          'image': result['data']?['attributes']?['image'] ?? _currentImageUrl,
         });
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -114,6 +257,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: GestureDetector(
+                onTap: _showImagePickerOptions,
+                child: Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
+                      ),
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: const Color(0xFFF0F2FF),
+                        backgroundImage: _selectedImage != null
+                            ? FileImage(_selectedImage!)
+                            : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                                ? NetworkImage(_currentImageUrl!)
+                                : null),
+                        child: (_selectedImage == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
+                            ? const FaIcon(
+                                FontAwesomeIcons.user,
+                                color: Color(0xFF5A75FF),
+                                size: 40,
+                              )
+                            : null,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF5A75FF),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const FaIcon(
+                          FontAwesomeIcons.camera,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 24),
             Row(

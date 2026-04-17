@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/api_constants.dart';
 import '../../../core/services/device_service.dart';
@@ -405,6 +407,65 @@ class AuthRepository {
         },
         body: jsonEncode(body),
       );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Profile updated successfully',
+          'data': data['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to update profile'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfileWithImage({
+    required Map<String, dynamic> profileData,
+    File? imageFile,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateProfile}');
+
+    try {
+      final request = http.MultipartRequest('PUT', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      // Add profile fields
+      profileData.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      // Add image file if provided
+      if (imageFile != null) {
+        final fileName = imageFile.path.split('/').last;
+        final extension = fileName.split('.').last.toLowerCase();
+        final contentType = extension == 'png'
+            ? MediaType('image', 'png')
+            : extension == 'jpg' || extension == 'jpeg'
+                ? MediaType('image', 'jpeg')
+                : MediaType('image', 'jpeg');
+
+        request.files.add(await http.MultipartFile.fromPath(
+          'image',
+          imageFile.path,
+          contentType: contentType,
+        ));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {

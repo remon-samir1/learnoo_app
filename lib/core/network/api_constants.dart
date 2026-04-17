@@ -44,4 +44,7 @@ class ApiConstants {
 
   // OTA (Over-The-Air) update endpoint
   static const String otaLatest = '/v1/ota/latest';
+
+  // Social links endpoint
+  static const String socialLinks = '/v1/social-link';
 }

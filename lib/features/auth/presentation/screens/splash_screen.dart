@@ -5,6 +5,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/services/connectivity_service.dart';
@@ -26,11 +28,50 @@ class _SplashScreenState extends State<SplashScreen> {
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
   String _downloadStatus = '';
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  static const int _downloadNotificationId = 100;
 
   @override
   void initState() {
     super.initState();
+    _initNotifications();
     _checkForUpdates();
+  }
+
+  Future<void> _initNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    await _notificationsPlugin.initialize(initSettings);
+  }
+
+  Future<void> _showDownloadNotification(int progress, String status) async {
+    final androidDetails = AndroidNotificationDetails(
+      'download_channel',
+      'Download Updates',
+      channelDescription: 'Shows download progress for app updates',
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: progress,
+      ongoing: true,
+      autoCancel: false,
+    );
+    final iosDetails = DarwinNotificationDetails(
+      subtitle: status,
+    );
+    final notificationDetails = NotificationDetails(android: androidDetails, iOS: iosDetails);
+    await _notificationsPlugin.show(
+      _downloadNotificationId,
+      'Downloading Update',
+      progress > 0 ? '$progress% - $status' : status,
+      notificationDetails,
+    );
+  }
+
+  Future<void> _cancelDownloadNotification() async {
+    await _notificationsPlugin.cancel(_downloadNotificationId);
   }
 
   /// First check for app updates, then proceed with auth
@@ -60,72 +101,107 @@ class _SplashScreenState extends State<SplashScreen> {
     showDialog(
       context: context,
       barrierDismissible: !isForceUpdate,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => !isForceUpdate && !_isDownloading,
-        child: AlertDialog(
-          title: Text('update_available'.tr()),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${'new_version'.tr()}: $versionName'),
-              if (fileSize != null && fileSize.isNotEmpty)
-                Text('${'file_size'.tr()}: $fileSize'),
-              const SizedBox(height: 16),
-              Text(
-                isForceUpdate
-                    ? 'force_update_message'.tr()
-                    : 'optional_update_message'.tr(),
-                style: const TextStyle(fontSize: 14),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => WillPopScope(
+          onWillPop: () async => !isForceUpdate && !_isDownloading,
+          child: AlertDialog(
+            title: Text('update_available'.tr()),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${'new_version'.tr()}: $versionName'),
+                if (fileSize != null && fileSize.isNotEmpty)
+                  Text('${'file_size'.tr()}: $fileSize'),
+                const SizedBox(height: 16),
+                Text(
+                  isForceUpdate
+                      ? 'force_update_message'.tr()
+                      : 'optional_update_message'.tr(),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                if (_isDownloading) ...[
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(value: _downloadProgress > 0 ? _downloadProgress : null),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${(_downloadProgress * 100).toStringAsFixed(0)}% - $_downloadStatus',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              if (!isForceUpdate && !_isDownloading)
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _checkAuth();
+                  },
+                  child: Text('skip'.tr()),
+                ),
+              ElevatedButton(
+                onPressed: _isDownloading
+                    ? null
+                    : () async {
+                        if (downloadUrl.isEmpty) {
+                          _showError('Download link is not available. Please try again later.');
+                          return;
+                        }
+                        final hasPermission = await _checkAndRequestInstallPermission();
+                        if (hasPermission && mounted) {
+                          _downloadAndInstallApk(downloadUrl, setDialogState);
+                        }
+                      },
+                child: _isDownloading
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('${(_downloadProgress * 100).toStringAsFixed(0)}%'),
+                        ],
+                      )
+                    : Text('update_now'.tr()),
               ),
             ],
           ),
-          actions: [
-            if (!isForceUpdate && !_isDownloading)
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _checkAuth();
-                },
-                child: Text('skip'.tr()),
-              ),
-            ElevatedButton(
-              onPressed: _isDownloading || downloadUrl.isEmpty
-                  ? null
-                  : () => _downloadAndInstallApk(downloadUrl),
-              child: _isDownloading
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('${(_downloadProgress * 100).toStringAsFixed(0)}%'),
-                      ],
-                    )
-                  : Text('update_now'.tr()),
-            ),
-          ],
         ),
       ),
     );
   }
 
   /// Download APK and show progress, then install
-  Future<void> _downloadAndInstallApk(String downloadUrl) async {
+  Future<void> _downloadAndInstallApk(String downloadUrl, [void Function(void Function())? setDialogState]) async {
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0.0;
       _downloadStatus = 'Starting download...';
     });
+    // Trigger dialog rebuild to show loading state immediately
+    setDialogState?.call(() {});
+
+    // Show toast notification that download is starting
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Starting download...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
 
     try {
+      // Show initial download notification
+      await _showDownloadNotification(0, 'Starting download...');
+
       // Get app-specific cache directory (no storage permission needed)
       final Directory cacheDir = await getTemporaryDirectory();
       final String fileName = 'learnoo_update.apk';
@@ -143,11 +219,16 @@ class _SplashScreenState extends State<SplashScreen> {
         savePath,
         onReceiveProgress: (received, total) {
           if (total > 0) {
+            final progress = (received / total * 100).toInt();
+            final status = '${_formatBytes(received)} / ${_formatBytes(total)}';
             setState(() {
               _downloadProgress = received / total;
-              _downloadStatus =
-                  '${_formatBytes(received)} / ${_formatBytes(total)}';
+              _downloadStatus = status;
             });
+            // Update dialog progress immediately
+            setDialogState?.call(() {});
+            // Update notification progress
+            _showDownloadNotification(progress, status);
           }
         },
       );
@@ -156,6 +237,8 @@ class _SplashScreenState extends State<SplashScreen> {
         _isDownloading = false;
         _downloadStatus = 'Download complete. Installing...';
       });
+      setDialogState?.call(() {});
+      await _showDownloadNotification(100, 'Download complete. Installing...');
 
       // Close the update dialog
       if (mounted && Navigator.of(context).canPop()) {
@@ -164,10 +247,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
       // Install the APK
       await _installApk(savePath);
+      await _cancelDownloadNotification();
     } catch (e) {
       setState(() {
         _isDownloading = false;
       });
+      setDialogState?.call(() {});
+      await _cancelDownloadNotification();
       _showError('Download failed: $e');
     }
   }
@@ -248,6 +334,41 @@ class _SplashScreenState extends State<SplashScreen> {
         ],
       ),
     );
+  }
+
+  /// Check and request install unknown apps permission on Android
+  Future<bool> _checkAndRequestInstallPermission() async {
+    if (!Platform.isAndroid) return true;
+
+    final status = await Permission.requestInstallPackages.status;
+    if (status.isGranted) return true;
+
+    final result = await Permission.requestInstallPackages.request();
+    if (result.isGranted) return true;
+
+    if (result.isPermanentlyDenied && mounted) {
+      final shouldOpenSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('permission_required'.tr()),
+          content: Text('install_unknown_apps_permission_message'.tr()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('cancel'.tr()),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('open_settings'.tr()),
+            ),
+          ],
+        ),
+      );
+      if (shouldOpenSettings == true) {
+        await openAppSettings();
+      }
+    }
+    return false;
   }
 
   void _showError(String message) {

@@ -51,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Loading...';
   String _universityName = 'Loading...';
   String _facultyName = 'Loading...';
+  String? _userImageUrl;
   List<String> _centers = [];
   List<dynamic> _courses = [];
   List<dynamic> _subjects = [];
@@ -220,10 +221,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return (center['attributes']?['name'] ?? '').toString();
         }).where((name) => name.isNotEmpty).toList();
 
+        // Parse user image
+        final userImage = attributes['image']?.toString();
+
         setState(() {
           _userName = fullName.isEmpty ? 'User' : fullName;
           _universityName = universityName;
           _facultyName = facultyName;
+          _userImageUrl = userImage;
           _centers = centers;
           _isLoading = false;
         });
@@ -472,9 +477,16 @@ class _HomeScreenState extends State<HomeScreen> {
           child: CircleAvatar(
             radius: 24,
             backgroundColor: Colors.grey[200],
-            backgroundImage: const NetworkImage(
-              'https://i.pravatar.cc/150?u=noura',
-            ),
+            backgroundImage: _userImageUrl != null && _userImageUrl!.isNotEmpty
+                ? NetworkImage(_userImageUrl!)
+                : null,
+            child: _userImageUrl == null || _userImageUrl!.isEmpty
+                ? const FaIcon(
+                    FontAwesomeIcons.user,
+                    color: Color(0xFF5A75FF),
+                    size: 20,
+                  )
+                : null,
           ),
         ),
         const SizedBox(width: 12),

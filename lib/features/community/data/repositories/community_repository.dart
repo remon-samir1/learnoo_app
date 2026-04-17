@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/post_model.dart';
+import '../models/social_link_model.dart';
 
 class CommunityRepository {
   final _storage = const FlutterSecureStorage();
@@ -265,6 +266,43 @@ class CommunityRepository {
         return {
           'success': false,
           'message': _handleError(data, 'Failed to remove reaction'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  // Get social links filtered by course
+  Future<Map<String, dynamic>> getSocialLinks({int? courseId}) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    var urlString = '${ApiConstants.baseUrl}${ApiConstants.socialLinks}';
+    if (courseId != null) {
+      urlString += '?course_id=$courseId';
+    }
+
+    final url = Uri.parse(urlString);
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final List<dynamic> linkData = data['data'] ?? [];
+        final links = linkData.map((l) => SocialLink.fromJson(l)).toList();
+        return {'success': true, 'data': links};
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to fetch social links'),
         };
       }
     } catch (e) {

@@ -57,6 +57,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final String fullName = lastName.isEmpty ? firstName : '$firstName $lastName';
     final String phone = (attributes?['phone'] ?? attributes?['phone_number'] ?? '').toString();
     final String email = (attributes?['email'] ?? '').toString();
+    final String? userImageUrl = attributes?['image']?.toString();
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFBFF),
@@ -67,7 +68,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              _buildHeader(fullName),
+              _buildHeader(fullName, userImageUrl),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -108,7 +109,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ),
     );
   }
-  Widget _buildHeader(String fullName) {
+  Widget _buildHeader(String fullName, String? userImageUrl) {
     return Column(
       children: [
         Container(
@@ -142,28 +143,63 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           offset: const Offset(0, -50),
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 5),
+              Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundColor: const Color(0xFFF0F2FF),
-                  child: const FaIcon(
-                    FontAwesomeIcons.user,
-                    color: Color(0xFF5A75FF),
-                    size: 40,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundColor: const Color(0xFFF0F2FF),
+                      backgroundImage: userImageUrl != null && userImageUrl.isNotEmpty
+                          ? NetworkImage(userImageUrl)
+                          : null,
+                      child: userImageUrl == null || userImageUrl.isEmpty
+                          ? const FaIcon(
+                              FontAwesomeIcons.user,
+                              color: Color(0xFF5A75FF),
+                              size: 40,
+                            )
+                          : null,
+                    ),
                   ),
-                ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _showEditProfile,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF5A75FF),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const FaIcon(
+                          FontAwesomeIcons.camera,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(
