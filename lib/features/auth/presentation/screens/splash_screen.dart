@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/services/connectivity_service.dart';
 import 'profile_screen.dart';
 import 'verification_method_screen.dart';
 import '../../data/auth_repository.dart';
@@ -259,11 +260,28 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkAuth() async {
     final token = await _authRepository.getToken();
+    
+    // No token found → go to login/register
     if (token == null) {
       _navigateToProfile();
       return;
     }
 
+    // Check internet connectivity
+    final hasInternet = await ConnectivityService().hasConnection();
+    
+    // No internet but token exists → allow entry (offline mode)
+    if (!hasInternet) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      }
+      return;
+    }
+
+    // Internet available → validate token with API
     final result = await _authRepository.getProfile();
     if (result['success']) {
       final profileData = result['data'];
@@ -294,6 +312,7 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
+      // Token valid and user verified → go to home
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -301,7 +320,11 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       }
     } else {
-      // If 401 or other error, go to profile/register
+      // API validation failed (401/403) → token is invalid, logout and go to login
+      final statusCode = result['statusCode'];
+      if (statusCode == 401 || statusCode == 403) {
+        await _authRepository.deleteToken();
+      }
       _navigateToProfile();
     }
   }
