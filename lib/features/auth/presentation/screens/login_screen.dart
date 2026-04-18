@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/services/feature_manager.dart';
 import '../screens/otp_verification_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/forgot_password_screen.dart';
@@ -22,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authRepository = AuthRepository();
+  final _featureManager = FeatureManager();
   bool _isLoading = false;
 
   @override
@@ -69,13 +71,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final attributes = loginResult['data']['data']['attributes'];
     final universityId = attributes['university_id'];
     final isEmail = _isEmailIdentifier(identifier);
-    
+
     // Check if user is already verified
     final isEmailVerified = attributes['email_verified_at'] != null;
     final isPhoneVerified = attributes['phone_verified_at'] != null;
     final isVerified = isEmail ? isEmailVerified : isPhoneVerified;
 
-    if (isVerified) {
+    // Check feature flags for OTP flow
+    final otpEnabled = _featureManager.isOtpVerificationEnabled;
+    final loginWithoutOtpAllowed = _featureManager.isLoginWithoutOtpAllowed;
+
+    // If verified OR (OTP disabled AND login without OTP allowed), skip verification
+    if (isVerified || (!otpEnabled && loginWithoutOtpAllowed)) {
       setState(() => _isLoading = false);
       if (mounted) {
         if (universityId != null) {
@@ -91,6 +98,20 @@ class _LoginScreenState extends State<LoginScreen> {
             (route) => false,
           );
         }
+      }
+      return;
+    }
+
+    // If OTP is disabled but login without OTP is not allowed, show error
+    if (!otpEnabled && !loginWithoutOtpAllowed) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('auth.verification_disabled'.tr()),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
       return;
     }

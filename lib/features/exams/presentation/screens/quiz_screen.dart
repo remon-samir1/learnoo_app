@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../../data/exam_repository.dart';
 import '../../models/quiz_models.dart';
 import 'exam_results_screen.dart';
-import '../../../../core/widgets/watermark_overlay.dart';
-import '../../../../core/services/download_service.dart';
+import '../../../../core/widgets/watermark_wrapper.dart';
+import '../../../../core/services/feature_manager.dart';
+import '../../../../core/services/screen_protection_service.dart';
+import '../../../auth/data/auth_repository.dart';
 
 class QuizScreen extends StatefulWidget {
   final Quiz quiz;
@@ -25,6 +29,7 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   final ExamRepository _examRepository = ExamRepository();
+  final ScreenProtectionService _screenProtection = ScreenProtectionService();
   int _currentQuestionIndex = 0;
   int _remainingSeconds = 0;
   Timer? _timer;
@@ -37,14 +42,45 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   String _userName = '';
   String _userId = '';
   bool _showWatermark = true;
+  final FeatureManager _featureManager = FeatureManager();
+  final AuthRepository _authRepository = AuthRepository();
+
+  // Exam protection state
+  bool _isAppPaused = false;
+  int _pauseCount = 0;
+  DateTime? _lastPauseTime;
+  static const int maxAllowedPauses = 1; // Maximum allowed app switches before auto-submit
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _remainingSeconds = widget.quiz.duration * 60;
+    _initializeProtection();
     _loadQuestions();
+    _loadUserData();
     _startTimer();
+  }
+
+  Future<void> _loadUserData() async {
+    final result = await _authRepository.getProfile();
+    if (result['success'] && mounted) {
+      final attributes = result['data']['attributes'] ?? {};
+      final firstName = attributes['first_name']?.toString() ?? '';
+      final lastName = attributes['last_name']?.toString() ?? '';
+      final userId = result['data']['id']?.toString() ?? '';
+      setState(() {
+        _userName = '$firstName $lastName'.trim();
+        _userId = userId;
+      });
+    }
+  }
+
+  Future<void> _initializeProtection() async {
+    // Initialize screen protection service
+    await _screenProtection.initialize();
+    // Enable global protection (FLAG_SECURE on Android, iOS protection)
+    await _screenProtection.enableGlobalProtection();
   }
 
   Future<void> _loadQuestions() async {
@@ -73,18 +109,125 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    // Disable global protection when leaving exam
+    _screenProtection.disableGlobalProtection();
     super.dispose();
   }
 
-  // Handle app lifecycle changes for auto-submit
+  // Handle app lifecycle changes for exam protection
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || 
         state == AppLifecycleState.detached || 
         state == AppLifecycleState.inactive) {
-      // User left the app - auto submit
-      _autoSubmit();
+      // User attempted to leave the app
+      _handleAppPause();
+    } else if (state == AppLifecycleState.resumed) {
+      // User returned to the app
+      _handleAppResume();
     }
+  }
+
+  void _handleAppPause() {
+    if (_isSubmitting) return;
+    
+    _pauseCount++;
+    _lastPauseTime = DateTime.now();
+    
+    setState(() {
+      _isAppPaused = true;
+    });
+
+    // Auto-submit if user has paused too many times
+    if (_pauseCount > maxAllowedPauses) {
+      _showViolationAndSubmit('exam.violation_multiple_leaves'.tr());
+      return;
+    }
+
+    // Show warning overlay but don't auto-submit immediately on first pause
+    // This gives user a chance to return immediately
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _isAppPaused && !_isSubmitting) {
+        // If still paused after 3 seconds, auto-submit
+        _showViolationAndSubmit('exam.violation_auto_submit'.tr());
+      }
+    });
+  }
+
+  void _handleAppResume() {
+    if (_isSubmitting) return;
+    
+    setState(() {
+      _isAppPaused = false;
+    });
+
+    // If user returned quickly (within 3 seconds), show warning but continue
+    if (_lastPauseTime != null) {
+      final pauseDuration = DateTime.now().difference(_lastPauseTime!);
+      if (pauseDuration.inSeconds < 3 && _pauseCount <= maxAllowedPauses) {
+        _showWarningDialog();
+      }
+    }
+  }
+
+  void _showWarningDialog() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const FaIcon(FontAwesomeIcons.triangleExclamation, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text('exam.warning_title'.tr()),
+          ],
+        ),
+        content: Text(
+          'exam.leave_warning'.tr(namedArgs: {
+            'count': _pauseCount.toString(),
+            'max': maxAllowedPauses.toString(),
+          }),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3343D6)),
+            child: Text('exam.continue_exam'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showViolationAndSubmit(String message) {
+    if (!mounted || _isSubmitting) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const FaIcon(FontAwesomeIcons.circleExclamation, color: Colors.red, size: 24),
+            const SizedBox(width: 8),
+            Text('exam.violation_title'.tr()),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _autoSubmit();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('exam.ok'.tr()),
+          ),
+        ],
+      ),
+    );
   }
 
   void _startTimer() {
@@ -249,20 +392,28 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   Future<bool> _onWillPop() async {
     if (_isSubmitting) return false;
 
+    // Prevent back button - show warning instead
     final shouldExit = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Leave Exam?'),
-        content: const Text('If you leave, your exam will be auto-submitted with current answers.'),
+        title: Row(
+          children: [
+            const FaIcon(FontAwesomeIcons.triangleExclamation, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text('exam.exit_title'.tr()),
+          ],
+        ),
+        content: Text('exam.exit_warning'.tr()),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Stay'),
+            child: Text('exam.stay'.tr()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Leave & Submit'),
+            child: Text('exam.leave_submit'.tr()),
           ),
         ],
       ),
@@ -272,7 +423,7 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
       _autoSubmit();
       return false; // Let the submission handle navigation
     }
-    return false;
+    return false; // Always return false to prevent immediate pop
   }
 
   @override
@@ -520,16 +671,70 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
           ),
         ),
         ),
-        // Watermark overlay for exam protection
-        if (_showWatermark)
+        // Watermark overlay for exam protection - controlled by API
+        WatermarkWrapper(
+          type: WatermarkType.exams,
+          studentCode: _userId.isNotEmpty ? _userId : null,
+          featureManager: _featureManager,
+          child: Container(), // Empty child as the watermark is positioned fill
+        ),
+        // Pause blocking overlay - prevents viewing content when app is paused
+        if (_isAppPaused)
           Positioned.fill(
-            child: IgnorePointer(
-              child: WatermarkOverlay(
-                userName: _userName.isNotEmpty ? _userName : 'Student',
-                userId: _userId.isNotEmpty ? _userId : 'ID:0',
-                opacity: 0.08,
-                mode: WatermarkMode.grid,
-                animated: false,
+            child: Container(
+              color: Colors.black,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.circlePause,
+                      color: Colors.white,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'exam.paused_title'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        'exam.paused_message'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (_pauseCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.withOpacity(0.5)),
+                        ),
+                        child: Text(
+                          'exam.warning_count'.tr(namedArgs: {
+                            'count': _pauseCount.toString(),
+                            'max': maxAllowedPauses.toString(),
+                          }),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

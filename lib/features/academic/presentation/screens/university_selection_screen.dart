@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/data/auth_repository.dart';
-import 'center_selection_screen.dart';
+import 'faculty_selection_screen.dart';
 
 class UniversitySelectionScreen extends StatefulWidget {
   const UniversitySelectionScreen({super.key});
@@ -199,7 +199,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CenterSelectionScreen(
+                          builder: (context) => FacultySelectionScreen(
                             universityId: _selectedUniversityId,
                             universityName: _selectedUniversityName!,
                           ),

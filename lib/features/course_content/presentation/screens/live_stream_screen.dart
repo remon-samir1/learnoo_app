@@ -187,6 +187,15 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
 
     _peer.on('error').listen((err) {
       debugPrint('❌ Peer error: $err');
+      debugPrint('Error type: ${err.runtimeType}');
+      final errorStr = err.toString();
+      if (errorStr.contains('unavailable-id')) {
+        debugPrint('→ Peer ID already taken, will retry with new ID');
+      } else if (errorStr.contains('network') || errorStr.contains('websocket')) {
+        debugPrint('→ Network/WebSocket error - check internet & server');
+      } else if (errorStr.contains('disconnected')) {
+        debugPrint('→ Server disconnected');
+      }
       if (!mounted) return;
       setState(() {
         _isConnecting = false;
@@ -328,8 +337,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     dataConn.on('open').listen((_) {
       // Announce presence and request to join (handshake).
       dataConn.send({
-        'action': 'join',
-        'id': _peer.id,
+        'type': 'join-request',
+        'peerId': _peer.id,
         'name': 'Student',
       });
     });

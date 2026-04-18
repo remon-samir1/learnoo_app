@@ -18,6 +18,9 @@ import '../../../../core/network/api_constants.dart';
 import '../../../../core/services/download_service.dart';
 import '../../../../core/services/encrypted_video_service.dart';
 import '../../../../core/widgets/subscription_badge.dart';
+import '../../../../core/widgets/watermark_wrapper.dart';
+import '../../../../core/services/feature_manager.dart';
+import '../../../auth/data/auth_repository.dart';
 import '../../data/chapter_repository.dart';
 import '../../data/discussion_repository.dart';
 import 'pdf_viewer_screen.dart';
@@ -54,8 +57,11 @@ class LectureDetailScreen extends StatefulWidget {
 class _LectureDetailScreenState extends State<LectureDetailScreen> {
   final _chapterRepository = ChapterRepository();
   final _discussionRepository = DiscussionRepository();
+  final _featureManager = FeatureManager();
+  final _authRepository = AuthRepository();
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
+  String _userId = '';
   
   bool _isLoadingChapter = true;
   bool _isLoadingDiscussions = false;
@@ -113,11 +119,22 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   bool _isDownloaded = false;
   bool _isDownloading = false;
 
+  Future<void> _loadUserData() async {
+    final result = await _authRepository.getProfile();
+    if (result['success'] && mounted) {
+      final userId = result['data']['id']?.toString() ?? '';
+      setState(() {
+        _userId = userId;
+      });
+    }
+  }
+
   @override
   void initState() {
-    _encryptedVideoService.loadDownloadedVideos();
     super.initState();
-
+    _loadChapterDetails();
+    _loadUserData();
+    _encryptedVideoService.loadDownloadedVideos();
     // Check if offline mode
     if (widget.offlineVideoPath != null && widget.offlineVideoKey != null) {
       setState(() {
@@ -1350,7 +1367,12 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
         children: [
           // Video player
           if (_chewieController != null && _videoController != null && _videoController!.value.isInitialized)
-            Chewie(controller: _chewieController!)
+            WatermarkWrapper(
+              type: WatermarkType.chapters,
+              studentCode: _userId.isNotEmpty ? _userId : null,
+              featureManager: _featureManager,
+              child: Chewie(controller: _chewieController!),
+            )
           else if (_isInitializingVideo)
             const Center(child: CircularProgressIndicator(color: Colors.white))
           else if (_isLocked)

@@ -3,6 +3,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/feature_manager.dart';
+import '../../../../core/widgets/feature_provider.dart';
 import '../../../auth/data/auth_repository.dart';
 import 'notifications_screen.dart';
 import '../../../course_content/data/course_repository.dart';
@@ -408,10 +410,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_searchController.text.isNotEmpty) ...[
                     _buildSearchResults(),
                   ] else ...[
-                    _buildSectionHeader('home.continue_watching'.tr()),
-                    const SizedBox(height: 20),
-                    _buildContinueWatching(),
-                    const SizedBox(height: 32),
+                    FeatureVisibility(
+                      featureKey: 'feature_continue_watching',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader('home.continue_watching'.tr()),
+                          const SizedBox(height: 20),
+                          _buildContinueWatching(),
+                          const SizedBox(height: 32),
+                        ],
+                      ),
+                    ),
                     _buildSectionHeader('home.my_subjects'.tr()),
                     const SizedBox(height: 20),
                     _buildSubjectsList(),
@@ -436,18 +446,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 20),
                     _buildNotesSummariesList(),
                     const SizedBox(height: 32),
-                    _buildSectionHeaderWithAction(
-                      'home.electronic_library'.tr(), 'home.view_all'.tr(),
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ElectronicLibraryScreen()),
-                        );
-                      },
+                    FeatureVisibility(
+                      featureKey: 'feature_electronic_library',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeaderWithAction(
+                            'home.electronic_library'.tr(), 'home.view_all'.tr(),
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const ElectronicLibraryScreen()),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildLibraryList(),
+                          const SizedBox(height: 32),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 20),
-                    _buildLibraryList(),
-                    const SizedBox(height: 32),
                   ],
                 ],
               ),

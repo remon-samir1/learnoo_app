@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/data/auth_repository.dart';
-import '../../../home/presentation/screens/main_screen.dart';
+import 'center_selection_screen.dart';
 
 class FacultySelectionScreen extends StatefulWidget {
   final dynamic universityId;
-  final List<dynamic> centerIds;
-  final Map<dynamic, String> centerNames;
+  final String universityName;
   const FacultySelectionScreen({
     super.key,
     required this.universityId,
-    required this.centerIds,
-    required this.centerNames,
+    required this.universityName,
   });
 
   @override
@@ -27,7 +25,6 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
   List<dynamic> _filteredFaculties = [];
   dynamic _selectedFacultyId;
   bool _isLoading = true;
-  bool _isUpdating = false;
   String? _errorMessage;
 
   @override
@@ -68,26 +65,7 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
     });
   }
 
-  Future<void> _handleUpdate() async {
-    setState(() => _isUpdating = true);
-
-    final result = await _authRepository.updateAcademicProfile(
-      universityId: widget.universityId,
-      centerIds: widget.centerIds,
-      facultyId: _selectedFacultyId,
-    );
-
-    if (mounted) {
-      setState(() => _isUpdating = false);
-      if (result['success']) {
-        _showSuccessDialog();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Failed to update profile')),
-        );
-      }
-    }
-  }
+  String _selectedFacultyName = '';
 
   @override
   void dispose() {
@@ -95,52 +73,6 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
     super.dispose();
   }
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(color: Color(0xFF27AE60), shape: BoxShape.circle),
-                child: const Icon(Icons.check, color: Colors.white, size: 40),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Your academic profile has been set successfully.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Courses will be filtered based on your specialization.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textGray, fontSize: 14),
-              ),
-              const SizedBox(height: 32),
-              PrimaryButton(
-                text: 'GO TO HOME',
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainScreen()),
-                    (route) => false,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,17 +96,17 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(width: 20, height: 4, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))),
-                    const SizedBox(width: 8),
-                    Container(width: 20, height: 4, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))),
+                    Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))),
                     const SizedBox(width: 8),
                     Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 8),
+                    Container(width: 20, height: 4, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(2))),
                     const SizedBox(width: 8),
                     Container(width: 20, height: 4, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(2))),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Step 3 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const Text('Step 2 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 const SizedBox(height: 24),
                 const Text(
                   'Select Your Faculty',
@@ -190,18 +122,14 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Selected Centers:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
+                const Text('Selected University:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
                 const SizedBox(height: 4),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: widget.centerNames.values.map((name) => Chip(
-                    label: Text(name, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: AppColors.inputFill,
-                    side: BorderSide.none,
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  )).toList(),
+                Chip(
+                  label: Text(widget.universityName, style: const TextStyle(fontSize: 12)),
+                  backgroundColor: AppColors.inputFill,
+                  side: BorderSide.none,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
             ),
@@ -237,7 +165,10 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
                           final isSelected = _selectedFacultyId == id;
                           
                           return GestureDetector(
-                            onTap: () => setState(() => _selectedFacultyId = id),
+                            onTap: () => setState(() {
+                              _selectedFacultyId = id;
+                              _selectedFacultyName = name;
+                            }),
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -266,9 +197,21 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: PrimaryButton(
-              text: 'FINISH',
-              isLoading: _isUpdating,
-              onPressed: _selectedFacultyId == null || _isUpdating ? null : () { _handleUpdate(); },
+              text: 'NEXT',
+              onPressed: _selectedFacultyId == null
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CenterSelectionScreen(
+                            universityId: widget.universityId,
+                            facultyId: _selectedFacultyId,
+                            facultyName: _selectedFacultyName,
+                          ),
+                        ),
+                      );
+                    },
             ),
           ),
         ],

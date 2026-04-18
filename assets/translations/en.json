@@ -563,5 +563,21 @@
     "tags": "Tags",
     "add_tag": "Add a tag...",
     "publish_post": "Publish Post"
+  },
+  "exam": {
+    "warning_title": "Warning!",
+    "violation_title": "Exam Violation",
+    "exit_title": "Leave Exam?",
+    "paused_title": "Exam Paused",
+    "paused_message": "You have left the exam. The exam will be automatically submitted if you don't return immediately.",
+    "leave_warning": "You have left the exam {count} time(s). Maximum allowed: {max}. Please stay in the app to continue your exam.",
+    "warning_count": "Warning: {count}/{max} leaves",
+    "exit_warning": "If you leave, your exam will be auto-submitted with current answers. You cannot resume the exam once you leave.",
+    "stay": "Stay",
+    "leave_submit": "Leave & Submit",
+    "continue_exam": "Continue Exam",
+    "ok": "OK",
+    "violation_multiple_leaves": "You left the exam screen multiple times. Your exam has been auto-submitted due to suspicious activity.",
+    "violation_auto_submit": "You left the exam screen. Your exam has been auto-submitted."
   }
 }

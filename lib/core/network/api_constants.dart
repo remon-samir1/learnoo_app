@@ -47,4 +47,7 @@ class ApiConstants {
 
   // Social links endpoint
   static const String socialLinks = '/v1/social-link';
+
+  // Feature flags endpoint
+  static const String features = '/v1/feature';
 }

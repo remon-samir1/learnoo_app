@@ -137,6 +137,7 @@ dependencies:
   open_file: ^3.5.10
 
   android_intent_plus: ^5.0.0
+  flutter_downloader: ^1.11.8
 
   # Offline-first dependencies
   hive: ^2.2.3

@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:learnoo/features/auth/data/auth_repository.dart';
 import 'package:learnoo/features/auth/presentation/screens/login_screen.dart';
+import 'package:learnoo/core/services/feature_manager.dart';
 import 'edit_profile_screen.dart';
 import 'downloads_screen.dart';
 import 'settings_screen.dart';
@@ -16,6 +17,7 @@ class MyProfileScreen extends StatefulWidget {
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
   final AuthRepository _authRepository = AuthRepository();
+  final FeatureManager _featureManager = FeatureManager();
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
 
@@ -173,32 +175,33 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           : null,
                     ),
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: _showEditProfile,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF5A75FF),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const FaIcon(
-                          FontAwesomeIcons.camera,
-                          color: Colors.white,
-                          size: 14,
+                  if (_featureManager.isProfileEditingEnabled)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: _showEditProfile,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF5A75FF),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const FaIcon(
+                            FontAwesomeIcons.camera,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -245,15 +248,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   color: Color(0xFF1F2937),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => _showEditProfile(),
-                icon: const FaIcon(FontAwesomeIcons.penToSquare, size: 14),
-                label: const Text('Edit'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF5A75FF),
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              if (_featureManager.isProfileEditingEnabled)
+                TextButton.icon(
+                  onPressed: () => _showEditProfile(),
+                  icon: const FaIcon(FontAwesomeIcons.penToSquare, size: 14),
+                  label: const Text('Edit'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF5A75FF),
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),

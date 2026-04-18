@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../course_content/data/course_repository.dart';
+import '../../../course_content/data/chapter_repository.dart';
 import '../../../course_content/presentation/screens/course_detail_screen.dart';
 import '../../../search/data/search_repository.dart';
 import '../../data/department_repository.dart';
@@ -16,13 +17,16 @@ class MyCoursesScreen extends StatefulWidget {
 
 class _MyCoursesScreenState extends State<MyCoursesScreen> {
   final _courseRepository = CourseRepository();
+  final _chapterRepository = ChapterRepository();
   final _searchRepository = SearchRepository();
   final _departmentRepository = DepartmentRepository();
   String _selectedFilter = 'All';
   bool _isLoading = true;
   bool _isDepartmentsLoading = true;
+  bool _isProgressLoading = true;
   List<dynamic> _courses = [];
   List<dynamic> _departments = [];
+  List<dynamic> _userProgress = [];
   int? _selectedDepartmentId;
 
   // Search state variables
@@ -36,6 +40,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     super.initState();
     _loadDepartments();
     _loadCourses();
+    _loadUserProgress();
   }
 
   Future<void> _loadDepartments() async {
@@ -74,6 +79,60 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _loadUserProgress() async {
+    setState(() => _isProgressLoading = true);
+    try {
+      final result = await _chapterRepository.getUserProgress();
+      if (result['success'] && mounted) {
+        setState(() {
+          _userProgress = result['data'] ?? [];
+          _isProgressLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isProgressLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProgressLoading = false);
+      }
+    }
+  }
+
+  /// Calculate course progress based on viewed chapters / total chapters
+  double _calculateCourseProgress(dynamic course) {
+    final courseId = course['id']?.toString();
+    if (courseId == null) return 0.0;
+
+    final attributes = course['attributes'] ?? {};
+    final chaptersData = attributes['chapters']?['data'] ?? [];
+    final totalChapters = chaptersData is List ? chaptersData.length : 0;
+
+    if (totalChapters == 0) {
+      // Fallback to API progress if no chapters data
+      return (attributes['progress'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    // Count viewed chapters for this course
+    int viewedChapters = 0;
+    for (final progress in _userProgress) {
+      final progressAttrs = progress['attributes'] ?? {};
+      final chapterData = progressAttrs['chapter']?['data'];
+      if (chapterData != null) {
+        final chapterCourseId = chapterData['attributes']?['course']?['data']?['id']?.toString();
+        if (chapterCourseId == courseId) {
+          final isCompleted = progressAttrs['is_completed'] == true;
+          final progressSeconds = (progressAttrs['progress_seconds'] as num?)?.toInt() ?? 0;
+          // Consider chapter as viewed if completed or has significant progress (>30 seconds)
+          if (isCompleted || progressSeconds > 30) {
+            viewedChapters++;
+          }
+        }
+      }
+    }
+
+    return viewedChapters / totalChapters;
   }
 
   @override
@@ -560,7 +619,17 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
         'https://images.unsplash.com/photo-1554224155-26032ffc0d07?w=400';
     final lectures = attributes['lectures_count']?.toString() ?? '0';
     final students = attributes['students_count']?.toString() ?? '0';
-    final progress = (attributes['progress'] as num?)?.toDouble() ?? 0.0;
+    // Calculate progress from user progress API (viewed chapters / total chapters)
+    final progress = _calculateCourseProgress(course);
+
+    // Extract department/category info
+    final departmentData = attributes['department']?['data']?['attributes'] ??
+        attributes['category']?['data']?['attributes'];
+    final departmentName = departmentData?['name']?.toString() ??
+        departmentData?['title']?.toString() ??
+        attributes['department_name']?.toString() ??
+        attributes['category_name']?.toString();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -577,23 +646,66 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Course Image
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child: Image.network(
-              thumbnail,
-              height: 160,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
+          // Course Image with Category Badge
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                child: Image.network(
+                  thumbnail,
                   height: 160,
                   width: double.infinity,
-                  color: const Color(0xFFF3F4F6),
-                  child: const Icon(Icons.image, color: Color(0xFF9CA3AF)),
-                );
-              },
-            ),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 160,
+                      width: double.infinity,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(Icons.image, color: Color(0xFF9CA3AF)),
+                    );
+                  },
+                ),
+              ),
+              // Category Badge
+              if (departmentName != null)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.bookmark,
+                          size: 10,
+                          color: Color(0xFF3451E5),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          departmentName,
+                          style: const TextStyle(
+                            color: Color(0xFF3451E5),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.all(20.0),

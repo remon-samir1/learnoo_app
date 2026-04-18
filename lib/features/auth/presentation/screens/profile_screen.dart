@@ -4,9 +4,11 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/services/feature_manager.dart';
 import '../screens/verification_method_screen.dart';
 import '../screens/login_screen.dart';
 import '../../data/auth_repository.dart';
+import '../../../../features/academic/presentation/screens/university_selection_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -25,6 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   bool _acceptTerms = false;
   final _authRepository = AuthRepository();
+  final _featureManager = FeatureManager();
 
   final List<Map<String, String>> _countryCodes = [
     {'code': '20', 'flag': '🇪🇬', 'name': 'auth.country_egypt'},
@@ -102,32 +105,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
 
-        // Navigation with animation
+        final token = result['data']['meta']['token'] ?? '';
+
+        // Check feature flags for OTP flow
+        final otpEnabled = _featureManager.isOtpVerificationEnabled;
+
+        if (!otpEnabled) {
+          // Skip verification if OTP is disabled
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const UniversitySelectionScreen(),
+            ),
+            (route) => false,
+          );
+          return;
+        }
+
+        // Navigation with animation to verification
         Navigator.push(
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 VerificationMethodScreen(
-                  token:
-                      result['data']['meta']['token'] ??
-                      '', // Pulled from meta as per API structure
+                  token: token,
                   email: _emailController.text,
                   phone: fullPhone,
                 ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
-                  const begin = Offset(1.0, 0.0);
-                  const end = Offset.zero;
-                  const curve = Curves.easeInOutBack;
-                  var tween = Tween(
-                    begin: begin,
-                    end: end,
-                  ).chain(CurveTween(curve: curve));
-                  return SlideTransition(
-                    position: animation.drive(tween),
-                    child: child,
-                  );
-                },
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutBack;
+              var tween = Tween(
+                begin: begin,
+                end: end,
+              ).chain(CurveTween(curve: curve));
+              return SlideTransition(
+                position: animation.drive(tween),
+                child: child,
+              );
+            },
             transitionDuration: const Duration(milliseconds: 600),
           ),
         );

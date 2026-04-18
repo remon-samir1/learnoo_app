@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'core/services/screen_protection_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/feature_service.dart';
+import 'core/services/feature_manager.dart';
+import 'core/theme/dynamic_theme.dart';
 import 'core/local/hive_service.dart';
 import 'core/sync/sync_service.dart';
 import 'core/sync/sync_processors.dart';
@@ -34,7 +37,19 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
-  
+
+  // Initialize FeatureManager (loads cached features first)
+  final featureManager = FeatureManager();
+  await featureManager.initialize();
+
+  // Initialize FeatureService
+  final featureService = FeatureService();
+  await featureService.initialize();
+
+  // Initialize DynamicThemeService
+  final themeService = DynamicThemeService();
+  await themeService.initialize();
+
   // Optional: Enable global protection for the entire app
   // Uncomment to protect all screens by default
   // await screenProtection.enableGlobalProtection();
@@ -57,8 +72,34 @@ void main() async {
   );
 }
 
-class LearnooApp extends StatelessWidget {
+class LearnooApp extends StatefulWidget {
   const LearnooApp({super.key});
+
+  @override
+  State<LearnooApp> createState() => _LearnooAppState();
+}
+
+class _LearnooAppState extends State<LearnooApp> {
+  final DynamicThemeService _themeService = DynamicThemeService();
+  final FeatureManager _featureManager = FeatureManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _featureManager.addListener(_onFeaturesChanged);
+  }
+
+  @override
+  void dispose() {
+    _featureManager.removeListener(_onFeaturesChanged);
+    super.dispose();
+  }
+
+  void _onFeaturesChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,12 +107,10 @@ class LearnooApp extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      title: 'Learnoo',
+      title: _featureManager.platformName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Inter', // Defaulting to Roboto
-      ),
+      theme: _themeService.getLightTheme(),
+      darkTheme: _themeService.getDarkTheme(),
       home: const SplashScreen(),
     );
   }
