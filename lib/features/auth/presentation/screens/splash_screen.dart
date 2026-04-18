@@ -102,13 +102,14 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     }
-    await _downloadAndInstallApk(downloadUrl, progressNotifier);
+    await _downloadAndInstallApk(downloadUrl, progressNotifier, versionCode);
   }
 
   /// Download APK and show progress, then install
   Future<void> _downloadAndInstallApk(
     String downloadUrl,
     ValueNotifier<double> progressNotifier,
+    int? versionCode,
   ) async {
     setState(() {
       _isDownloading = true;
