@@ -62,6 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final versionName = updateInfo['versionName'] ?? '';
     final fileSize = updateInfo['fileSize'] ?? '';
     final downloadUrl = updateInfo['downloadUrl'] ?? '';
+    final versionCode = updateInfo['versionCode'] as int?;
 
     showDialog(
       context: context,
@@ -71,11 +72,15 @@ class _SplashScreenState extends State<SplashScreen> {
         versionName: versionName,
         fileSize: fileSize,
         downloadUrl: downloadUrl,
-        onSkip: () {
+        onSkip: () async {
+          // Save this version as acknowledged so we don't prompt again
+          if (versionCode != null) {
+            await _authRepository.saveLastAcknowledgedVersionCode(versionCode);
+          }
           Navigator.of(context).pop();
           _checkAuth();
         },
-        onUpdate: _downloadAndInstallApkWithPermission,
+        onUpdate: (url, progress) => _downloadAndInstallApkWithPermission(url, progress, versionCode),
         progressNotifier: ValueNotifier(0.0),
       ),
     );
@@ -84,6 +89,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _downloadAndInstallApkWithPermission(
     String downloadUrl,
     ValueNotifier<double> progressNotifier,
+    int? versionCode,
   ) async {
     // Check and request install packages permission
     if (Platform.isAndroid) {
@@ -158,6 +164,11 @@ class _SplashScreenState extends State<SplashScreen> {
       // Close the update dialog
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
+      }
+
+      // Save this version as acknowledged before installing
+      if (versionCode != null) {
+        await _authRepository.saveLastAcknowledgedVersionCode(versionCode);
       }
 
       // Install the APK

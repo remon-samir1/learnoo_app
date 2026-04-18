@@ -42,6 +42,13 @@ class AuthRepository {
 
         // Check if update is needed
         if (versionCode != null && versionCode > currentVersionCode) {
+          // Check if user has already acknowledged this version (updated or skipped)
+          final lastAcknowledgedVersion = await getLastAcknowledgedVersionCode();
+          if (lastAcknowledgedVersion != null && versionCode <= lastAcknowledgedVersion) {
+            // User has already seen this version, don't prompt again
+            return null;
+          }
+
           return {
             'hasUpdate': true,
             'versionCode': versionCode,
@@ -70,6 +77,17 @@ class AuthRepository {
 
   Future<void> deleteToken() async {
     await _storage.delete(key: 'auth_token');
+  }
+
+  /// Get the last acknowledged version code (user updated or skipped this version)
+  Future<int?> getLastAcknowledgedVersionCode() async {
+    final value = await _storage.read(key: 'last_acknowledged_version_code');
+    return value != null ? int.tryParse(value) : null;
+  }
+
+  /// Save the last acknowledged version code
+  Future<void> saveLastAcknowledgedVersionCode(int versionCode) async {
+    await _storage.write(key: 'last_acknowledged_version_code', value: versionCode.toString());
   }
 
   String _handleError(dynamic data, String defaultMessage) {
