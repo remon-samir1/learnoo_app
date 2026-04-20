@@ -468,6 +468,31 @@ class _CourseContentScreenState extends State<CourseContentScreen>
   }
 
   Widget _buildExamCard({required Quiz exam, required bool isAvailable}) {
+    final status = exam.getStatus(1);
+    final statusText = exam.getStatusTextKey(status).tr();
+    
+    Color statusColor;
+    Color statusBgColor;
+
+    switch (status) {
+      case QuizStatus.available:
+        statusColor = const Color(0xFF27AE60);
+        statusBgColor = const Color(0xFFE6F7F0);
+        break;
+      case QuizStatus.expired:
+        statusColor = Colors.red;
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+      case QuizStatus.upcoming:
+        statusColor = const Color(0xFFF2994A);
+        statusBgColor = const Color(0xFFFFF9F0);
+        break;
+      case QuizStatus.noAttempts:
+        statusColor = const Color(0xFFFF4B4B);
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
@@ -489,25 +514,48 @@ class _CourseContentScreenState extends State<CourseContentScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                exam.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
+              Expanded(
+                child: Text(
+                  exam.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937)),
+                ),
               ),
-              if (!isAvailable && exam.isExpired)
-                Text('course.expired'.tr(), style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusBgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('${exam.duration} ${'course.minutes'.tr()}', style: TextStyle(color: Colors.grey[600], fontSize: 15)),
+              FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Text(
+                'course.duration_min'.tr(args: [exam.duration.toString()]),
+                style: TextStyle(color: Colors.grey[600], fontSize: 15),
+              ),
               const SizedBox(width: 24),
+              FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
               Text(exam.type.toUpperCase(), style: TextStyle(color: Colors.grey[600], fontSize: 15)),
             ],
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: isAvailable ? () async {
+            onPressed: status == QuizStatus.available ? () async {
               final result = await _examRepository.startQuizAttempt(exam.quizId);
               if (result['success'] && mounted) {
                 final attempt = result['data'] as QuizAttempt;
@@ -522,19 +570,21 @@ class _CourseContentScreenState extends State<CourseContentScreen>
                 );
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? 'course.failed_start_exam'.tr())),
+                  SnackBar(content: Text(result['message'] ?? 'exams.failed_start'.tr())),
                 );
               }
             } : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF263EE2),
+              backgroundColor: status == QuizStatus.available ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
               foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFFC4C4C4),
+              disabledForegroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 54),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
             child: Text(
-              isAvailable ? 'course.start_exam'.tr() : (exam.isExpired ? 'course.status_expired'.tr() : 'course.coming_soon'.tr()),
+              exam.getButtonTextKey(status).tr().toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),

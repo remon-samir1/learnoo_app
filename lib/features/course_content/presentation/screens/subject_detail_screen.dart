@@ -1006,9 +1006,30 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   }
 
   Widget _buildExamCard({required Quiz exam, required bool isAvailable}) {
-    final status = isAvailable ? 'Available' : (exam.isExpired ? 'Expired' : 'Upcoming');
-    final statusColor = isAvailable ? const Color(0xFF27AE60) : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
-    final statusBgColor = isAvailable ? const Color(0xFFE6F7F0) : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
+    final status = exam.getStatus(1); // Default to 1 attempt for now as we don't have remainingAttempts here
+    final statusText = exam.getStatusTextKey(status).tr();
+    
+    Color statusColor;
+    Color statusBgColor;
+
+    switch (status) {
+      case QuizStatus.available:
+        statusColor = const Color(0xFF27AE60);
+        statusBgColor = const Color(0xFFE6F7F0);
+        break;
+      case QuizStatus.expired:
+        statusColor = Colors.red;
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+      case QuizStatus.upcoming:
+        statusColor = const Color(0xFFF2994A);
+        statusBgColor = const Color(0xFFFFF9F0);
+        break;
+      case QuizStatus.noAttempts:
+        statusColor = const Color(0xFFFF4B4B);
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1034,7 +1055,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              status,
+              statusText,
               style: TextStyle(
                 color: statusColor,
                 fontSize: 11,
@@ -1049,7 +1070,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
             children: [
               FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 8),
-              Text('${exam.duration} min', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              Text('course.duration_min'.tr(args: [exam.duration.toString()]), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
               const SizedBox(width: 20),
               FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 8),
@@ -1058,7 +1079,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: isAvailable ? () async {
+            onPressed: status == QuizStatus.available ? () async {
               // Start attempt logic
               final result = await _examRepository.startQuizAttempt(exam.quizId);
               if (result['success'] && mounted) {
@@ -1074,12 +1095,12 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 );
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? 'Failed to start exam')),
+                  SnackBar(content: Text(result['message'] ?? 'exams.failed_start'.tr())),
                 );
               }
             } : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isAvailable ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
+              backgroundColor: status == QuizStatus.available ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),
               foregroundColor: Colors.white,
               disabledBackgroundColor: const Color(0xFFC4C4C4),
               disabledForegroundColor: Colors.white,
@@ -1088,7 +1109,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
               elevation: 0,
             ),
             child: Text(
-              isAvailable ? 'START EXAM' : (exam.isExpired ? 'EXPIRED' : 'COMING SOON'),
+              exam.getButtonTextKey(status).tr().toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ),

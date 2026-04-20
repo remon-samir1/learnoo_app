@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final thumbnail = attributes['thumbnail']?.toString() ?? '';
     final price = attributes['price']?.toString() ?? '0';
     final description = attributes['description']?.toString() ?? '';
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -210,18 +210,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final universityName =
             (attributes['university']?['data']?['attributes']?['name'] ??
-            'home.university_not_set'.tr()).toString();
-        
+                    'home.university_not_set'.tr())
+                .toString();
+
         // Parse faculty (data.attributes.name)
         final facultyName =
             (attributes['faculty']?['data']?['attributes']?['name'] ??
-            'home.faculty_not_set'.tr()).toString();
-        
+                    'home.faculty_not_set'.tr())
+                .toString();
+
         // Parse centers (array of categories)
         final centersData = attributes['centers'] as List<dynamic>? ?? [];
-        final centers = centersData.map((center) {
-          return (center['attributes']?['name'] ?? '').toString();
-        }).where((name) => name.isNotEmpty).toList();
+        final centers = centersData
+            .map((center) {
+              return (center['attributes']?['name'] ?? '').toString();
+            })
+            .where((name) => name.isNotEmpty)
+            .toList();
 
         // Parse user image
         final userImage = attributes['image']?.toString();
@@ -400,82 +405,89 @@ class _HomeScreenState extends State<HomeScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  _buildHeader(),
-                  const SizedBox(height: 24),
-                  _buildSearchBar(),
-                  const SizedBox(height: 32),
-                  if (_searchController.text.isNotEmpty) ...[
-                    _buildSearchResults(),
-                  ] else ...[
-                    FeatureVisibility(
-                      featureKey: 'feature_continue_watching',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader('home.continue_watching'.tr()),
-                          const SizedBox(height: 20),
-                          _buildContinueWatching(),
-                          const SizedBox(height: 32),
-                        ],
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+                    _buildSearchBar(),
+                    const SizedBox(height: 32),
+                    if (_searchController.text.isNotEmpty) ...[
+                      _buildSearchResults(),
+                    ] else ...[
+                      FeatureVisibility(
+                        featureKey: 'feature_continue_watching',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeader('home.continue_watching'.tr()),
+                            const SizedBox(height: 20),
+                            _buildContinueWatching(),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
                       ),
-                    ),
-                    _buildSectionHeader('home.my_subjects'.tr()),
-                    const SizedBox(height: 20),
-                    _buildSubjectsList(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('home.my_courses_title'.tr()),
-                    const SizedBox(height: 20),
-                    _buildCoursesList(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('home.upcoming_live_classes'.tr()),
-                    const SizedBox(height: 20),
-                    _buildLiveClassesList(),
-                    const SizedBox(height: 32),
-                    _buildSectionHeaderWithAction(
-                      'home.new_notes'.tr(), 'home.view_all'.tr(),
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SummariesListScreen()),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildNotesSummariesList(),
-                    const SizedBox(height: 32),
-                    FeatureVisibility(
-                      featureKey: 'feature_electronic_library',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeaderWithAction(
-                            'home.electronic_library'.tr(), 'home.view_all'.tr(),
-                            () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const ElectronicLibraryScreen()),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          _buildLibraryList(),
-                          const SizedBox(height: 32),
-                        ],
+                      _buildSectionHeader('home.my_subjects'.tr()),
+                      const SizedBox(height: 20),
+                      _buildSubjectsList(),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('home.my_courses_title'.tr()),
+                      const SizedBox(height: 20),
+                      _buildCoursesList(),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('home.upcoming_live_classes'.tr()),
+                      const SizedBox(height: 20),
+                      _buildLiveClassesList(),
+                      const SizedBox(height: 32),
+                      _buildSectionHeaderWithAction(
+                        'home.new_notes'.tr(),
+                        'home.view_all'.tr(),
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SummariesListScreen(),
+                            ),
+                          );
+                        },
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      _buildNotesSummariesList(),
+                      const SizedBox(height: 32),
+                      FeatureVisibility(
+                        featureKey: 'feature_electronic_library',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeaderWithAction(
+                              'home.electronic_library'.tr(),
+                              'home.view_all'.tr(),
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ElectronicLibraryScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            _buildLibraryList(),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildHeader() {
     return Row(
@@ -522,9 +534,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                _isLoading
-                    ? 'home.loading_profile'.tr()
-                    : _buildSubtitleText(),
+                _isLoading ? 'home.loading_profile'.tr() : _buildSubtitleText(),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -540,7 +550,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+              MaterialPageRoute(
+                builder: (context) => const NotificationsScreen(),
+              ),
             );
           },
           child: Container(
@@ -655,23 +667,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5A75FF)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF5A75FF),
+                      ),
                     ),
                   ),
                 )
               : _searchController.text.isNotEmpty
-                  ? GestureDetector(
-                      onTap: _clearSearch,
-                      child: const Padding(
-                        padding: EdgeInsets.all(14),
-                        child: FaIcon(
-                          FontAwesomeIcons.xmark,
-                          color: Color(0xFFD1D1D1),
-                          size: 18,
-                        ),
-                      ),
-                    )
-                  : null,
+              ? GestureDetector(
+                  onTap: _clearSearch,
+                  child: const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: FaIcon(
+                      FontAwesomeIcons.xmark,
+                      color: Color(0xFFD1D1D1),
+                      size: 18,
+                    ),
+                  ),
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
@@ -698,10 +712,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               Text(
                 'home.no_results'.tr(),
-                style: const TextStyle(
-                  color: Color(0xFF9CA3AF),
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
               ),
             ],
           ),
@@ -964,7 +975,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // Navigate to library
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const ElectronicLibraryScreen()),
+          MaterialPageRoute(
+            builder: (context) => const ElectronicLibraryScreen(),
+          ),
         );
         break;
       case 'post':
@@ -1000,11 +1013,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToNote(dynamic note) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => SummaryDetailScreen(
-          note: note,
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => SummaryDetailScreen(note: note)),
     );
   }
 
@@ -1014,32 +1023,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final attachments = attributes['attachments'] as List<dynamic>? ?? [];
 
     // Find first PDF attachment that is not locked or downloadable
-    final pdfAttachment = attachments.firstWhere(
-      (attachment) {
-        final ext = attachment['attributes']?['extension']?.toString().toLowerCase() ?? '';
-        final isLocked = attachment['attributes']?['is_locked'] == true;
-        final downloadable = attachment['attributes']?['downloadable'] == true;
-        return ext == 'pdf' && (!isLocked || downloadable);
-      },
-      orElse: () => null,
-    );
+    final pdfAttachment = attachments.firstWhere((attachment) {
+      final ext =
+          attachment['attributes']?['extension']?.toString().toLowerCase() ??
+          '';
+      final isLocked = attachment['attributes']?['is_locked'] == true;
+      final downloadable = attachment['attributes']?['downloadable'] == true;
+      return ext == 'pdf' && (!isLocked || downloadable);
+    }, orElse: () => null);
 
     final pdfUrl = pdfAttachment?['attributes']?['path']?.toString() ?? '';
 
     if (pdfUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PDF not available')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PDF not available')));
       return;
     }
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PdfViewerScreen(
-          pdfUrl: pdfUrl,
-          title: title,
-        ),
+        builder: (context) => PdfViewerScreen(pdfUrl: pdfUrl, title: title),
       ),
     );
   }
@@ -1055,7 +1060,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeaderWithAction(String title, String actionText, VoidCallback onAction) {
+  Widget _buildSectionHeaderWithAction(
+    String title,
+    String actionText,
+    VoidCallback onAction,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1098,10 +1107,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final chapterAttributes = chapterData['attributes'] ?? {};
 
     final chapterTitle = chapterAttributes['title']?.toString() ?? 'Chapter';
-    final thumbnail = chapterAttributes['thumbnail']?.toString() ??
+    final thumbnail =
+        chapterAttributes['thumbnail']?.toString() ??
         'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400';
     final duration = chapterAttributes['duration']?.toString() ?? '00:00';
-    final progressSeconds = (attributes['progress_seconds'] as num?)?.toInt() ?? 0;
+    final progressSeconds =
+        (attributes['progress_seconds'] as num?)?.toInt() ?? 0;
     final isCompleted = attributes['is_completed'] as bool? ?? false;
 
     // Calculate progress percentage from duration and progress_seconds
@@ -1125,12 +1136,14 @@ class _HomeScreenState extends State<HomeScreen> {
       // Format current position
       final currMinutes = progressSeconds ~/ 60;
       final currSecs = progressSeconds % 60;
-      final currentTimeStr = '${currMinutes.toString().padLeft(2, '0')}:${currSecs.toString().padLeft(2, '0')}';
+      final currentTimeStr =
+          '${currMinutes.toString().padLeft(2, '0')}:${currSecs.toString().padLeft(2, '0')}';
 
       // Format total duration
       final totalMinutes = totalSeconds ~/ 60;
       final totalSecs = totalSeconds % 60;
-      final totalTimeStr = '${totalMinutes.toString().padLeft(2, '0')}:${totalSecs.toString().padLeft(2, '0')}';
+      final totalTimeStr =
+          '${totalMinutes.toString().padLeft(2, '0')}:${totalSecs.toString().padLeft(2, '0')}';
 
       timeDisplay = '$currentTimeStr / $totalTimeStr';
     }
@@ -1386,10 +1399,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'No subjects available',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -1405,10 +1415,12 @@ class _HomeScreenState extends State<HomeScreen> {
           final subject = entry.value;
           final attributes = subject['attributes'] ?? {};
           final id = subject['id']?.toString() ?? '';
-          final title = attributes['name']?.toString() ??
+          final title =
+              attributes['name']?.toString() ??
               attributes['title']?.toString() ??
               'Subject';
-          final image = attributes['image']?.toString() ??
+          final image =
+              attributes['image']?.toString() ??
               attributes['icon']?.toString() ??
               '';
 
@@ -1435,35 +1447,53 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       clipBehavior: Clip.none,
       child: Row(
-        children: List.generate(4, (index) {
+        children: List.generate(3, (index) {
           return Container(
-            width: 90,
+            width: 280,
             margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.grey[100]!,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    height: 160,
+                    width: double.infinity,
                     decoration: const BoxDecoration(
                       color: Colors.white,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 60,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 150,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1486,42 +1516,72 @@ class _HomeScreenState extends State<HomeScreen> {
     final firstLetter = title.isNotEmpty ? title[0].toUpperCase() : '?';
 
     return Container(
-      width: 90,
+      width: 280,
       margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: InkWell(
-        onTap: () => _navigateToSubjectDetail(subject, subjectId, title, imageUrl),
-        borderRadius: BorderRadius.circular(16),
+        onTap: () =>
+            _navigateToSubjectDetail(subject, subjectId, title, imageUrl),
+        borderRadius: BorderRadius.circular(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (imageUrl.isNotEmpty)
-              ClipOval(
-                child: Image.network(
-                  imageUrl,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildSubjectIconFallback(firstLetter, iconColor);
-                  },
-                ),
-              )
-            else
-              _buildSubjectIconFallback(firstLetter, iconColor),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: TextStyle(
-                color: iconColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildSubjectIconFallback(
+                          firstLetter,
+                          iconColor,
+                        );
+                      },
+                    )
+                  : _buildSubjectIconFallback(firstLetter, iconColor),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: iconColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 4,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: iconColor.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1531,26 +1591,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSubjectIconFallback(String letter, Color color) {
     return Container(
-      width: 48,
-      height: 48,
+      width: double.infinity,
+      height: 160,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.1),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Center(
         child: Text(
           letter,
           style: TextStyle(
             color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            fontSize: 64,
           ),
         ),
       ),
     );
   }
 
-  void _navigateToSubjectDetail(dynamic subject, String subjectId, String title, String imageUrl) {
+  void _navigateToSubjectDetail(
+    dynamic subject,
+    String subjectId,
+    String title,
+    String imageUrl,
+  ) {
     // Check if this department has children (sub-departments)
     final hasChildren = _hasChildren(subjectId);
 
@@ -1589,10 +1654,7 @@ class _HomeScreenState extends State<HomeScreen> {
         physics: const NeverScrollableScrollPhysics(),
         clipBehavior: Clip.none,
         child: Row(
-          children: [
-            _buildCourseShimmerCard(),
-            _buildCourseShimmerCard(),
-          ],
+          children: [_buildCourseShimmerCard(), _buildCourseShimmerCard()],
         ),
       );
     }
@@ -1603,10 +1665,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'No courses available',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -1620,10 +1679,13 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _courses.map((course) {
           final attributes = course['attributes'] ?? {};
           final title = attributes['title']?.toString() ?? 'Untitled Course';
-          final instructor = attributes['instructor']?['data']?['attributes']?['name']?.toString() ??
+          final instructor =
+              attributes['instructor']?['data']?['attributes']?['name']
+                  ?.toString() ??
               attributes['instructor_name']?.toString() ??
               'Unknown Instructor';
-          final thumbnail = attributes['thumbnail']?.toString() ??
+          final thumbnail =
+              attributes['thumbnail']?.toString() ??
               'https://images.unsplash.com/photo-1554224155-26032ffc0d07?w=400';
           final accentColor = const Color(0xFF2137D6);
 
@@ -1793,10 +1855,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'No summaries available',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -1895,9 +1954,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToNoteDetail(dynamic note) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => SummaryDetailScreen(note: note),
-      ),
+      MaterialPageRoute(builder: (context) => SummaryDetailScreen(note: note)),
     );
   }
 
@@ -2006,10 +2063,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -2029,10 +2083,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'No library materials available',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -2220,7 +2271,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => UnlockMaterialScreen(library: library),
+                                builder: (context) =>
+                                    UnlockMaterialScreen(library: library),
                               ),
                             );
                           } else {
@@ -2274,10 +2326,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'No upcoming live classes',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ),
       );
@@ -2287,9 +2336,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: _liveClasses.take(3).map((liveClass) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: _buildLiveClassCard(
-            liveRoom: liveClass,
-          ),
+          child: _buildLiveClassCard(liveRoom: liveClass),
         );
       }).toList(),
     );
@@ -2372,9 +2419,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLiveClassCard({
-    required LiveRoom liveRoom,
-  }) {
+  Widget _buildLiveClassCard({required LiveRoom liveRoom}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2400,20 +2445,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: liveRoom.isLive ? AppColors.liveBg : const Color(0xFFFFF9F0),
+                  color: liveRoom.isLive
+                      ? AppColors.liveBg
+                      : const Color(0xFFFFF9F0),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 3,
-                      backgroundColor: liveRoom.isLive ? AppColors.liveText : const Color(0xFFF2994A),
+                      backgroundColor: liveRoom.isLive
+                          ? AppColors.liveText
+                          : const Color(0xFFF2994A),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       liveRoom.isLive ? 'LIVE' : 'UPCOMING',
                       style: TextStyle(
-                        color: liveRoom.isLive ? AppColors.liveText : const Color(0xFFF2994A),
+                        color: liveRoom.isLive
+                            ? AppColors.liveText
+                            : const Color(0xFFF2994A),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -2479,7 +2530,9 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: liveRoom.isLive ? AppColors.joinLiveGreen : const Color(0xFF5A75FF),
+              backgroundColor: liveRoom.isLive
+                  ? AppColors.joinLiveGreen
+                  : const Color(0xFF5A75FF),
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
@@ -2552,11 +2605,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final chapterId = chapterData['id']?.toString() ?? '';
     final chapterTitle = chapterAttributes['title']?.toString() ?? 'Chapter';
     final lectureId = chapterAttributes['lecture_id']?.toString() ?? '';
-    final lectureTitle = chapterAttributes['lecture_title']?.toString() ?? 'Lecture';
+    final lectureTitle =
+        chapterAttributes['lecture_title']?.toString() ?? 'Lecture';
     // course_id is a flat attribute in the chapter data
     final courseId = chapterAttributes['course_id']?.toString() ?? '';
     // Get the saved progress seconds to resume from where user left off
-    final progressSeconds = (attributes['progress_seconds'] as num?)?.toInt() ?? 0;
+    final progressSeconds =
+        (attributes['progress_seconds'] as num?)?.toInt() ?? 0;
 
     if (chapterId.isNotEmpty && lectureId.isNotEmpty) {
       Navigator.push(

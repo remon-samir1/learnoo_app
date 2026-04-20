@@ -20,10 +20,10 @@ import '../../../../core/services/encrypted_video_service.dart';
 import '../../../../core/widgets/subscription_badge.dart';
 import '../../../../core/widgets/watermark_wrapper.dart';
 import '../../../../core/services/feature_manager.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../data/chapter_repository.dart';
 import '../../data/discussion_repository.dart';
-import 'pdf_viewer_screen.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import '../../../exams/models/quiz_models.dart';
 import '../../../exams/data/exam_repository.dart';
@@ -112,6 +112,14 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
   StreamSubscription<Duration>? _listDurationSub;
 
   String? _errorMessage;
+  
+  // Embedded PDF state
+  String? _selectedPdfUrl;
+  String? _selectedPdfTitle;
+  String? _localPdfPath;
+  bool _isPdfLoading = false;
+  final DownloadService _pdfDownloadService = DownloadService();
+  ValueNotifier<DownloadProgress>? _pdfDownloadNotifier;
 
   // Video download state
   final _encryptedVideoService = EncryptedVideoService();
@@ -1226,24 +1234,29 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
           Column(
             children: [
               _buildVideoPlayer(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAskButton(),
-                      const SizedBox(height: 20),
-                      _buildLectureHeader(),
-                      const SizedBox(height: 24),
-                      _buildAttachmentsSection(),
-                      const SizedBox(height: 24),
-                      _buildLinkedQuizzes(),
-                      const SizedBox(height: 40),
-                    ],
+              if (_selectedPdfUrl != null)
+                Expanded(
+                  child: _buildEmbeddedPdfViewer(),
+                )
+              else
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildAskButton(),
+                        const SizedBox(height: 20),
+                        _buildLectureHeader(),
+                        const SizedBox(height: 24),
+                        _buildAttachmentsSection(),
+                        const SizedBox(height: 24),
+                        _buildLinkedQuizzes(),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           if (_showDiscussionPanel) _buildDiscussionPanel(),
@@ -1964,15 +1977,57 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
       pdfUrl = '${ApiConstants.baseUrl}$pdfUrl';
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PdfViewerScreen(
-          pdfUrl: pdfUrl,
-          title: name,
-        ),
-      ),
-    );
+    setState(() {
+      _selectedPdfUrl = pdfUrl;
+      _selectedPdfTitle = name;
+      _isPdfLoading = true;
+      _localPdfPath = null;
+    });
+
+    _downloadAndSetPdf(pdfUrl, name);
+  }
+
+  Future<void> _downloadAndSetPdf(String url, String title) async {
+    try {
+      final fileName = '${title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+      _pdfDownloadNotifier = _pdfDownloadService.getProgressNotifier(url, fileName);
+      
+      final result = await _pdfDownloadService.downloadFile(
+        url: url,
+        fileName: fileName,
+        subDirectory: 'temp',
+      );
+
+      if (mounted && _selectedPdfUrl == url) {
+        if (result.status == DownloadStatus.completed && result.localPath != null) {
+          setState(() {
+            _localPdfPath = result.localPath;
+            _isPdfLoading = false;
+          });
+        } else if (result.status == DownloadStatus.failed) {
+          setState(() {
+            _isPdfLoading = false;
+            _errorMessage = result.errorMessage ?? 'course.failed_load_pdf'.tr();
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted && _selectedPdfUrl == url) {
+        setState(() {
+          _isPdfLoading = false;
+          _errorMessage = 'course.failed_load_pdf'.tr(args: [e.toString()]);
+        });
+      }
+    }
+  }
+
+  void _closePdf() {
+    setState(() {
+      _selectedPdfUrl = null;
+      _selectedPdfTitle = null;
+      _localPdfPath = null;
+      _isPdfLoading = false;
+    });
   }
 
   Future<void> _downloadPdf(String path, String name) async {
@@ -2080,6 +2135,103 @@ class _LectureDetailScreenState extends State<LectureDetailScreen> {
     }
 
     await Share.shareUri(Uri.parse(fileUrl));
+  }
+
+  Widget _buildEmbeddedPdfViewer() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Header for PDF viewer
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+            ),
+            child: Row(
+              children: [
+                const FaIcon(FontAwesomeIcons.filePdf, color: Color(0xFFE74C3C), size: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _selectedPdfTitle ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF1F2937),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (_isPdfLoading && _pdfDownloadNotifier != null)
+                        ValueListenableBuilder<DownloadProgress>(
+                          valueListenable: _pdfDownloadNotifier!,
+                          builder: (context, progress, child) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: LinearProgressIndicator(
+                                value: progress.progress > 0 ? progress.progress : null,
+                                backgroundColor: Colors.grey[200],
+                                color: const Color(0xFF3451E5),
+                                minHeight: 2,
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _closePdf,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close, size: 16, color: Color(0xFF4B5563)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // PDF Content
+          Expanded(
+            child: _isPdfLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3451E5)))
+                : _localPdfPath != null
+                    ? WatermarkWrapper(
+                        type: WatermarkType.files,
+                        studentCode: _userId.isNotEmpty ? _userId : null,
+                        featureManager: _featureManager,
+                        child: PDFView(
+                          filePath: _localPdfPath,
+                          enableSwipe: true,
+                          swipeHorizontal: false,
+                          autoSpacing: true,
+                          pageFling: true,
+                          onError: (error) {
+                            setState(() {
+                              _errorMessage = 'Error loading PDF: $error';
+                            });
+                          },
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          'course.unable_load_pdf'.tr(),
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _shareFile(String filePath, String name) async {

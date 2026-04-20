@@ -1,6 +1,6 @@
-// Quiz/Exam Models matching API response structure
-
 // Quiz/Exam Model
+enum QuizStatus { upcoming, available, expired, noAttempts }
+
 class Quiz {
   final String id;
   final int quizId;
@@ -60,6 +60,42 @@ class Quiz {
   bool get isExpired {
     final now = DateTime.now().toUtc();
     return now.isAfter(endTime);
+  }
+
+  // Get current status of the quiz
+  QuizStatus getStatus(int remainingAttempts) {
+    if (isExpired) return QuizStatus.expired;
+    if (remainingAttempts <= 0) return QuizStatus.noAttempts;
+    if (isAvailable) return QuizStatus.available;
+    return QuizStatus.upcoming;
+  }
+
+  // Helper for status translation keys
+  String getStatusTextKey(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.expired:
+        return 'exams.status_expired';
+      case QuizStatus.noAttempts:
+        return 'exams.status_no_attempts';
+      case QuizStatus.available:
+        return 'exams.status_available';
+      case QuizStatus.upcoming:
+        return 'exams.status_upcoming';
+    }
+  }
+
+  // Helper for button translation keys
+  String getButtonTextKey(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.expired:
+        return 'exams.btn_exam_expired';
+      case QuizStatus.noAttempts:
+        return 'exams.btn_no_attempts';
+      case QuizStatus.available:
+        return 'exams.btn_start_exam';
+      case QuizStatus.upcoming:
+        return 'exams.btn_not_available';
+    }
   }
 }
 

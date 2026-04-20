@@ -7,6 +7,9 @@ import 'package:dio/dio.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as pdf_lib;
+import '../../../../core/widgets/watermark_wrapper.dart';
+import '../../../../core/services/feature_manager.dart';
+import '../../../auth/data/auth_repository.dart';
 
 class PdfReviewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -34,6 +37,8 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
   AnnotationMode _currentAnnotationMode = AnnotationMode.none;
   Color _annotationColor = Colors.yellow;
   bool _showAnnotationToolbar = false;
+  final FeatureManager _featureManager = FeatureManager();
+  String _userId = '';
 
   // Available annotation colors
   final List<Color> _annotationColors = [
@@ -44,6 +49,27 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
     Colors.purple,
     Colors.orange,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final authRepository = AuthRepository();
+      final result = await authRepository.getProfile();
+      if (result['success'] && mounted) {
+        final data = result['data'] ?? {};
+        setState(() {
+          _userId = data['id']?.toString() ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user data for watermark: $e');
+    }
+  }
 
   Future<void> _downloadPdf() async {
     try {
@@ -249,47 +275,51 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
                 ],
               ),
             ),
-          // PDF Viewer
           Expanded(
-            child: Stack(
-              children: [
-                SfPdfViewer.network(
-                  widget.pdfUrl,
-                  controller: _pdfViewerController,
-                  key: _pdfViewerKey,
-                  enableTextSelection: true,
-                  enableDocumentLinkAnnotation: true,
-                  enableHyperlinkNavigation: true,
-                  onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
-                    if (details.selectedText != null && _currentAnnotationMode != AnnotationMode.none) {
-                      // Apply annotation when text is selected
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('pdf.text_selected'.tr(args: [details.selectedText!.substring(0, details.selectedText!.length > 20 ? 20 : details.selectedText!.length)])),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                if (_isLoading)
-                  Container(
-                    color: Colors.black26,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(color: Colors.white),
-                          const SizedBox(height: 16),
-                          Text(
-                            'course.downloading'.tr(args: [(_downloadProgress * 100).toStringAsFixed(0)]),
-                            style: const TextStyle(color: Colors.white),
+            child: WatermarkWrapper(
+              type: WatermarkType.library,
+              studentCode: _userId.isNotEmpty ? _userId : null,
+              featureManager: _featureManager,
+              child: Stack(
+                children: [
+                  SfPdfViewer.network(
+                    widget.pdfUrl,
+                    controller: _pdfViewerController,
+                    key: _pdfViewerKey,
+                    enableTextSelection: true,
+                    enableDocumentLinkAnnotation: true,
+                    enableHyperlinkNavigation: true,
+                    onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+                      if (details.selectedText != null && _currentAnnotationMode != AnnotationMode.none) {
+                        // Apply annotation when text is selected
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('pdf.text_selected'.tr(args: [details.selectedText!.substring(0, details.selectedText!.length > 20 ? 20 : details.selectedText!.length)])),
+                            duration: const Duration(seconds: 1),
                           ),
-                        ],
+                        );
+                      }
+                    },
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(color: Colors.white),
+                            const SizedBox(height: 16),
+                            Text(
+                              'course.downloading'.tr(args: [(_downloadProgress * 100).toStringAsFixed(0)]),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

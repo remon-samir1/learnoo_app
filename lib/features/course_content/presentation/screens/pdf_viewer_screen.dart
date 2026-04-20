@@ -1,14 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/services/download_service.dart';
 import '../../../../core/widgets/watermark_wrapper.dart';
 import '../../../../core/services/feature_manager.dart';
-import '../../../../core/widgets/subscription_badge.dart';
+import '../../../auth/data/auth_repository.dart';
 
 enum DrawingMode { none, pen, highlighter, eraser }
 
@@ -70,7 +68,25 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUserData();
     _downloadAndOpenPdf();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final authRepository = AuthRepository();
+      final result = await authRepository.getProfile();
+      if (result['success'] && mounted) {
+        final data = result['data'] ?? {};
+        setState(() {
+          _userName = data['name']?.toString() ?? '';
+          _userId = data['id']?.toString() ?? '';
+          _isSubscribed = data['is_subscribed'] as bool? ?? true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user data for watermark: $e');
+    }
   }
 
   Future<void> _downloadAndOpenPdf() async {

@@ -839,16 +839,30 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   Widget _buildExamCard(Quiz exam) {
-    final isAvailable = exam.isAvailable;
-    final status = isAvailable
-        ? 'course.available'.tr()
-        : (exam.isExpired ? 'course.expired'.tr() : 'course.upcoming'.tr());
-    final statusColor = isAvailable
-        ? const Color(0xFF27AE60)
-        : (exam.isExpired ? Colors.red : const Color(0xFFF2994A));
-    final statusBgColor = isAvailable
-        ? const Color(0xFFE6F7F0)
-        : (exam.isExpired ? const Color(0xFFFFF0F0) : const Color(0xFFFFF9F0));
+    final status = exam.getStatus(1); // Default to 1 attempt
+    final statusText = exam.getStatusTextKey(status).tr();
+    
+    Color statusColor;
+    Color statusBgColor;
+
+    switch (status) {
+      case QuizStatus.available:
+        statusColor = const Color(0xFF27AE60);
+        statusBgColor = const Color(0xFFE6F7F0);
+        break;
+      case QuizStatus.expired:
+        statusColor = Colors.red;
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+      case QuizStatus.upcoming:
+        statusColor = const Color(0xFFF2994A);
+        statusBgColor = const Color(0xFFFFF9F0);
+        break;
+      case QuizStatus.noAttempts:
+        statusColor = const Color(0xFFFF4B4B);
+        statusBgColor = const Color(0xFFFFF0F0);
+        break;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -875,7 +889,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              status,
+              statusText,
               style: TextStyle(
                 color: statusColor,
                 fontSize: 11,
@@ -898,7 +912,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               FaIcon(FontAwesomeIcons.clock, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 8),
               Text(
-                '${exam.duration} ${'course.minutes'.tr()}',
+                'course.duration_min'.tr(args: [exam.duration.toString()]),
                 style: TextStyle(color: Colors.grey[600], fontSize: 15),
               ),
               const SizedBox(width: 24),
@@ -916,7 +930,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: isAvailable
+            onPressed: status == QuizStatus.available
                 ? () async {
                     final result = await _examRepository.startQuizAttempt(
                       exam.quizId,
@@ -934,7 +948,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            result['message'] ?? 'course.failed_start_exam'.tr(),
+                            result['message'] ?? 'exams.failed_start'.tr(),
                           ),
                         ),
                       );
@@ -942,7 +956,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   }
                 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isAvailable
+              backgroundColor: status == QuizStatus.available
                   ? const Color(0xFF263EE2)
                   : const Color(0xFFC4C4C4),
               foregroundColor: Colors.white,
@@ -955,9 +969,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               elevation: 0,
             ),
             child: Text(
-              isAvailable
-                  ? 'course.start_exam'.tr()
-                  : (exam.isExpired ? 'course.status_expired'.tr() : 'course.coming_soon'.tr()),
+              exam.getButtonTextKey(status).tr().toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),

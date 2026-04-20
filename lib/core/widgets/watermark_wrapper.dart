@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/feature_manager.dart';
+import 'watermark_widget.dart';
 
 /// Watermark type enumeration
 enum WatermarkType {
@@ -63,6 +64,24 @@ class WatermarkWrapper extends StatelessWidget {
         ? studentCode!
         : settings.text;
 
+    // Support moving watermark if position is 'moving'
+    if (settings.position.toLowerCase() == 'moving') {
+      return Stack(
+        children: [
+          child,
+          WatermarkWidget(
+            userName: watermarkText,
+            userId: studentCode ?? '',
+            style: TextStyle(
+              fontSize: settings.fontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.black.withOpacity(settings.opacity),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Stack(
       children: [
         // Original content
@@ -76,12 +95,12 @@ class WatermarkWrapper extends StatelessWidget {
   Widget _buildWatermarkOverlay(WatermarkSettings settings, String text) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isFull = settings.position.toLowerCase() == 'full';
-
-        if (isFull) {
+        final position = settings.position.toLowerCase();
+        
+        if (position == 'full') {
           return _buildFullWatermark(settings, text, constraints);
         } else {
-          return _buildCornerWatermark(settings, text, constraints);
+          return _buildCornerWatermark(settings, text, constraints, position);
         }
       },
     );
@@ -112,17 +131,18 @@ class WatermarkWrapper extends StatelessWidget {
     BoxConstraints constraints,
   ) {
     final List<Widget> watermarks = [];
-    final double spacing = settings.fontSize * 4;
-    final int rows = (constraints.maxHeight / spacing).ceil() + 1;
+    final double spacing = settings.fontSize * 5; // Increased spacing for better readability
+    final int rows = (constraints.maxHeight / (spacing * 0.7)).ceil() + 1;
     final int cols = (constraints.maxWidth / spacing).ceil() + 1;
 
     for (int row = 0; row < rows; row++) {
       for (int col = 0; col < cols; col++) {
+        // Offset alternate rows for a staggered effect
         final offset = (row % 2) * (spacing / 2);
         watermarks.add(
           Positioned(
-            left: col * spacing + offset,
-            top: row * spacing,
+            left: col * spacing + offset - spacing,
+            top: row * spacing * 0.7,
             child: Transform.rotate(
               angle: settings.rotation * (math.pi / 180),
               child: Opacity(
@@ -149,10 +169,35 @@ class WatermarkWrapper extends StatelessWidget {
     WatermarkSettings settings,
     String text,
     BoxConstraints constraints,
+    String position,
   ) {
+    double? left, top, right, bottom;
+
+    switch (position) {
+      case 'topleft':
+        left = 16;
+        top = 16;
+        break;
+      case 'topright':
+        right = 16;
+        top = 16;
+        break;
+      case 'bottomleft':
+        left = 16;
+        bottom = 16;
+        break;
+      case 'bottomright':
+      default:
+        right = 16;
+        bottom = 16;
+        break;
+    }
+
     return Positioned(
-      right: 16,
-      bottom: 16,
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
       child: IgnorePointer(
         child: Transform.rotate(
           angle: settings.rotation * (math.pi / 180),
@@ -161,14 +206,14 @@ class WatermarkWrapper extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Colors.white.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 text,
                 style: TextStyle(
                   fontSize: settings.fontSize,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),

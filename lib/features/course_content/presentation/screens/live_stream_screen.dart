@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -7,6 +9,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:peerdart/peerdart.dart';
 
 import '../../data/models/live_room.dart';
+import '../../../auth/data/auth_repository.dart';
 
 // ─── Chat message model ───────────────────────────────────────────────────────
 
@@ -76,6 +79,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
   final ScrollController _chatScrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
+  String? _currentUserName;
 
   // ── UI state ──────────────────────────────────────────────────────────────
   bool _isConnected = false;
@@ -86,6 +90,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
   bool _isCameraOff = false;
   bool _showChat = true;
   bool _isSpeakerOn = true;
+  bool _joinSent = false;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Lifecycle
@@ -96,7 +101,24 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _messageController.addListener(_onTextChanged);
+    _loadUserInfo();
     _initRenderers();
+  }
+
+  Future<void> _loadUserInfo() async {
+    try {
+      final profile = await AuthRepository().getProfile();
+      if (profile['success'] && mounted) {
+        final data = profile['data'];
+        final firstName = data['attributes']?['first_name'] ?? '';
+        final lastName = data['attributes']?['last_name'] ?? '';
+        setState(() {
+          _currentUserName = '$firstName $lastName'.trim();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user info: $e');
+    }
   }
 
   Future<void> _initRenderers() async {
@@ -145,7 +167,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
         secure: _kPeerSecure,
         config: {
           'iceServers': [
-            {'urls': 'stun:stun.relay.metered.ca:80'},
+            {'urls': 'stun:stun.l.google.com:19302'},
             {
               'urls': 'turn:global.relay.metered.ca:80',
               'username': 'f29e7283f4043b41d539ce22',
@@ -168,7 +190,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
             },
           ],
         },
-        debug: LogLevel.All,
       ),
     );
 
@@ -187,32 +208,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
 
     _peer.on('error').listen((err) {
       debugPrint('❌ Peer error: $err');
-      debugPrint('Error type: ${err.runtimeType}');
-      final errorStr = err.toString();
-      if (errorStr.contains('unavailable-id')) {
-        debugPrint('→ Peer ID already taken, will retry with new ID');
-      } else if (errorStr.contains('network') || errorStr.contains('websocket')) {
-        debugPrint('→ Network/WebSocket error - check internet & server');
-      } else if (errorStr.contains('disconnected')) {
-        debugPrint('→ Server disconnected');
-      }
       if (!mounted) return;
       setState(() {
         _isConnecting = false;
         _statusMessage = 'Error: $err';
       });
       _showSnack('Connection error: $err');
-    });
-
-    // Connection timeout fallback for peer initialization
-    Future.delayed(const Duration(seconds: 10), () {
-      if (mounted && _isConnecting && _statusMessage == 'Connecting…') {
-        setState(() {
-          _isConnecting = false;
-          _statusMessage = 'Server unreachable. Check connection.';
-        });
-        _showSnack('Could not connect to peer server. Please check your internet or try again.');
-      }
     });
 
     _peer.on('disconnected').listen((_) {
@@ -224,8 +225,23 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
       _peer.reconnect();
     });
 
+    // Connection timeout fallback for peer initialization
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted && _isConnecting && _statusMessage == 'Connecting…') {
+        setState(() {
+          _isConnecting = false;
+          _statusMessage = 'Server unreachable. Check connection.';
+        });
+        _showSnack(
+          'Could not connect to peer server. Please check your internet or try again.',
+        );
+      }
+    });
+
     // Listen for incoming media calls and data connections.
-    _peer.on<MediaConnection>('call').listen(_answerCall);
+    if (!widget.isHost) {
+      _peer.on<MediaConnection>('call').listen(_answerCall);
+    }
     if (widget.isHost) {
       _peer.on<DataConnection>('connection').listen(_onIncomingData);
     }
@@ -259,104 +275,131 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     }
   }
 
-  /// Called when a media call is received (from host to viewer or vice versa).
-  void _answerCall(MediaConnection call) async {
-    if (_localStream == null) {
-      _localStream = await createLocalMediaStream('viewer-dummy');
-    }
-    call.answer(_localStream!);
+  /// Called when an incoming media call arrives (host → viewer).
+  /// Mirrors the HTML viewer: `call.answer()` with no local stream.
+  Future<void> _answerCall(MediaConnection call) async {
+    debugPrint('📞 Incoming call from ${call.peer}');
 
-    _mediaConnection = call;
+    if (!widget.isHost) {
+      final emptyStream = null;
+      call.answer(emptyStream);
+      _mediaConnection = call;
 
-    call.on<MediaStream>('stream').listen((stream) {
-      if (!mounted) return;
-      if (!widget.isHost) {
+      call.on<MediaStream>('stream').listen((stream) {
+        debugPrint('🎬 Got remote stream');
+        if (!mounted) return;
         _remoteRenderer.srcObject = stream;
         setState(() {
           _isConnecting = false;
           _isConnected = true;
           _statusMessage = 'Connected to live stream';
         });
-      }
-    });
+      });
 
-    call.on('error').listen((err) {
-      debugPrint('❌ MediaConnection error: $err');
-    });
+      call.on('error').listen((err) {
+        debugPrint('❌ MediaConnection error: $err');
+      });
 
-    call.on('close').listen((_) {
-      if (mounted) {
-        if (widget.isHost) {
-          setState(() => _viewerCount = max(0, _viewerCount - 1));
-        } else {
+      call.on('close').listen((_) {
+        if (mounted) {
           setState(() {
             _isConnected = false;
             _statusMessage = 'Stream ended';
           });
         }
-      }
-    });
-
-    if (mounted && widget.isHost) setState(() => _viewerCount++);
+      });
+    }
   }
 
   /// Called when a viewer opens a data channel to the host.
   void _onIncomingData(DataConnection conn) {
     _dataConnections.add(conn);
-    conn.on<dynamic>('data').listen((data) => _onDataReceived(data, conn));
+
+    conn.on('open').listen((_) {
+      debugPrint('✅ Viewer data channel opened: ${conn.peer}');
+    });
+
+    conn.on<dynamic>('data').listen((data) {
+      debugPrint('📨 Host received data from ${conn.peer}: $data');
+      _onDataReceived(data, conn);
+    });
+
     conn.on('close').listen((_) {
       _dataConnections.remove(conn);
       if (mounted) setState(() => _viewerCount = max(0, _viewerCount - 1));
     });
+
     if (mounted) setState(() => _viewerCount++);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _joinAsViewer() async {
-    final hostId = widget.liveRoom.id;
+    _joinSent = false;
 
-    // ── Media ──────────────────────────────────────────────────────────────
-    // Viewers still send a dummy / mic stream so the call handshake works.
-    try {
-      _localStream = await navigator.mediaDevices.getUserMedia({
-        'video': false,
-        'audio': true,
+    void _sendJoin(DataConnection conn) {
+      if (_joinSent) return;
+      _joinSent = true;
+
+      final myId = _peer.id ?? '';
+      debugPrint(
+        '→ Sending join: id=$myId name=${_currentUserName ?? "Student"}',
+      );
+
+      conn.send({
+        'action': 'join',
+        'id': myId,
+        'name': _currentUserName ?? 'Student',
       });
-    } catch (_) {
-      _localStream = await createLocalMediaStream('viewer-dummy');
+
+      if (mounted) setState(() => _statusMessage = 'Waiting for host stream…');
     }
 
+    final hostId = widget.liveRoom.id;
+    debugPrint('🔗 Connecting to host: $hostId');
+
     // ── Data channel ───────────────────────────────────────────────────────
-    final dataConn = _peer.connect(hostId, options: PeerConnectOption(
-      serialization: SerializationType.JSON,
-      reliable: true,
-    ));
+    // PeerDart ALWAYS defaults to JSON serialization, but the working HTML viewer
+    // uses PeerJS default = BINARY (binarypack). We must explicitly force Binary
+    // so the host's binarypack encoder/decoder is used — matching the HTML viewer.
+    //
+    // Screenshot proof: HTML viewer shows serialization:"binary", Flutter showed
+    // serialization:"json" → causing the "TextDecoder ArrayBuffer" error on host.
+    //
+    // We send a plain Map; PeerDart's binary serializer (msgpack/binarypack)
+    // encodes it, PeerJS host decodes with binarypack automatically.
+    final dataConn = _peer.connect(
+      hostId,
+      options: PeerConnectOption(
+        serialization: SerializationType.Binary,
+        reliable: true,
+      ),
+    );
 
     _dataConnections.add(dataConn);
 
     dataConn.on('open').listen((_) {
-      // Announce presence and request to join (handshake).
-      dataConn.send({
-        'type': 'join-request',
-        'peerId': _peer.id,
-        'name': 'Student',
-      });
+      _sendJoin(dataConn);
     });
 
-    dataConn.on<dynamic>('data').listen((data) => _onDataReceived(data, dataConn));
+    dataConn
+        .on<dynamic>('data')
+        .listen((raw) => _onDataReceived(raw, dataConn));
 
     dataConn.on('close').listen((_) {
+      debugPrint('⚠️ Data channel to host closed');
       _dataConnections.remove(dataConn);
-      if (mounted) {
+      if (mounted)
         setState(() {
           _isConnected = false;
           _statusMessage = 'Disconnected';
         });
-      }
     });
 
-    // Connection timeout fallback.
-    Future.delayed(const Duration(seconds: 15), () {
+    dataConn
+        .on('error')
+        .listen((err) => debugPrint('❌ Data channel error: $err'));
+
+    Future.delayed(const Duration(seconds: 20), () {
       if (mounted && _isConnecting) {
         setState(() {
           _isConnecting = false;
@@ -367,11 +410,60 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Decode incoming data which may be Uint8List (from JS/PeerJS) or Map (from Dart peer).
+  Map<String, dynamic>? _decodeIncoming(dynamic data) {
+    try {
+      if (data is Uint8List) {
+        return jsonDecode(utf8.decode(data)) as Map<String, dynamic>?;
+      } else if (data is List<int>) {
+        return jsonDecode(utf8.decode(data)) as Map<String, dynamic>?;
+      } else if (data is Map) {
+        return data.cast<String, dynamic>();
+      } else if (data is String) {
+        return jsonDecode(data) as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      debugPrint(
+        '⚠️ Could not decode incoming data: $e (type: ${data.runtimeType})',
+      );
+    }
+    return null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Chat / data channel
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _onDataReceived(dynamic data, DataConnection source) {
-    if (data is! Map) return;
+  void _onDataReceived(dynamic raw, DataConnection source) {
+    debugPrint('📨 Raw data received: type=${raw.runtimeType}');
+    // PeerJS (binarypack) decodes incoming data automatically to a Map.
+    // We still handle Uint8List/String fallbacks just in case.
+    final Map<String, dynamic>? data;
+    if (raw is Map) {
+      data = raw.cast<String, dynamic>();
+    } else if (raw is Uint8List) {
+      try {
+        data = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>?;
+      } catch (_) {
+        debugPrint('⚠️ Cannot decode Uint8List data');
+        return;
+      }
+    } else if (raw is String) {
+      try {
+        data = jsonDecode(raw) as Map<String, dynamic>?;
+      } catch (_) {
+        debugPrint('⚠️ Cannot decode String data');
+        return;
+      }
+    } else {
+      debugPrint('⚠️ Unknown data type: ${raw.runtimeType}');
+      return;
+    }
+    if (data == null) return;
+    debugPrint('📨 Decoded: $data');
 
     final type = data['type'] as String?;
     final action = data['action'] as String?;
@@ -379,17 +471,62 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     // Handle handshake join action (Host side)
     if (action == 'join' && widget.isHost) {
       final peerId = data['id'] as String?;
+      print("🤝 Join from: $peerId | localStream=${_localStream != null}");
       if (peerId != null && _localStream != null) {
-        debugPrint('🤝 Handshake: Calling back viewer $peerId');
-        _peer.call(peerId, _localStream!);
+        final call = _peer.call(peerId, _localStream!);
+        print("📞 Called viewer: $peerId | call=$call");
+      }
+    }
+    // Handle chat message from host: { type: 'chat-message', name: '', content: '', timestamp: 123, isHost: true }
+    if (type == 'chat-message') {
+      final msg = ChatMessage(
+        id: (data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch)
+            .toString(),
+        senderName: data['name'] ?? 'Instructor',
+        senderInitial: (data['name'] ?? 'I')
+            .toString()
+            .substring(0, 1)
+            .toUpperCase(),
+        message: data['content'] ?? '',
+        timestamp: DateTime.fromMillisecondsSinceEpoch(
+          data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        ),
+        isInstructor: data['isHost'] == true,
+      );
+      if (mounted) {
+        setState(() => _messages.add(msg));
+        _scrollToBottom();
       }
     }
 
+    // Handle chat message action from other students (relayed via host or direct): { action: 'message', id: '', name: '', content: '' }
+    if (action == 'message') {
+      final msg = ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        senderName: data['name'] ?? 'Student',
+        senderInitial: (data['name'] ?? 'S')
+            .toString()
+            .substring(0, 1)
+            .toUpperCase(),
+        message: data['content'] ?? '',
+        timestamp: DateTime.now(),
+        isInstructor: false,
+      );
+      if (mounted) {
+        setState(() => _messages.add(msg));
+        _scrollToBottom();
+      }
+    }
+
+    // Legacy support for 'chat' type if needed
     if (type == 'chat') {
       final msg = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         senderName: data['name'] ?? 'Student',
-        senderInitial: (data['name'] ?? 'S').toString().substring(0, 1).toUpperCase(),
+        senderInitial: (data['name'] ?? 'S')
+            .toString()
+            .substring(0, 1)
+            .toUpperCase(),
         message: data['message'] ?? '',
         timestamp: DateTime.now(),
         isInstructor: data['isInstructor'] == true,
@@ -412,26 +549,36 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     if (text.isEmpty) return;
 
     final payload = {
-      'type': 'chat',
-      'name': widget.isHost ? widget.liveRoom.instructorName : 'You',
-      'message': text,
-      'isInstructor': widget.isHost,
+      'action': 'message',
+      'id': _peer.id,
+      'name': widget.isHost
+          ? widget.liveRoom.instructorName
+          : (_currentUserName ?? 'You'),
+      'content': text,
     };
 
     // Add locally.
     setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderName: widget.isHost ? widget.liveRoom.instructorName : 'You',
-        senderInitial: widget.isHost ? widget.liveRoom.instructorName.substring(0, 1) : 'Y',
-        message: text,
-        timestamp: DateTime.now(),
-        isInstructor: widget.isHost,
-      ));
+      _messages.add(
+        ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          senderName: widget.isHost
+              ? widget.liveRoom.instructorName
+              : (_currentUserName ?? 'You'),
+          senderInitial: widget.isHost
+              ? widget.liveRoom.instructorName.substring(0, 1)
+              : (_currentUserName != null
+                    ? _currentUserName!.substring(0, 1)
+                    : 'Y'),
+          message: text,
+          timestamp: DateTime.now(),
+          isInstructor: widget.isHost,
+        ),
+      );
       _messageController.clear();
     });
 
-    // Send via data connections.
+    // Send via data connections — plain Map, PeerDart encodes natively.
     for (final conn in _dataConnections) {
       conn.send(payload);
     }
@@ -488,8 +635,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
   }
 
   void _cleanUp() {
@@ -510,7 +658,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Leave Live Session?'),
-        content: const Text('Are you sure you want to leave this live session?'),
+        content: const Text(
+          'Are you sure you want to leave this live session?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -525,7 +675,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Leave'),
           ),
@@ -534,7 +686,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
     );
   }
 
-  void _onTextChanged() => setState(() => _isTyping = _messageController.text.isNotEmpty);
+  void _onTextChanged() =>
+      setState(() => _isTyping = _messageController.text.isNotEmpty);
 
   String _formatTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
@@ -594,7 +747,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -608,9 +765,17 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                     _LiveDot(isConnected: _isConnected),
                     const SizedBox(width: 6),
                     Text(
-                      _isConnected ? 'LIVE' : _isConnecting ? 'CONNECTING' : 'OFFLINE',
+                      _isConnected
+                          ? 'LIVE'
+                          : _isConnecting
+                          ? 'CONNECTING'
+                          : 'OFFLINE',
                       style: TextStyle(
-                        color: _isConnected ? Colors.red : Colors.orange,
+                        color: _isConnected
+                            ? Colors.red
+                            : _isConnecting
+                            ? Colors.orange
+                            : Colors.grey,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -629,6 +794,16 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (!_isConnected)
+                  Text(
+                    _statusMessage,
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
@@ -641,7 +816,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
             ),
             child: Row(
               children: [
-                const FaIcon(FontAwesomeIcons.users, color: Colors.white70, size: 14),
+                const FaIcon(
+                  FontAwesomeIcons.users,
+                  color: Colors.white70,
+                  size: 14,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '$_viewerCount',
@@ -710,7 +889,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
               top: 14,
               left: 14,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: _isConnected ? Colors.red : Colors.orange,
                   borderRadius: BorderRadius.circular(20),
@@ -771,7 +953,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                     child: RTCVideoView(
                       _localRenderer,
                       mirror: true,
-                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                     ),
                   ),
                 ),
@@ -785,13 +968,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4A68F6).withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      widget.isHost ? 'You (Host)' : widget.liveRoom.instructorName,
+                      widget.isHost
+                          ? 'You (Host)'
+                          : widget.liveRoom.instructorName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -849,7 +1037,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                   color: Colors.white.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.wifi_tethering, color: Colors.white60, size: 34),
+                child: const Icon(
+                  Icons.wifi_tethering,
+                  color: Colors.white60,
+                  size: 34,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -897,7 +1089,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.chat_bubble_outline, color: Colors.grey.shade300, size: 40),
+            Icon(
+              Icons.chat_bubble_outline,
+              color: Colors.grey.shade300,
+              size: 40,
+            ),
             const SizedBox(height: 8),
             Text(
               'No messages yet',
@@ -927,7 +1123,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
               backgroundColor: const Color(0xFF4A68F6),
               child: Text(
                 msg.senderInitial,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -953,25 +1152,41 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF4A68F6),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
                             'Instructor',
-                            style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const Spacer(),
                         Text(
                           _formatTime(msg.timestamp),
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(msg.message, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                    Text(
+                      msg.message,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -991,7 +1206,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
             backgroundColor: Colors.grey.shade300,
             child: Text(
               msg.senderInitial,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -1012,12 +1230,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
                     const Spacer(),
                     Text(
                       _formatTime(msg.timestamp),
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(msg.message, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                Text(
+                  msg.message,
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                ),
               ],
             ),
           ),
@@ -1062,7 +1286,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: _isTyping ? const Color(0xFF4A68F6) : const Color(0xFFE5E7EB),
+                color: _isTyping
+                    ? const Color(0xFF4A68F6)
+                    : const Color(0xFFE5E7EB),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -1150,7 +1376,9 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? (activeColor ?? const Color(0xFF4A68F6)) : Colors.red;
+    final color = active
+        ? (activeColor ?? const Color(0xFF4A68F6))
+        : Colors.red;
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1161,17 +1389,16 @@ class _ControlButton extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: active
-                  ? (activeColor != null ? activeColor!.withValues(alpha: 0.15) : const Color(0xFF1E3A8A).withValues(alpha: 0.4))
+                  ? (activeColor != null
+                        ? activeColor!.withValues(alpha: 0.15)
+                        : const Color(0xFF1E3A8A).withValues(alpha: 0.4))
                   : Colors.red.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(color: Colors.white60, fontSize: 10),
-          ),
+          Text(label, style: TextStyle(color: Colors.white60, fontSize: 10)),
         ],
       ),
     );
@@ -1186,7 +1413,8 @@ class _LiveDot extends StatefulWidget {
   State<_LiveDot> createState() => _LiveDotState();
 }
 
-class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin {
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 

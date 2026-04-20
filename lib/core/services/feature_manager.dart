@@ -386,14 +386,10 @@ class FeatureManager extends ChangeNotifier {
 
   /// Map internal type names to API type names
   String _mapTypeToApi(String type) {
-    switch (type) {
-      case 'files':
-        return 'pdfs';
-      case 'chapters':
-        return 'videos';
-      default:
-        return type;
-    }
+    // The API uses the exact keys provided in the JSON
+    // e.g., watermark_chapters_enabled, watermark_files_enabled, etc.
+    // So we don't need much mapping if the caller uses the right enum.
+    return type;
   }
 
   /// Check if watermark is enabled with various key patterns

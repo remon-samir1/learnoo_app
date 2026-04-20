@@ -248,36 +248,46 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
   }
 
   Widget _buildStatusBadge(Quiz quiz, int remainingAttempts) {
-    String text;
+    final status = quiz.getStatus(remainingAttempts);
+    final text = quiz.getStatusTextKey(status).tr();
     Color bgColor;
     Color textColor;
 
-    if (quiz.isExpired) {
-      text = 'exams.status_expired'.tr();
-      bgColor = const Color(0xFFF5F5F5);
-      textColor = AppColors.textGray;
-    } else if (remainingAttempts <= 0) {
-      text = 'exams.status_no_attempts'.tr();
-      bgColor = const Color(0xFFFFF0F0);
-      textColor = const Color(0xFFFF4B4B);
-    } else if (quiz.isAvailable) {
-      text = 'exams.status_available'.tr();
-      bgColor = const Color(0xFFE6F7F0);
-      textColor = const Color(0xFF27AE60);
-    } else {
-      text = 'exams.status_upcoming'.tr();
-      bgColor = const Color(0xFFFFF4E6);
-      textColor = const Color(0xFFF2994A);
+    switch (status) {
+      case QuizStatus.expired:
+        bgColor = const Color(0xFFF5F5F5);
+        textColor = AppColors.textGray;
+        break;
+      case QuizStatus.noAttempts:
+        bgColor = const Color(0xFFFFF0F0);
+        textColor = const Color(0xFFFF4B4B);
+        break;
+      case QuizStatus.available:
+        bgColor = const Color(0xFFE6F7F0);
+        textColor = const Color(0xFF27AE60);
+        break;
+      case QuizStatus.upcoming:
+        bgColor = const Color(0xFFFFF4E6);
+        textColor = const Color(0xFFF2994A);
+        break;
     }
 
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)), child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor)));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
+      ),
+    );
   }
 
   Widget _buildActionButton(BuildContext context, Quiz quiz, bool isAvailable, bool isExpired, bool hasNoAttempts) {
-    if (isExpired) return _buildDisabledButton('exams.btn_exam_expired'.tr());
-    if (hasNoAttempts) return _buildDisabledButton('exams.btn_no_attempts'.tr());
-
-    if (isAvailable) {
+    final status = quiz.getStatus(hasNoAttempts ? 0 : 1); // Simple check for remaining attempts
+    // Actually, remainingAttempts is passed from _buildQuizCard, but here we have booleans.
+    // Let's use the status determined in _buildQuizCard if possible, or recalculate.
+    
+    if (status == QuizStatus.available) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -285,11 +295,11 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => ExamNoticeScreen(quiz: quiz))).then((_) => _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts));
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-          child: Text('exams.btn_start_exam'.tr(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          child: Text(quiz.getButtonTextKey(status).tr(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ),
       );
     } else {
-      return _buildDisabledButton('exams.btn_not_available'.tr());
+      return _buildDisabledButton(quiz.getButtonTextKey(status).tr());
     }
   }
 
