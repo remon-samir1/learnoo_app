@@ -43,7 +43,7 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
           return const SizedBox.shrink();
         }
 
-        Widget watermark = Container(
+Widget watermark = Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -52,7 +52,7 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
               Text(
                 widget.controller.displayText,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.white.withOpacity(currentOpacity),
                   fontSize: widget.controller.config.fontSize,
                   fontWeight: FontWeight.bold,
                   shadows: const [
@@ -67,7 +67,7 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
               Text(
                 DateTime.now().toString().split('.')[0],
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.white.withOpacity(currentOpacity * 0.7),
                   fontSize: widget.controller.config.fontSize * 0.7,
                   shadows: const [
                     Shadow(offset: Offset(1, 1), blurRadius: 2.0, color: Colors.black54)
@@ -101,22 +101,16 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
           );
         }
 
-        // Opacity
+// Calculate opacity - use color alpha instead of Opacity widget to avoid gray overlay on real devices
         double currentOpacity = widget.controller.config.opacity;
         if (widget.controller.config.animationStyle == WatermarkAnimationStyle.fade) {
-          final fadeOut = Tween(begin: currentOpacity, end: 0.0).animate(
+          final fadeValue = Tween(begin: currentOpacity, end: 0.0).animate(
              CurvedAnimation(parent: _fxController, curve: Curves.easeInOut)
           );
-          watermark = Opacity(
-            opacity: fadeOut.value,
-            child: watermark,
-          );
-        } else {
-          watermark = Opacity(
-            opacity: currentOpacity,
-            child: watermark,
-          );
+          currentOpacity = fadeValue.value;
         }
+        // Apply opacity to text color instead of using Opacity widget
+        // This fixes gray overlay issue on real Android devices with SurfaceView
 
         // Map X,Y to Alignment (-1.0 to 1.0)
         final alignX = (widget.controller.positionX * 2) - 1.0;

@@ -23,6 +23,8 @@ class SocialLink {
 
 class SocialLinkAttributes {
   final int courseId;
+  final List<int> courseIds;
+  final List<CourseData> courses;
   final String icon;
   final String title;
   final String subtitle;
@@ -35,6 +37,8 @@ class SocialLinkAttributes {
 
   SocialLinkAttributes({
     required this.courseId,
+    this.courseIds = const [],
+    this.courses = const [],
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -47,8 +51,30 @@ class SocialLinkAttributes {
   });
 
   factory SocialLinkAttributes.fromJson(Map<String, dynamic> json) {
+    // Parse courses array from API
+    List<CourseData> parsedCourses = [];
+    List<int> parsedCourseIds = [];
+    
+    if (json['courses'] != null && json['courses'] is List) {
+      parsedCourses = (json['courses'] as List)
+          .map((c) => CourseData.fromJson(c))
+          .toList();
+      parsedCourseIds = parsedCourses
+          .map((c) => int.tryParse(c.id) ?? 0)
+          .where((id) => id > 0)
+          .toList();
+    }
+    
+    // Fallback to single course_id/course for backward compatibility
+    final singleCourseId = json['course_id'] ?? 0;
+    if (parsedCourseIds.isEmpty && singleCourseId > 0) {
+      parsedCourseIds = [singleCourseId];
+    }
+
     return SocialLinkAttributes(
-      courseId: json['course_id'] ?? 0,
+      courseId: singleCourseId,
+      courseIds: parsedCourseIds,
+      courses: parsedCourses,
       icon: json['icon']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       subtitle: json['subtitle']?.toString() ?? '',

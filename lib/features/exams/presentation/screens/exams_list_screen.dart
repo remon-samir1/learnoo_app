@@ -3,7 +3,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth//data/auth_repository.dart';
+import '../../../course_content/data/course_repository.dart';
 import '../../data/exam_repository.dart';
+import '../../data/exam_filter_service.dart';
+import '../../domain/usecases/exam_access_usecase.dart';
 import '../../models/quiz_models.dart';
 import 'exam_notice_screen.dart';
 
@@ -16,6 +20,9 @@ class ExamsListScreen extends StatefulWidget {
 
 class _ExamsListScreenState extends State<ExamsListScreen> {
   final ExamRepository _examRepository = ExamRepository();
+  final AuthRepository _authRepository = AuthRepository();
+  final CourseRepository _courseRepository = CourseRepository();
+  final ExamAccessUseCase _examAccessUseCase = ExamAccessUseCase();
   List<Quiz> _quizzes = [];
   Map<int, int>  _remainingAttempts = {};
   Map<int, List<QuizAttempt>> _attemptsMap = {};
@@ -34,28 +41,94 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
       _errorMessage = null;
     });
 
-    final result = await _examRepository.getQuizzes();
-    if (!mounted) return;
+    try {
+      // Fetch all required data in parallel
+      final results = await Future.wait([
+        _examRepository.getQuizzes(),
+        _authRepository.getProfile(),
+        _courseRepository.getCourses(),
+      ]);
 
-    if (result['success']) {
-      final quizzes = result['data'] as List<Quiz>;
-      setState(() {
-        _quizzes = quizzes;
-      });
+      if (!mounted) return;
 
-      final attemptsFutures = quizzes.map((quiz) => 
-        _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts)
-      ).toList();
-      await Future.wait(attemptsFutures);
-    } else {
-      setState(() {
-        _errorMessage = result['message'];
-      });
+      final quizResult = results[0];
+      final meResult = results[1];
+      final coursesResult = results[2];
+
+      if (quizResult['success'] && meResult['success'] && coursesResult['success']) {
+        final allQuizzes = quizResult['data'] as List<Quiz>;
+        final meData = meResult['data'] as Map<String, dynamic>;
+        final allCourses = coursesResult['data'] as List<dynamic>? ?? [];
+
+        // Step 1: Get allowed department IDs from me data (same as Home Screen)
+        final allowedDeptIds = _getAllowedDepartmentIds(meData);
+
+        // Step 2: Filter courses to only those in allowed departments (same as Home Screen)
+        final allowedCourses = allowedDeptIds.isEmpty
+            ? allCourses // If no dept filter, show all
+            : allCourses.where((course) {
+                final attrs = course['attributes'] ?? {};
+                final categoryId = attrs['category']?['data']?['id']?.toString() ??
+                    attrs['department']?['data']?['id']?.toString();
+                if (categoryId == null) return false;
+                return allowedDeptIds.contains(categoryId);
+              }).toList();
+
+        // Step 3: Filter exams based on allowed courses and their chapters
+        final filteredQuizzes = await ExamFilterService.filterExams(
+          exams: allQuizzes,
+          allowedCourses: allowedCourses,
+          allChapters: [], // Chapters will be resolved lazily if needed
+        );
+
+        setState(() {
+          _quizzes = filteredQuizzes;
+        });
+
+        // Load attempts for filtered quizzes
+        final attemptsFutures = filteredQuizzes.map((quiz) =>
+          _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts)
+        ).toList();
+        await Future.wait(attemptsFutures);
+      } else {
+        setState(() {
+          _errorMessage = quizResult['message'] ??
+                          meResult['message'] ??
+                          coursesResult['message'] ??
+                          'Failed to load exams';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Connection error: $e';
+        });
+      }
     }
 
     setState(() {
       _isLoading = false;
     });
+  }
+
+  /// Get allowed department IDs from me data (same logic as Home Screen)
+  List<String> _getAllowedDepartmentIds(Map<String, dynamic> meData) {
+    final Set<String> ids = {};
+
+    final data = meData['data'] as Map<String, dynamic>?;
+    final attributes = data?['attributes'] as Map<String, dynamic>?;
+
+    // Get user's departments from me data
+    final departmentsData = attributes?['departments']?['data'] as List<dynamic>? ?? [];
+
+    for (final dept in departmentsData) {
+      final deptId = dept['id']?.toString();
+      if (deptId != null) {
+        ids.add(deptId);
+      }
+    }
+
+    return ids.toList();
   }
 
   Future<void> _loadAttemptsForQuiz(int quizId, int maxAttempts) async {
@@ -283,16 +356,23 @@ class _ExamsListScreenState extends State<ExamsListScreen> {
   }
 
   Widget _buildActionButton(BuildContext context, Quiz quiz, bool isAvailable, bool isExpired, bool hasNoAttempts) {
-    final status = quiz.getStatus(hasNoAttempts ? 0 : 1); // Simple check for remaining attempts
-    // Actually, remainingAttempts is passed from _buildQuizCard, but here we have booleans.
-    // Let's use the status determined in _buildQuizCard if possible, or recalculate.
-    
+    final remainingAttempts = _remainingAttempts[quiz.quizId] ?? quiz.maxAttempts;
+    final status = quiz.getStatus(remainingAttempts);
+
     if (status == QuizStatus.available) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ExamNoticeScreen(quiz: quiz))).then((_) => _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts));
+          onPressed: () async {
+            // Use ExamAccessUseCase to handle access control
+            await _examAccessUseCase.handleExamAccess(
+              context: context,
+              quiz: quiz,
+            );
+            // Refresh attempts when returning
+            if (mounted) {
+              _loadAttemptsForQuiz(quiz.quizId, quiz.maxAttempts);
+            }
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
           child: Text(quiz.getButtonTextKey(status).tr(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),

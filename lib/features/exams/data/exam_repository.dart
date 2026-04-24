@@ -349,4 +349,91 @@ class ExamRepository {
       'attempts': attempts,
     };
   }
+
+  /// Resolve chapter to its course ID
+  /// Used when an exam has chapter_id but no course_id
+  Future<Map<String, dynamic>> resolveChapterToCourse(int chapterId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.chapters}/$chapterId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final chapterData = data['data'];
+        final attributes = chapterData?['attributes'] ?? {};
+        final courseId = attributes['course_id'] ?? attributes['course']?['data']?['id'];
+
+        if (courseId != null) {
+          return {
+            'success': true,
+            'data': int.tryParse(courseId.toString()),
+          };
+        } else {
+          return {
+            'success': false,
+            'message': 'Course ID not found for this chapter',
+          };
+        }
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Failed to resolve chapter'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  /// Activate quiz with activation code
+  Future<Map<String, dynamic>> activateQuizCode({
+    required String code,
+    required int quizId,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.codeActivate}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'code': code,
+          'item_type': 'quiz',
+          'item_id': quizId,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': data['data'],
+          'message': data['message'] ?? 'Activation successful',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _handleError(data, 'Invalid activation code'),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
 }

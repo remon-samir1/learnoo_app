@@ -179,7 +179,13 @@
     "yesterday": "Yesterday",
     "welcome_learnoo": "Welcome to Learnoo!",
     "start_exploring": "Start exploring your courses and join live sessions.",
-    "two_days_ago": "2 days ago"
+    "two_days_ago": "2 days ago",
+    "select_option": "Select an Option",
+    "select_option_subtitle": "This department contains both courses and sub-departments. Choose what you want to explore.",
+    "view_courses": "View Courses",
+    "view_courses_subtitle": "{0} courses available",
+    "view_sub_departments": "View Sub-Departments",
+    "view_sub_departments_subtitle": "Explore child departments"
   },
   "course": {
     "course": "Course",
@@ -326,7 +332,12 @@
     "switch_to_lower_quality": "Switch to Lower Quality",
     "video_quality": "Video Quality",
     "quality_auto": "Auto",
-    "recommended": "Recommended"
+    "recommended": "Recommended",
+    "loading_video": "Loading video...",
+    "please_wait": "Please wait",
+    "retrying": "Retrying ({}/{})...",
+    "video_loading_timeout": "Video loading timed out. Please check your connection.",
+    "video_max_retries_reached": "Unable to load video after multiple attempts. Please try again later."
   },
   "exams": {
     "title": "Quizzes & Exams",

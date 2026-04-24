@@ -148,6 +148,38 @@ class ExamNoticeScreen extends StatelessWidget {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Verify access with server before starting (GET /quiz/{id} validates access)
+    final accessResult = await examRepo.getQuizById(quiz.quizId);
+
+    if (!accessResult['success']) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Remove loading
+
+      // Access denied or error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accessResult['message'] ?? 'exams.access_denied'.tr()),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Verify quiz data and access flags
+    final updatedQuiz = accessResult['data'] as Quiz;
+    if (!updatedQuiz.isPublic && !updatedQuiz.canView && !updatedQuiz.canWatch) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Remove loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('exams.access_denied'.tr()),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Start the attempt
     final result = await examRepo.startQuizAttempt(quiz.quizId);
 
@@ -160,7 +192,7 @@ class ExamNoticeScreen extends StatelessWidget {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => QuizScreen(quiz: quiz, attempt: attempt),
+          builder: (context) => QuizScreen(quiz: updatedQuiz, attempt: attempt),
         ),
       );
     } else {

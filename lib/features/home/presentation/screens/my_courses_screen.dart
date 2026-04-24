@@ -6,7 +6,6 @@ import '../../../course_content/data/course_repository.dart';
 import '../../../course_content/data/chapter_repository.dart';
 import '../../../course_content/presentation/screens/course_detail_screen.dart';
 import '../../../search/data/search_repository.dart';
-import '../../data/department_repository.dart';
 
 class MyCoursesScreen extends StatefulWidget {
   const MyCoursesScreen({super.key});
@@ -19,15 +18,10 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   final _courseRepository = CourseRepository();
   final _chapterRepository = ChapterRepository();
   final _searchRepository = SearchRepository();
-  final _departmentRepository = DepartmentRepository();
-  String _selectedFilter = 'All';
   bool _isLoading = true;
-  bool _isDepartmentsLoading = true;
   bool _isProgressLoading = true;
   List<dynamic> _courses = [];
-  List<dynamic> _departments = [];
   List<dynamic> _userProgress = [];
-  int? _selectedDepartmentId;
 
   // Search state variables
   final TextEditingController _searchController = TextEditingController();
@@ -38,34 +32,14 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDepartments();
     _loadCourses();
     _loadUserProgress();
   }
 
-  Future<void> _loadDepartments() async {
-    setState(() => _isDepartmentsLoading = true);
-    try {
-      final result = await _departmentRepository.getDepartments();
-      if (result['success'] && mounted) {
-        setState(() {
-          _departments = result['data'] ?? [];
-          _isDepartmentsLoading = false;
-        });
-      } else if (mounted) {
-        setState(() => _isDepartmentsLoading = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isDepartmentsLoading = false);
-      }
-    }
-  }
-
-  Future<void> _loadCourses({int? categoryId}) async {
+  Future<void> _loadCourses() async {
     setState(() => _isLoading = true);
     try {
-      final result = await _courseRepository.getCourses(categoryId: categoryId);
+      final result = await _courseRepository.getActivatedCourses();
       if (result['success'] && mounted) {
         setState(() {
           _courses = result['data'] ?? [];
@@ -302,15 +276,15 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   }
 
   Widget _buildStatusChips() {
-    // Show loading shimmer while departments are loading
-    if (_isDepartmentsLoading) {
+    // Show simple header with course count when not loading
+    if (_isLoading) {
       return Container(
         height: 60,
         margin: const EdgeInsets.only(top: 8),
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           scrollDirection: Axis.horizontal,
-          itemCount: 4,
+          itemCount: 3,
           itemBuilder: (context, index) {
             return Padding(
               padding: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
@@ -331,72 +305,43 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
       );
     }
 
-    // Build department chips with "All" as first option
-    final chips = [
-      {'id': null, 'name': 'home.filter_all'.tr()},
-      ..._departments.map((d) {
-        final attributes = d['attributes'] ?? {};
-        return {
-          'id': int.tryParse(d['id']?.toString() ?? ''),
-          'name': attributes['name']?.toString() ??
-                  attributes['title']?.toString() ??
-                  'Unknown',
-        };
-      }).toList(),
-    ];
-
     return Container(
       height: 60,
       margin: const EdgeInsets.only(top: 8),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: chips.length,
-        itemBuilder: (context, index) {
-          final chip = chips[index];
-          final chipName = chip['name'] as String;
-          final chipId = chip['id'] as int?;
-          final isSelected = _selectedDepartmentId == chipId;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedDepartmentId = chipId;
-                  _selectedFilter = chipName;
-                });
-                // Load courses filtered by selected department
-                _loadCourses(categoryId: chipId);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF3451E5) : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    if (isSelected)
-                      BoxShadow(
-                        color: const Color(0xFF3451E5).withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                  ],
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3451E5),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF3451E5).withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                child: Center(
-                  child: Text(
-                    chipName,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey,
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ),
+              ],
+            ),
+            child: Text(
+              'home.filter_all'.tr(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${_courses.length} ${'home.courses'.tr()}',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -612,7 +557,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   Widget _buildCourseCard(dynamic course) {
     final attributes = course['attributes'] ?? {};
     final title = attributes['title']?.toString() ?? 'Untitled Course';
-    final instructor = attributes['instructor']?['data']?['attributes']?['name']?.toString() ??
+    final instructor = attributes['instructor']?['data']?['attributes']?['full_name']?.toString() ??
         attributes['instructor_name']?.toString() ??
         'home.unknown_instructor'.tr();
     final thumbnail = attributes['thumbnail']?.toString() ??

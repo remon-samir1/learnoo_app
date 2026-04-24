@@ -4,12 +4,14 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../course_content/presentation/screens/subject_detail_screen.dart';
+import 'department_options_screen.dart';
 
 class SubDepartmentsScreen extends StatelessWidget {
   final String parentId;
   final String parentTitle;
   final String? parentImage;
   final List<dynamic> allDepartments;
+  final List<dynamic>? children;
 
   const SubDepartmentsScreen({
     super.key,
@@ -17,9 +19,15 @@ class SubDepartmentsScreen extends StatelessWidget {
     required this.parentTitle,
     this.parentImage,
     required this.allDepartments,
+    this.children,
   });
 
   List<dynamic> get subDepartments {
+    // Use provided children if available
+    if (children != null && children!.isNotEmpty) {
+      return children!;
+    }
+    // Fallback: filter from all departments
     return allDepartments.where((dept) {
       final parent = dept['attributes']?['parent'];
       if (parent == null) return false;
@@ -31,20 +39,58 @@ class SubDepartmentsScreen extends StatelessWidget {
 
   void _navigateToDetail(BuildContext context, dynamic department) {
     final deptId = department['id']?.toString() ?? '';
-    final attributes = department['attributes'] ?? {};
-    final name = attributes['name']?.toString() ?? '';
-    final image = attributes['image']?.toString() ?? '';
 
-    // Check if this department has children
-    final hasChildren = allDepartments.any((dept) {
-      final parent = dept['attributes']?['parent'];
-      if (parent == null) return false;
-      final parentData = parent['data'];
-      if (parentData == null) return false;
-      return parentData['id']?.toString() == deptId;
-    });
+    // Find the FULL department data from allDepartments (has complete childrens info)
+    final fullDepartment = allDepartments.firstWhere(
+      (dept) => dept['id']?.toString() == deptId,
+      orElse: () => department,
+    );
 
+    final fullAttributes = fullDepartment['attributes'] ?? {};
+    final name = fullAttributes['name']?.toString() ?? '';
+    final image = fullAttributes['image']?.toString() ?? '';
+
+    // Check if this department has children from the FULL department's childrens array
+    final childrenList = fullAttributes['childrens'] as List<dynamic>?;
+    bool hasChildren = childrenList != null && childrenList.isNotEmpty;
+
+    // If no childrens array, check from allDepartments
+    List<dynamic>? childrenToPass;
     if (hasChildren) {
+      childrenToPass = childrenList;
+    } else {
+      // Find children from allDepartments
+      childrenToPass = allDepartments.where((dept) {
+        final parent = dept['attributes']?['parent'];
+        if (parent == null) return false;
+        final parentData = parent['data'];
+        if (parentData == null) return false;
+        return parentData['id']?.toString() == deptId;
+      }).toList();
+      hasChildren = childrenToPass.isNotEmpty;
+    }
+
+    // Check if this department has courses
+    final stats = fullAttributes['stats'] as Map<String, dynamic>?;
+    final coursesCount = stats?['courses'] as int? ?? 0;
+    final hasCourses = coursesCount > 0;
+
+    if (hasChildren && hasCourses) {
+      // Department has both courses and children - show options screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DepartmentOptionsScreen(
+            departmentId: deptId,
+            departmentTitle: name,
+            departmentImage: image,
+            allDepartments: allDepartments,
+            children: childrenToPass,
+            coursesCount: coursesCount,
+          ),
+        ),
+      );
+    } else if (hasChildren) {
       // Navigate to another sub-departments screen
       Navigator.push(
         context,
@@ -54,6 +100,7 @@ class SubDepartmentsScreen extends StatelessWidget {
             parentTitle: name,
             parentImage: image,
             allDepartments: allDepartments,
+            children: childrenToPass,
           ),
         ),
       );
@@ -250,13 +297,27 @@ class SubDepartmentsScreen extends StatelessWidget {
 
     // Check if this department has children
     final deptId = department['id']?.toString() ?? '';
-    final hasChildren = allDepartments.any((dept) {
-      final parent = dept['attributes']?['parent'];
-      if (parent == null) return false;
-      final parentData = parent['data'];
-      if (parentData == null) return false;
-      return parentData['id']?.toString() == deptId;
-    });
+
+    // Find the FULL department data from allDepartments
+    final fullDepartment = allDepartments.firstWhere(
+      (dept) => dept['id']?.toString() == deptId,
+      orElse: () => department,
+    );
+
+    final fullAttributes = fullDepartment['attributes'] as Map<String, dynamic>?;
+    final childrenList = fullAttributes?['childrens'] as List<dynamic>?;
+
+    // First check childrens array from full department, then check allDepartments
+    bool hasChildren = childrenList != null && childrenList.isNotEmpty;
+    if (!hasChildren) {
+      hasChildren = allDepartments.any((dept) {
+        final parent = dept['attributes']?['parent'];
+        if (parent == null) return false;
+        final parentData = parent['data'];
+        if (parentData == null) return false;
+        return parentData['id']?.toString() == deptId;
+      });
+    }
 
     return GestureDetector(
       onTap: () => _navigateToDetail(context, department),

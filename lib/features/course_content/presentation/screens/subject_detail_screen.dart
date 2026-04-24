@@ -6,12 +6,14 @@ import '../../data/course_repository.dart';
 import '../../data/live_room_repository.dart';
 import '../../data/models/live_room.dart' as lr;
 import '../../data/course_files_repository.dart';
+import '../../data/chapter_repository.dart';
 import '../../../exams/data/exam_repository.dart';
+import '../../../exams/data/exam_filter_service.dart';
+import '../../../exams/domain/usecases/exam_access_usecase.dart';
 import '../../../exams/models/quiz_models.dart';
 import 'course_detail_screen.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'pdf_reviewer_screen.dart';
-import 'pdf_viewer_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
   final String subjectId;
@@ -38,6 +40,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   final _examRepository = ExamRepository();
   final _courseFilesRepository = CourseFilesRepository();
   final _liveRoomRepository = LiveRoomRepository();
+  final _chapterRepository = ChapterRepository();
   bool _isLoadingCourses = true;
   bool _isLoadingExams = true;
   bool _isLoadingLiveRooms = true;
@@ -47,6 +50,11 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   List<lr.LiveRoom> _liveRooms = [];
   List<CourseFile> _files = [];
   String? _filesErrorMessage;
+
+  // Expansion state for files tree view
+  Map<String, bool> _expandedCourses = {};
+  Map<String, bool> _expandedLectures = {};
+  Map<String, bool> _expandedChapters = {};
 
   @override
   void initState() {
@@ -70,13 +78,32 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   Future<void> _loadExams() async {
     setState(() => _isLoadingExams = true);
     try {
-      final result = await _examRepository.getQuizzes();
-      if (result['success'] && mounted) {
-        final allExams = result['data'] as List<Quiz>;
-        // Filter exams by course IDs in this subject
-        final courseIds = _courses.map((c) => int.tryParse(c['id'].toString()) ?? -1).toList();
+      // Fetch all exams and chapters for this department
+      final results = await Future.wait([
+        _examRepository.getQuizzes(),
+        _chapterRepository.getChapters(),
+      ]);
+
+      if (!mounted) return;
+
+      final examResult = results[0];
+      final chaptersResult = results[1];
+
+      if (examResult['success']) {
+        final allExams = examResult['data'] as List<Quiz>;
+        final allChapters = chaptersResult['success']
+            ? (chaptersResult['data'] as List<dynamic>? ?? [])
+            : <dynamic>[];
+
+        // Filter exams by courses in this subject (NOT by department)
+        final filteredExams = await ExamFilterService.filterExams(
+          exams: allExams,
+          allowedCourses: _courses,
+          allChapters: allChapters,
+        );
+
         setState(() {
-          _exams = allExams.where((exam) => courseIds.contains(exam.courseId)).toList();
+          _exams = filteredExams;
           _isLoadingExams = false;
         });
       } else if (mounted) {
@@ -98,7 +125,10 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     setState(() => _isLoadingCourses = true);
     try {
       final categoryId = int.tryParse(widget.subjectId);
-      final result = await _courseRepository.getCourses(categoryId: categoryId);
+      final result = await _courseRepository.getCourses(
+        categoryId: categoryId,
+        include: 'attachments',
+      );
       if (result['success'] && mounted) {
         setState(() {
           _courses = result['data'] ?? [];
@@ -121,32 +151,15 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     });
 
     try {
-      final categoryId = int.tryParse(widget.subjectId);
-      late final Map<String, dynamic> result;
-
-      if (categoryId != null) {
-        result = await _courseFilesRepository.getFilesByCategory(categoryId);
-      } else {
-        // Fallback: try to get files by course IDs if we have courses loaded
-        final courseIds = _courses
-            .map((c) => int.tryParse(c['id'].toString()))
-            .whereType<int>()
-            .toList();
-        result = await _courseFilesRepository.getFilesByCourseIds(courseIds);
-      }
+      // Files are now displayed in a hierarchical tree from _courses data
+      // Extract files for header count only
+      final files = _extractFilesFromCourses(_courses);
 
       if (mounted) {
-        if (result['success']) {
-          setState(() {
-            _files = result['data'] as List<CourseFile>? ?? [];
-            _isLoadingFiles = false;
-          });
-        } else {
-          setState(() {
-            _filesErrorMessage = result['message'] ?? 'course.failed_load_files'.tr();
-            _isLoadingFiles = false;
-          });
-        }
+        setState(() {
+          _files = files;
+          _isLoadingFiles = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -156,6 +169,65 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
         });
       }
     }
+  }
+
+  /// Extract files from course data
+  /// Files are in chapter_attachments at course level and in lectures > chapters > attachments
+  List<CourseFile> _extractFilesFromCourses(List<dynamic> courses) {
+    final files = <CourseFile>[];
+
+    for (final course in courses) {
+      final courseAttributes = course['attributes'] ?? {};
+      final courseName = courseAttributes['title']?.toString();
+
+      // Get chapter_attachments from course level
+      final chapterAttachments = courseAttributes['chapter_attachments'] as List<dynamic>? ?? [];
+
+      for (final attachment in chapterAttachments) {
+        try {
+          final file = CourseFile.fromJson(
+            attachment,
+            courseName: courseName,
+          );
+          if (file.filePath.isNotEmpty) {
+            files.add(file);
+          }
+        } catch (e) {
+          // Skip invalid attachments
+          continue;
+        }
+      }
+
+      // Also check attachments nested in lectures > chapters
+      final lectures = courseAttributes['lectures'] as List<dynamic>? ?? [];
+      for (final lecture in lectures) {
+        final lectureAttrs = lecture['attributes'] ?? {};
+        final lectureName = lectureAttrs['title']?.toString();
+        final chapters = lectureAttrs['chapters'] as List<dynamic>? ?? [];
+        for (final chapter in chapters) {
+          final chapterAttrs = chapter['attributes'] ?? {};
+          final chapterName = chapterAttrs['title']?.toString();
+          final attachments = chapterAttrs['attachments'] as List<dynamic>? ?? [];
+          for (final attachment in attachments) {
+            try {
+              final file = CourseFile.fromJson(
+                attachment,
+                courseName: courseName,
+                lectureName: lectureName,
+                chapterName: chapterName,
+              );
+              if (file.filePath.isNotEmpty) {
+                files.add(file);
+              }
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+      }
+    }
+
+    return files;
   }
 
   Future<void> _refreshFiles() async {
@@ -174,7 +246,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PdfViewerScreen(
+          builder: (context) => PdfReviewerScreen(
             pdfUrl: file.filePath,
             title: file.title,
           ),
@@ -266,7 +338,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PdfViewerScreen(
+                              builder: (context) => PdfReviewerScreen(
                                 pdfUrl: file.filePath,
                                 title: file.title,
                               ),
@@ -438,7 +510,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 children: [
                   _buildHeaderInfoCard(FontAwesomeIcons.play, 'course.courses_count'.tr(args: [_courses.length.toString()])),
                   _buildHeaderInfoCard(FontAwesomeIcons.fileLines, 'course.files_count'.tr(args: [_files.length.toString()])),
-                  _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, 'course.exams_count'.tr(args: ['3'])),
+                  _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, 'course.exams_count'.tr(args: [_exams.length.toString()])),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1030,7 +1102,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
       return _buildFilesErrorState();
     }
 
-    if (_files.isEmpty) {
+    if (_courses.isEmpty) {
       return _buildFilesEmptyState();
     }
 
@@ -1041,10 +1113,10 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
       child: ListView.builder(
         padding: const EdgeInsets.all(20),
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _files.length,
+        itemCount: _courses.length,
         itemBuilder: (context, index) {
-          final file = _files[index];
-          return _buildFileCard(file);
+          final course = _courses[index];
+          return _buildCourseFilesItem(course);
         },
       ),
     );
@@ -1122,7 +1194,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                FaIcon(
                   FontAwesomeIcons.fileCircleXmark,
                   size: 48,
                   color: Colors.grey[400],
@@ -1185,6 +1257,482 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     );
   }
 
+  // Hierarchical tree view for files: Course > Lecture > Chapter > Files
+  Widget _buildCourseFilesItem(dynamic course) {
+    final courseId = course['id']?.toString() ?? '';
+    final courseAttributes = course['attributes'] ?? {};
+    final courseName = courseAttributes['title']?.toString() ?? 'course.untitled_course'.tr();
+    final lectures = courseAttributes['lectures'] as List<dynamic>? ?? [];
+    final chapterAttachments = courseAttributes['chapter_attachments'] as List<dynamic>? ?? [];
+
+    final isExpanded = _expandedCourses[courseId] ?? false;
+    final hasContent = lectures.isNotEmpty || chapterAttachments.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Course Header
+          InkWell(
+            onTap: hasContent
+                ? () {
+                    setState(() {
+                      _expandedCourses[courseId] = !isExpanded;
+                    });
+                  }
+                : null,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5A75FF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.folder,
+                      color: Color(0xFF5A75FF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          courseName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Color(0xFF1F2937),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _getCourseFileCount(course),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hasContent)
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: isExpanded ? const Color(0xFF5A75FF) : Colors.grey,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Course-level attachments (direct chapter attachments)
+          if (isExpanded && chapterAttachments.isNotEmpty)
+            Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFFAFBFF),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  ...chapterAttachments.map((attachment) {
+                    try {
+                      final file = CourseFile.fromJson(
+                        attachment,
+                        courseName: courseName,
+                      );
+                      if (file.filePath.isNotEmpty) {
+                        return _buildAttachmentItem(file, level: 1);
+                      }
+                      return const SizedBox.shrink();
+                    } catch (e) {
+                      return const SizedBox.shrink();
+                    }
+                  }).toList(),
+                ],
+              ),
+            ),
+          // Lectures with nested chapters and files
+          if (isExpanded && lectures.isNotEmpty)
+            Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFFAFBFF),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                children: [
+                  if (chapterAttachments.isNotEmpty)
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  ...lectures.asMap().entries.map((entry) {
+                    return _buildLectureFilesItem(
+                      entry.value,
+                      courseName: courseName,
+                      isLast: entry.key == lectures.length - 1,
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getCourseFileCount(dynamic course) {
+    final courseAttributes = course['attributes'] ?? {};
+    final lectures = courseAttributes['lectures'] as List<dynamic>? ?? [];
+    final chapterAttachments = courseAttributes['chapter_attachments'] as List<dynamic>? ?? [];
+
+    int fileCount = chapterAttachments.length;
+
+    for (final lecture in lectures) {
+      final lectureAttrs = lecture['attributes'] ?? {};
+      final chapters = lectureAttrs['chapters'] as List<dynamic>? ?? [];
+      for (final chapter in chapters) {
+        final chapterAttrs = chapter['attributes'] ?? {};
+        final attachments = chapterAttrs['attachments'] as List<dynamic>? ?? [];
+        fileCount += attachments.length;
+      }
+    }
+
+    return '$fileCount ${fileCount == 1 ? 'file' : 'files'}';
+  }
+
+  Widget _buildLectureFilesItem(dynamic lecture, {required String courseName, required bool isLast}) {
+    final lectureId = lecture['id']?.toString() ?? '';
+    final lectureAttrs = lecture['attributes'] ?? {};
+    final lectureName = lectureAttrs['title']?.toString() ?? 'course.untitled_lecture'.tr();
+    final chapters = lectureAttrs['chapters'] as List<dynamic>? ?? [];
+
+    final isExpanded = _expandedLectures[lectureId] ?? false;
+
+    return Column(
+      children: [
+        const Divider(height: 1, color: Color(0xFFE5E7EB), indent: 16),
+        InkWell(
+          onTap: chapters.isNotEmpty
+              ? () {
+                  setState(() {
+                    _expandedLectures[lectureId] = !isExpanded;
+                  });
+                }
+              : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Tree connector
+                SizedBox(
+                  width: 24,
+                  height: 32,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 8,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(width: 2, color: const Color(0xFFE5E7EB)),
+                      ),
+                      Positioned(
+                        left: 8,
+                        top: 12,
+                        child: Container(width: 12, height: 2, color: const Color(0xFFE5E7EB)),
+                      ),
+                      if (!isLast)
+                        Positioned(
+                          left: 8,
+                          top: 14,
+                          bottom: 0,
+                          child: Container(width: 2, color: const Color(0xFFE5E7EB)),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.folder_outlined,
+                  color: isExpanded ? const Color(0xFF5A75FF) : Colors.grey[400],
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    lectureName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: isExpanded ? const Color(0xFF5A75FF) : const Color(0xFF4B5563),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (chapters.isNotEmpty)
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: isExpanded ? const Color(0xFF5A75FF) : Colors.grey,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (isExpanded)
+          Container(
+            color: const Color(0xFFF7F8FF),
+            child: Column(
+              children: chapters.asMap().entries.map((entry) {
+                return _buildChapterFilesItem(
+                  entry.value,
+                  courseName: courseName,
+                  lectureName: lectureName,
+                  isLast: entry.key == chapters.length - 1,
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildChapterFilesItem(dynamic chapter, {required String courseName, required String lectureName, required bool isLast}) {
+    final chapterId = chapter['id']?.toString() ?? '';
+    final chapterAttrs = chapter['attributes'] ?? {};
+    final chapterName = chapterAttrs['title']?.toString() ?? 'course.untitled_chapter'.tr();
+    final attachments = chapterAttrs['attachments'] as List<dynamic>? ?? [];
+
+    final isExpanded = _expandedChapters[chapterId] ?? true; // Default expanded for chapters with files
+
+    return Column(
+      children: [
+        const Divider(height: 1, color: Color(0xFFE5E7EB), indent: 40),
+        InkWell(
+          onTap: attachments.isNotEmpty
+              ? () {
+                  setState(() {
+                    _expandedChapters[chapterId] = !isExpanded;
+                  });
+                }
+              : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+            child: Row(
+              children: [
+                // Tree connector
+                SizedBox(
+                  width: 24,
+                  height: 28,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 8,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(width: 2, color: const Color(0xFFE5E7EB)),
+                      ),
+                      Positioned(
+                        left: 8,
+                        top: 10,
+                        child: Container(width: 12, height: 2, color: const Color(0xFFE5E7EB)),
+                      ),
+                      if (!isLast)
+                        Positioned(
+                          left: 8,
+                          top: 12,
+                          bottom: 0,
+                          child: Container(width: 2, color: const Color(0xFFE5E7EB)),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.insert_drive_file_outlined,
+                  color: attachments.isNotEmpty
+                      ? (isExpanded ? const Color(0xFF5A75FF) : Colors.grey[500])
+                      : Colors.grey[300],
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    chapterName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: attachments.isNotEmpty
+                          ? (isExpanded ? const Color(0xFF5A75FF) : const Color(0xFF6B7280))
+                          : Colors.grey[400],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (attachments.isNotEmpty)
+                  Text(
+                    '${attachments.length}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (isExpanded && attachments.isNotEmpty)
+          Container(
+            color: Colors.white,
+            child: Column(
+              children: attachments.map((attachment) {
+                try {
+                  final file = CourseFile.fromJson(
+                    attachment,
+                    courseName: courseName,
+                    lectureName: lectureName,
+                    chapterName: chapterName,
+                  );
+                  if (file.filePath.isNotEmpty) {
+                    return _buildAttachmentItem(file, level: 2);
+                  }
+                  return const SizedBox.shrink();
+                } catch (e) {
+                  return const SizedBox.shrink();
+                }
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentItem(CourseFile file, {required int level}) {
+    final isLocked = file.isLocked && !file.downloadable;
+    final canView = !isLocked && (file.isPdf || file.canPreview);
+
+    final indent = 16.0 + (level * 32.0);
+
+    return InkWell(
+      onTap: isLocked ? null : () => _openFile(file),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(indent, 10, 16, 10),
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Tree connector
+            SizedBox(
+              width: 24,
+              height: 36,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 2, color: const Color(0xFFE5E7EB)),
+                  ),
+                  Positioned(
+                    left: 8,
+                    top: 14,
+                    child: Container(width: 12, height: 2, color: const Color(0xFFE5E7EB)),
+                  ),
+                  Positioned(
+                    left: 4,
+                    top: 10,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: isLocked ? Colors.grey : const Color(0xFF5A75FF),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FaIcon(
+              isLocked ? FontAwesomeIcons.lock : _getFileIcon(file.extension),
+              color: isLocked ? const Color(0xFF9CA3AF) : const Color(0xFFFF4B4B),
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      color: isLocked ? const Color(0xFF9CA3AF) : const Color(0xFF1F2937),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${file.extension.toUpperCase()}${file.formattedSize.isNotEmpty ? ' • ${file.formattedSize}' : ''}',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canView)
+              const Icon(Icons.open_in_new, color: Color(0xFF5A75FF), size: 16)
+            else if (isLocked)
+              const Icon(Icons.lock, color: Color(0xFF9CA3AF), size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFileCard(CourseFile file) {
     final isLocked = file.isLocked && !file.downloadable;
     final canView = !isLocked && (file.isPdf || file.canPreview);
@@ -1207,6 +1755,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
           ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(12),
@@ -1243,6 +1792,11 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                       fontSize: 12,
                     ),
                   ),
+                  if (file.courseName != null || file.lectureName != null || file.chapterName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: _buildSourceBreadcrumb(file),
+                    ),
                 ],
               ),
             ),
@@ -1309,6 +1863,82 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     }
 
     return parts.join(' • ');
+  }
+
+  Widget _buildSourceBreadcrumb(CourseFile file) {
+    final parts = <Widget>[];
+
+    if (file.courseName != null && file.courseName!.isNotEmpty) {
+      parts.add(
+        Text(
+          file.courseName!,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF5A75FF),
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    }
+
+    if (file.lectureName != null && file.lectureName!.isNotEmpty) {
+      if (parts.isNotEmpty) {
+        parts.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(
+              Icons.chevron_right,
+              size: 12,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        );
+      }
+      parts.add(
+        Text(
+          file.lectureName!,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    }
+
+    if (file.chapterName != null && file.chapterName!.isNotEmpty) {
+      if (parts.isNotEmpty) {
+        parts.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(
+              Icons.chevron_right,
+              size: 12,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        );
+      }
+      parts.add(
+        Text(
+          file.chapterName!,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF9CA3AF),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: parts,
+    );
   }
 
   Widget _buildFileActionButton(dynamic icon) {
@@ -1471,24 +2101,12 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: status == QuizStatus.available ? () async {
-              // Start attempt logic
-              final result = await _examRepository.startQuizAttempt(exam.quizId);
-              if (result['success'] && mounted) {
-                final attempt = result['data'] as QuizAttempt;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => QuizScreen(
-                      quiz: exam,
-                      attempt: attempt,
-                    ),
-                  ),
-                );
-              } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? 'exams.failed_start'.tr())),
-                );
-              }
+              // Use ExamAccessUseCase to handle access control
+              final examAccessUseCase = ExamAccessUseCase();
+              await examAccessUseCase.handleExamAccess(
+                context: context,
+                quiz: exam,
+              );
             } : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: status == QuizStatus.available ? const Color(0xFF263EE2) : const Color(0xFFC4C4C4),

@@ -94,6 +94,7 @@ class VideoControllerHandler {
   ChewieController? _chewieController;
   bool _isRetrying = false;
   bool _listenerAdded = false;
+  Timer? _initTimeoutTimer;
 
   VideoPlayerController? get controller => _controller;
   ChewieController? get chewieController => _chewieController;
@@ -101,12 +102,16 @@ class VideoControllerHandler {
 
   void setRetrying(bool value) => _isRetrying = value;
 
+  static const Duration _initTimeout = Duration(seconds: 150);
+
   Future<bool> checkConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     return result != ConnectivityResult.none;
   }
 
   Future<void> dispose() async {
+    _initTimeoutTimer?.cancel();
+    _initTimeoutTimer = null;
     if (_listenerAdded && _controller != null) {
       _controller!.removeListener(_emptyListener);
     }
@@ -124,6 +129,7 @@ class VideoControllerHandler {
     required VoidCallback onError,
     required VoidCallback onBufferingStart,
     required VoidCallback onBufferingEnd,
+    required VoidCallback onTimeout,
   }) async {
     await dispose();
 
@@ -135,6 +141,7 @@ class VideoControllerHandler {
       final value = _controller!.value;
 
       if (value.hasError) {
+        _initTimeoutTimer?.cancel();
         onError();
       }
 
@@ -146,8 +153,30 @@ class VideoControllerHandler {
     });
     _listenerAdded = true;
 
-    await _controller!.initialize();
-    return _controller;
+    // Set up timeout
+    final completer = Completer<VideoPlayerController?>();
+    _initTimeoutTimer = Timer(_initTimeout, () {
+      if (!completer.isCompleted) {
+        onTimeout();
+        completer.complete(null);
+      }
+    });
+
+    try {
+      await _controller!.initialize();
+      _initTimeoutTimer?.cancel();
+      if (!completer.isCompleted) {
+        completer.complete(_controller);
+      }
+    } catch (e) {
+      _initTimeoutTimer?.cancel();
+      if (!completer.isCompleted) {
+        onError();
+        completer.complete(null);
+      }
+    }
+
+    return completer.future;
   }
 
   Future<VideoPlayerController?> initialize({
@@ -155,6 +184,7 @@ class VideoControllerHandler {
     required VoidCallback onError,
     required VoidCallback onBufferingStart,
     required VoidCallback onBufferingEnd,
+    required VoidCallback onTimeout,
   }) async {
     await dispose();
 
@@ -166,6 +196,7 @@ class VideoControllerHandler {
       final value = _controller!.value;
 
       if (value.hasError) {
+        _initTimeoutTimer?.cancel();
         onError();
       }
 
@@ -177,8 +208,30 @@ class VideoControllerHandler {
     });
     _listenerAdded = true;
 
-    await _controller!.initialize();
-    return _controller;
+    // Set up timeout
+    final completer = Completer<VideoPlayerController?>();
+    _initTimeoutTimer = Timer(_initTimeout, () {
+      if (!completer.isCompleted) {
+        onTimeout();
+        completer.complete(null);
+      }
+    });
+
+    try {
+      await _controller!.initialize();
+      _initTimeoutTimer?.cancel();
+      if (!completer.isCompleted) {
+        completer.complete(_controller);
+      }
+    } catch (e) {
+      _initTimeoutTimer?.cancel();
+      if (!completer.isCompleted) {
+        onError();
+        completer.complete(null);
+      }
+    }
+
+    return completer.future;
   }
 
   void createChewie({
@@ -196,6 +249,7 @@ class VideoControllerHandler {
       allowMuting: true,
       showControls: true,
       hideControlsTimer: const Duration(seconds: 3),
+      placeholder: Container(color: Colors.black),
       errorBuilder: (context, errorMessage) {
         final errorType = VideoErrorMapper.mapError(errorMessage);
         final userMessage = VideoErrorMapper.getUserMessage(
@@ -297,6 +351,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
   bool _hasVideoError = false;
   VideoErrorType _videoErrorType = VideoErrorType.unknown;
   bool _isRetrying = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
+  static const List<int> _retryDelays = [1000, 3000, 5000]; // Exponential backoff in ms
 
   // Legacy slow internet detection (kept for compatibility)
   bool _hasSlowInternet = false;
@@ -350,6 +407,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
   ValueNotifier<EncryptedDownloadProgress>? _downloadProgressNotifier;
   bool _isDownloaded = false;
   bool _isDownloading = false;
+
+  // Guard to prevent duplicate video listener registration
+  bool _videoListenerAdded = false;
   
   // Network connectivity check
   bool _isOnline = true;
@@ -943,19 +1003,29 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
           
           _quizzes = attributes['quizzes'] as List<dynamic>? ?? [];
           _discussions = attributes['discussions'] as List<dynamic>? ?? [];
-          
+        });
+
+        // Determine if video should be initialized BEFORE setState
+        final shouldInitVideo = (!_isLocked || _canWatch) && _videoUrl.isNotEmpty;
+
+        setState(() {
           _isLoadingChapter = false;
 
           // Initialize view tracker
           _initViewTracker();
 
-          if (!_isLocked && _videoUrl.isNotEmpty) {
-            _initializeVideoPlayer();
+          if (shouldInitVideo) {
+            _isVideoLoading = true;
           }
 
           // Check if video is already downloaded
           _checkDownloadStatus();
         });
+
+        // Initialize video player OUTSIDE setState to properly await it
+        if (shouldInitVideo) {
+          await _initializeVideoPlayer();
+        }
       } else if (mounted) {
         setState(() {
           _isLoadingChapter = false;
@@ -993,14 +1063,23 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
     });
 
     try {
-      await _videoHandler.initialize(
+      final controller = await _videoHandler.initialize(
         videoUrl: _videoUrl,
         onError: _onVideoError,
         onBufferingStart: () => setState(() => _isBuffering = true),
         onBufferingEnd: () => setState(() => _isBuffering = false),
+        onTimeout: () => _onVideoTimeout(),
       );
 
       if (!mounted) return;
+
+      // If controller is null (timeout or error), don't proceed
+      if (controller == null) {
+        if (!_hasVideoError) {
+          _onVideoTimeout();
+        }
+        return;
+      }
 
       _videoHandler.createChewie(
         autoPlay: false,
@@ -1009,6 +1088,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
       setState(() {
         _isVideoLoading = false;
+        _retryCount = 0; // Reset retry count on success
         _totalTime = _formatDuration(_videoController!.value.duration);
       });
 
@@ -1018,14 +1098,42 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
         await _videoController!.seekTo(initialDuration);
       }
 
-      // Add our video listener for progress tracking
-      _videoController!.addListener(_videoListener);
+      // Add our video listener for progress tracking (guard against duplicates)
+      if (!_videoListenerAdded) {
+        _videoController!.addListener(_videoListener);
+        _videoListenerAdded = true;
+      }
 
       // Attach view tracker to video controller
       _watchTracker?.attach(_videoController!);
     } catch (e) {
       _onVideoErrorWithMessage(e.toString());
     }
+  }
+
+  void _onVideoTimeout() {
+    if (!mounted) return;
+
+    setState(() {
+      _isVideoLoading = false;
+      _isBuffering = false;
+      _hasVideoError = true;
+      _videoErrorType = VideoErrorType.network;
+      _hasSlowInternet = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('course.video_loading_timeout'.tr()),
+        backgroundColor: const Color(0xFFFF4B4B),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: Colors.white,
+          onPressed: _retryVideo,
+        ),
+      ),
+    );
   }
 
   void _onVideoError() {
@@ -1055,6 +1163,28 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
   Future<void> _retryVideo() async {
     if (_videoHandler.isRetrying) return;
 
+    // Check if max retries reached
+    if (_retryCount >= _maxRetries) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('course.video_max_retries_reached'.tr()),
+            backgroundColor: const Color(0xFFFF4B4B),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Try Again',
+              textColor: Colors.white,
+              onPressed: () {
+                _retryCount = 0; // Reset counter
+                _retryVideo();
+              },
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     _videoHandler.setRetrying(true);
 
     setState(() {
@@ -1077,6 +1207,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
       return;
     }
 
+    // Apply exponential backoff delay
+    if (_retryCount > 0 && _retryCount <= _retryDelays.length) {
+      final delay = _retryDelays[_retryCount - 1];
+      debugPrint('Retry attempt $_retryCount: waiting ${delay}ms before retry...');
+      await Future.delayed(Duration(milliseconds: delay));
+    }
+
     // Dispose old controller safely
     await _videoHandler.dispose();
 
@@ -1085,6 +1222,11 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
     if (mounted) {
       setState(() => _isRetrying = false);
+      if (!_hasVideoError) {
+        _retryCount = 0; // Reset on success
+      } else {
+        _retryCount++; // Increment on failure
+      }
     }
     _videoHandler.setRetrying(false);
   }
@@ -1144,14 +1286,23 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
     });
 
     try {
-      await _videoHandler.initialize(
+      final controller = await _videoHandler.initialize(
         videoUrl: _videoUrl,
         onError: _onVideoError,
         onBufferingStart: () => setState(() => _isBuffering = true),
         onBufferingEnd: () => setState(() => _isBuffering = false),
+        onTimeout: () => _onVideoTimeout(),
       );
 
       if (!mounted) return;
+
+      // If controller is null (timeout or error), don't proceed
+      if (controller == null) {
+        if (!_hasVideoError) {
+          _onVideoTimeout();
+        }
+        return;
+      }
 
       // Seek to saved position
       if (startPosition > Duration.zero) {
@@ -1165,6 +1316,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
       setState(() {
         _isVideoLoading = false;
+        _retryCount = 0; // Reset retry count on success
         _totalTime = _formatDuration(_videoController!.value.duration);
       });
 
@@ -1296,12 +1448,23 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
       await tempFile.writeAsBytes(decryptedData);
 
       // Initialize video player with temp file via handler
-      await _videoHandler.initializeFromFile(
+      final controller = await _videoHandler.initializeFromFile(
         videoFile: tempFile,
         onError: _onVideoError,
         onBufferingStart: () => setState(() => _isBuffering = true),
         onBufferingEnd: () => setState(() => _isBuffering = false),
+        onTimeout: () => _onVideoTimeout(),
       );
+
+      if (!mounted) return;
+
+      // If controller is null (timeout or error), don't proceed
+      if (controller == null) {
+        if (!_hasVideoError) {
+          _onVideoTimeout();
+        }
+        return;
+      }
 
       if (mounted) {
         _videoHandler.createChewie(
@@ -1311,6 +1474,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
         setState(() {
           _isVideoLoading = false;
+          _retryCount = 0; // Reset retry count on success
           _totalTime = _formatDuration(_videoController!.value.duration);
           _duration = _totalTime;
         });
@@ -2131,7 +2295,47 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
               ],
             )
           else if (_isVideoLoading || _isRetrying)
-            const Center(child: CircularProgressIndicator(color: Colors.white))
+            Container(
+              color: const Color(0xFF1F2937),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'course.loading_video'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'course.please_wait'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (_isRetrying) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'course.retrying'.tr(args: [_retryCount.toString(), _maxRetries.toString()]),
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            )
           else if (_hasVideoError)
             Container(
               color: const Color(0xFF1F2937),

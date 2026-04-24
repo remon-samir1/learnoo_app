@@ -109,41 +109,37 @@ class _WatermarkWidgetState extends State<WatermarkWidget> {
         return IgnorePointer(
           child: Stack(
             children: [
-              AnimatedPositioned(
+AnimatedPositioned(
                 duration: const Duration(seconds: 2),
                 curve: Curves.easeInOut,
                 top: _top,
                 left: _left,
-                child: Opacity(
-                  opacity: widget.opacity,
-                  child: Transform.rotate(
-                    angle: widget.rotation,
-                    child: Container(
-                      key: _watermarkKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.userName,
-                            style: widget.style ?? const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          // Text(
-                          //   "ID: ${widget.userId}",
-                          //   style: widget.style?.copyWith(fontSize: 12) ?? const TextStyle(
-                          //     color: Colors.grey,
-                          //     fontSize: 12,
-                          //   ),
-                          // ),
-                          // Text(
-                          //   DateTime.now().toString().split('.')[0],
-                          //   style: const TextStyle(color: Colors.grey, fontSize: 10),
-                          // ),
-                        ],
-                      ),
+                child: Transform.rotate(
+                  angle: widget.rotation,
+                  child: Container(
+                    key: _watermarkKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.userName,
+                          style: widget.style?.copyWith(
+                                color: (widget.style?.color ?? Colors.white).withOpacity(widget.opacity),
+                              ) ??
+                              TextStyle(
+                                color: Colors.white.withOpacity(widget.opacity),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                shadows: const [
+                                  Shadow(
+                                    blurRadius: 3,
+                                    color: Colors.black54,
+                                    offset: Offset(1, 1),
+                                  ),
+                                ],
+                              ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

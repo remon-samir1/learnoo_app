@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../core/network/api_constants.dart';
-import '../../../core/services/device_service.dart';
+import 'package:learnoo/core/network/api_constants.dart';
+import 'package:learnoo/core/services/device_service.dart';
 
 class AuthRepository {
   final _storage = const FlutterSecureStorage();

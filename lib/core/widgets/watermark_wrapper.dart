@@ -90,7 +90,7 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
   Widget build(BuildContext context) {
     final settings = _manager.getWatermarkConfig(widget.type.key);
 
-    // If watermark is disabled, return child directly
+    // If watermark is disabled, return child widget only
     if (!settings.enabled) {
       return widget.child;
     }
@@ -170,8 +170,8 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
     BoxConstraints constraints,
   ) {
     final List<Widget> watermarks = [];
-    final double spacing = settings.fontSize * 5; // Increased spacing for better readability
-    final int rows = (constraints.maxHeight / (spacing * 0.7)).ceil() + 1;
+    final double spacing = settings.fontSize * 8; // Much larger spacing to prevent gray overlay
+    final int rows = (constraints.maxHeight / spacing).ceil() + 1;
     final int cols = (constraints.maxWidth / spacing).ceil() + 1;
 
     for (int row = 0; row < rows; row++) {
@@ -184,15 +184,19 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
             top: row * spacing * 0.7,
             child: Transform.rotate(
               angle: settings.rotation * (math.pi / 180),
-              child: Opacity(
-                opacity: settings.opacity,
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: settings.fontSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+        child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: settings.fontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(settings.opacity),
+                  shadows: const [
+                    Shadow(
+                      blurRadius: 3,
+                      color: Colors.black54,
+                      offset: Offset(1, 1),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -226,27 +230,31 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
         bottom = 16;
         break;
  
-      case 'center':
+case 'center':
         // Center the watermark in the middle of the container
         return Center(
           child: IgnorePointer(
             child: Transform.rotate(
               angle: settings.rotation * (math.pi / 180),
-              child: Opacity(
-                opacity: settings.opacity,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      fontSize: settings.fontSize,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: const BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                ),
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: settings.fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white.withOpacity(settings.opacity),
+                    shadows: const [
+                      Shadow(
+                        blurRadius: 3,
+                        color: Colors.black54,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -268,21 +276,25 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
       child: IgnorePointer(
         child: Transform.rotate(
           angle: settings.rotation * (math.pi / 180),
-          child: Opacity(
-            opacity: settings.opacity,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: settings.fontSize,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: const BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.all(Radius.circular(4)),
+            ),
+child: Text(
+              text,
+              style: TextStyle(
+                fontSize: settings.fontSize,
+                fontWeight: FontWeight.bold,
+                color: Colors.white.withOpacity(settings.opacity),
+                shadows: const [
+                  Shadow(
+                    blurRadius: 3,
+                    color: Colors.black54,
+                    offset: Offset(1, 1),
+                  ),
+                ],
               ),
             ),
           ),
@@ -307,20 +319,24 @@ class SimpleWatermark extends StatelessWidget {
     this.fontSize = 18.0,
   });
 
-  @override
+@override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Transform.rotate(
         angle: rotation * (math.pi / 180),
-        child: Opacity(
-          opacity: opacity,
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withOpacity(opacity),
+            shadows: const [
+              Shadow(
+                blurRadius: 3,
+                color: Colors.black54,
+                offset: Offset(1, 1),
+              ),
+            ],
           ),
         ),
       ),

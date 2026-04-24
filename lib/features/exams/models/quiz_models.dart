@@ -14,6 +14,9 @@ class Quiz {
   final Chapter? chapter;
   final int courseId;
   final DateTime createdAt;
+  final bool isPublic;
+  final bool canView;
+  final bool canWatch;
 
   Quiz({
     required this.id,
@@ -28,6 +31,9 @@ class Quiz {
     this.chapter,
     required this.courseId,
     required this.createdAt,
+    this.isPublic = false,
+    this.canView = false,
+    this.canWatch = false,
   });
 
   factory Quiz.fromJson(Map<String, dynamic> json) {
@@ -47,6 +53,9 @@ class Quiz {
       chapter: chapterData != null ? Chapter.fromJson(chapterData) : null,
       courseId: attributes['course_id'] ?? 0,
       createdAt: DateTime.tryParse(attributes['created_at'] ?? '') ?? DateTime.now(),
+      isPublic: attributes['is_public'] ?? false,
+      canView: attributes['can_view'] ?? false,
+      canWatch: attributes['can_watch'] ?? false,
     );
   }
 

@@ -16,7 +16,7 @@ class CourseRepository with OfflineFirstRepository {
 
   /// Get all courses with offline-first support
   /// Returns cached data if offline or API fails
-  Future<Map<String, dynamic>> getCourses({int? categoryId}) async {
+  Future<Map<String, dynamic>> getCourses({int? categoryId, String? include}) async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'No token found'};
 
@@ -25,13 +25,20 @@ class CourseRepository with OfflineFirstRepository {
     return offlineFirstFetch(
       apiFetcher: () async {
         var url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.courses}');
+        final queryParams = <String, String>{};
 
         // Add category_id query parameter if provided
         if (categoryId != null) {
-          url = url.replace(queryParameters: {
-            ...url.queryParameters,
-            'category_id': categoryId.toString(),
-          });
+          queryParams['category_id'] = categoryId.toString();
+        }
+
+        // Add include query parameter if provided
+        if (include != null && include.isNotEmpty) {
+          queryParams['include'] = include;
+        }
+
+        if (queryParams.isNotEmpty) {
+          url = url.replace(queryParameters: queryParams);
         }
 
         final response = await http.get(
@@ -55,6 +62,42 @@ class CourseRepository with OfflineFirstRepository {
       },
       boxName: HiveBoxes.courses,
       cacheKey: cacheKey,
+      maxCacheAge: const Duration(hours: 24),
+    );
+  }
+
+  /// Get activated (enrolled) courses for the current student
+  /// Uses the activated=1 query parameter to filter courses
+  Future<Map<String, dynamic>> getActivatedCourses() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    return offlineFirstFetch(
+      apiFetcher: () async {
+        final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.courses}')
+            .replace(queryParameters: {'activated': '1'});
+
+        final response = await http.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+          return {'success': true, 'data': data['data']};
+        } else {
+          return {
+            'success': false,
+            'message': data['message'] ?? 'Failed to fetch activated courses',
+          };
+        }
+      },
+      boxName: HiveBoxes.courses,
+      cacheKey: 'courses_activated',
       maxCacheAge: const Duration(hours: 24),
     );
   }

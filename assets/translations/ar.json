@@ -171,9 +171,15 @@
     "new_summary": "تمت إضافة ملخص جديد",
     "chapter_4_summary": "تم إضافة ملخص الفصل الرابع إلى دورتك في المحاسبة.",
     "yesterday": "أمس",
-    "welcome_learnoo": "مرحبًا بك في Learnoo!",
+    "welcome_learnoo": "مرحبا بك في Learnoo!",
     "start_exploring": "ابدأ استكشاف دوراتك وانضم إلى الجلسات المباشرة.",
-    "two_days_ago": "منذ يومين"
+    "two_days_ago": "منذ يومين",
+    "select_option": "اختر خياراً",
+    "select_option_subtitle": "يحتوي هذا القسم على دورات وأقسام فرعية. اختر ما تريد استكشافه.",
+    "view_courses": "عرض الدورات",
+    "view_courses_subtitle": "{0} دورات متاحة",
+    "view_sub_departments": "عرض الأقسام الفرعية",
+    "view_sub_departments_subtitle": "استكشاف الأقسام الفرعية"
   },
   "course": {
     "course": "دورة",
@@ -320,7 +326,12 @@
     "switch_to_lower_quality": "التبديل إلى جودة أقل",
     "video_quality": "جودة الفيديو",
     "quality_auto": "تلقائي",
-    "recommended": "موصى به"
+    "recommended": "موصى به",
+    "loading_video": "جاري تحميل الفيديو...",
+    "please_wait": "يرجى الانتظار",
+    "retrying": "إعادة المحاولة ({}/{})...",
+    "video_loading_timeout": "انتهت مهلة تحميل الفيديو. يرجى التحقق من الاتصال.",
+    "video_max_retries_reached": "تعذر تحميل الفيديو بعد محاولات متعددة. يرجى المحاولة مرة أخرى لاحقاً."
   },
   "downloads": {
     "delete_title": "حذف الفيديو",

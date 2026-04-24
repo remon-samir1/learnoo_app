@@ -13,6 +13,49 @@ class ChapterRepository with OfflineFirstRepository {
     return await _storage.read(key: 'auth_token');
   }
 
+  /// Get all chapters with offline-first support
+  Future<Map<String, dynamic>> getChapters({int? courseId}) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    final cacheKey = courseId != null ? 'chapters_course_$courseId' : 'chapters_all';
+
+    return offlineFirstFetch(
+      apiFetcher: () async {
+        var url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.chapters}');
+
+        if (courseId != null) {
+          url = url.replace(queryParameters: {
+            ...url.queryParameters,
+            'course_id': courseId.toString(),
+          });
+        }
+
+        final response = await http.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+          return {'success': true, 'data': data['data'] ?? []};
+        } else {
+          return {
+            'success': false,
+            'message': data['message'] ?? 'Failed to fetch chapters',
+          };
+        }
+      },
+      boxName: HiveBoxes.chapters,
+      cacheKey: cacheKey,
+      maxCacheAge: const Duration(hours: 24),
+    );
+  }
+
   /// Get chapter by ID with offline-first support
   Future<Map<String, dynamic>> getChapterById(String chapterId) async {
     final token = await getToken();

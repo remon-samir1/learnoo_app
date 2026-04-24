@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/data/auth_repository.dart';
-import 'faculty_selection_screen.dart';
+import 'center_selection_screen.dart';
 
 class UniversitySelectionScreen extends StatefulWidget {
   const UniversitySelectionScreen({super.key});
@@ -17,6 +17,8 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
   
   List<dynamic> _universities = [];
   List<dynamic> _filteredUniversities = [];
+  List<dynamic> _centers = [];
+  List<dynamic> _faculties = [];
   dynamic _selectedUniversityId;
   String? _selectedUniversityName;
   bool _isLoading = true;
@@ -25,26 +27,36 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchUniversities();
+    _fetchData();
     _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _fetchUniversities() async {
+  Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final result = await _authRepository.getUniversities();
+    final results = await Future.wait([
+      _authRepository.getUniversities(),
+      _authRepository.getCenters(),
+      _authRepository.getFaculties(),
+    ]);
 
     if (mounted) {
       setState(() {
         _isLoading = false;
-        if (result['success']) {
-          _universities = result['data'] ?? [];
+        final uniResult = results[0];
+        final centerResult = results[1];
+        final facultyResult = results[2];
+
+        if (uniResult['success'] && centerResult['success'] && facultyResult['success']) {
+          _universities = uniResult['data'] ?? [];
           _filteredUniversities = _universities;
+          _centers = centerResult['data'] ?? [];
+          _faculties = facultyResult['data'] ?? [];
         } else {
-          _errorMessage = result['message'];
+          _errorMessage = uniResult['message'] ?? centerResult['message'] ?? facultyResult['message'];
         }
       });
     }
@@ -139,13 +151,15 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                           children: [
                             Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                             const SizedBox(height: 16),
-                            ElevatedButton(onPressed: _fetchUniversities, child: const Text('Retry')),
+                            ElevatedButton(onPressed: _fetchData, child: const Text('Retry')),
                           ],
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: _filteredUniversities.length,
+                    : _filteredUniversities.isEmpty
+                        ? const Center(child: Text('No options available'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            itemCount: _filteredUniversities.length,
                         separatorBuilder: (context, index) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final uni = _filteredUniversities[index];
@@ -159,33 +173,33 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                               _selectedUniversityId = id;
                               _selectedUniversityName = name;
                             }),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: isSelected ? AppColors.primaryBlue : AppColors.inputBorder, width: isSelected ? 2 : 1),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: isSelected ? AppColors.primaryBlue : AppColors.inputBorder, width: isSelected ? 2 : 1),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(8)),
+                                      child: const Icon(Icons.school, color: AppColors.primaryBlue),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(Icons.check_circle, color: AppColors.primaryBlue),
+                                  ],
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(8)),
-                                    child: const Icon(Icons.school, color: AppColors.primaryBlue),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  ),
-                                  if (isSelected)
-                                    const Icon(Icons.check_circle, color: AppColors.primaryBlue),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                            );
+                          },
+                        ),
           ),
 
           // Bottom Button
@@ -199,9 +213,11 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => FacultySelectionScreen(
+                          builder: (context) => CenterSelectionScreen(
                             universityId: _selectedUniversityId,
                             universityName: _selectedUniversityName!,
+                            allCenters: _centers,
+                            allFaculties: _faculties,
                           ),
                         ),
                       );

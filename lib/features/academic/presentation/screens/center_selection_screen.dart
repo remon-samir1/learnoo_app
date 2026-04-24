@@ -3,16 +3,20 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../home/presentation/screens/main_screen.dart';
+import 'faculty_selection_screen.dart';
 
 class CenterSelectionScreen extends StatefulWidget {
   final dynamic universityId;
-  final dynamic facultyId;
-  final String facultyName;
+  final String universityName;
+  final List<dynamic> allCenters;
+  final List<dynamic> allFaculties;
+
   const CenterSelectionScreen({
     super.key,
     required this.universityId,
-    required this.facultyId,
-    required this.facultyName,
+    required this.universityName,
+    required this.allCenters,
+    required this.allFaculties,
   });
 
   @override
@@ -22,48 +26,44 @@ class CenterSelectionScreen extends StatefulWidget {
 class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
   final _searchController = TextEditingController();
   final _authRepository = AuthRepository();
-  
-  List<dynamic> _centers = [];
+
   List<dynamic> _filteredCenters = [];
-  Set<dynamic> _selectedCenterIds = {};
-  Map<dynamic, String> _selectedCenterNames = {};
-  bool _isLoading = true;
-  bool _isUpdating = false;
+  dynamic _selectedCenterId;
+  String? _selectedCenterName;
+  bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchCenters();
+    _applyFilter();
     _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _fetchCenters() async {
+  void _applyFilter() {
+    final filtered = widget.allCenters.where((center) {
+      final attributes = center['attributes'] ?? center;
+      final parentId = attributes['parent_id'];
+      return parentId?.toString() == widget.universityId?.toString();
+    }).toList();
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _filteredCenters = filtered;
     });
-
-    final result = await _authRepository.getCenters();
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        if (result['success']) {
-          _centers = result['data'] ?? [];
-          _filteredCenters = _centers;
-        } else {
-          _errorMessage = result['message'];
-        }
-      });
-    }
   }
 
   void _onSearchChanged() {
     final query = _searchController.text.toLowerCase();
+    final allFiltered = widget.allCenters.where((center) {
+      final attributes = center['attributes'] ?? center;
+      final parentId = attributes['parent_id'];
+      return parentId?.toString() == widget.universityId?.toString();
+    }).toList();
+
     setState(() {
-      _filteredCenters = _centers.where((center) {
-        final name = center['name']?.toLowerCase() ?? '';
+      _filteredCenters = allFiltered.where((center) {
+        final attributes = center['attributes'] ?? center;
+        final name = attributes['name']?.toLowerCase() ?? '';
         return name.contains(query);
       }).toList();
     });
@@ -75,73 +75,6 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
     super.dispose();
   }
 
-  Future<void> _handleUpdate() async {
-    setState(() => _isUpdating = true);
-
-    final result = await _authRepository.updateAcademicProfile(
-      universityId: widget.universityId,
-      centerIds: _selectedCenterIds.toList(),
-      facultyId: widget.facultyId,
-    );
-
-    if (mounted) {
-      setState(() => _isUpdating = false);
-      if (result['success']) {
-        _showSuccessDialog();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Failed to update profile')),
-        );
-      }
-    }
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(color: Color(0xFF27AE60), shape: BoxShape.circle),
-                child: const Icon(Icons.check, color: Colors.white, size: 40),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Your academic profile has been set successfully.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Courses will be filtered based on your specialization.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textGray, fontSize: 14),
-              ),
-              const SizedBox(height: 32),
-              PrimaryButton(
-                text: 'GO TO HOME',
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainScreen()),
-                    (route) => false,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,16 +108,11 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Step 3 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const Text('Step 2 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 const SizedBox(height: 24),
                 const Text(
-                  'Choose Your Center(s)',
+                  'Select Your Center',
                   style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'You can select multiple centers',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -196,10 +124,10 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Selected Faculty:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
+                const Text('Selected University:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(widget.facultyName, style: const TextStyle(fontSize: 12)),
+                  label: Text(widget.universityName, style: const TextStyle(fontSize: 12)),
                   backgroundColor: AppColors.inputFill,
                   side: BorderSide.none,
                   padding: EdgeInsets.zero,
@@ -234,35 +162,26 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                            const SizedBox(height: 16),
-                            ElevatedButton(onPressed: _fetchCenters, child: const Text('Retry')),
-                          ],
-                        ),
+                        child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: _filteredCenters.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final center = _filteredCenters[index];
-                          final id = center['id'];
-                          final name = center['name'] ?? 'Unknown';
-                          final isSelected = _selectedCenterIds.contains(id);
-                          
-                          return GestureDetector(
-                            onTap: () => setState(() {
-                              if (isSelected) {
-                                _selectedCenterIds.remove(id);
-                                _selectedCenterNames.remove(id);
-                              } else {
-                                _selectedCenterIds.add(id);
-                                _selectedCenterNames[id] = name;
-                              }
-                            }),
+                    : _filteredCenters.isEmpty
+                        ? const Center(child: Text('No options available'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            itemCount: _filteredCenters.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final center = _filteredCenters[index];
+                              final id = center['id'];
+                              final attributes = center['attributes'] ?? center;
+                              final name = attributes['name'] ?? 'Unknown';
+                              final isSelected = _selectedCenterId == id;
+
+                              return GestureDetector(
+                                onTap: () => setState(() {
+                                  _selectedCenterId = id;
+                                  _selectedCenterName = name;
+                                }),
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -296,11 +215,23 @@ class _CenterSelectionScreenState extends State<CenterSelectionScreen> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: PrimaryButton(
-              text: 'FINISH',
-              isLoading: _isUpdating,
-              onPressed: _selectedCenterIds.isEmpty || _isUpdating
+              text: 'NEXT',
+              onPressed: _selectedCenterId == null
                   ? null
-                  : () { _handleUpdate(); },
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FacultySelectionScreen(
+                            universityId: widget.universityId,
+                            universityName: widget.universityName,
+                            centerId: _selectedCenterId,
+                            centerName: _selectedCenterName!,
+                            allFaculties: widget.allFaculties,
+                          ),
+                        ),
+                      );
+                    },
             ),
           ),
         ],

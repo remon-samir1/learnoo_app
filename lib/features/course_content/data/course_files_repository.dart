@@ -16,6 +16,9 @@ class CourseFile {
   final int? size;
   final String? mimeType;
   final DateTime? createdAt;
+  final String? courseName;
+  final String? lectureName;
+  final String? chapterName;
 
   CourseFile({
     required this.id,
@@ -27,9 +30,17 @@ class CourseFile {
     this.size,
     this.mimeType,
     this.createdAt,
+    this.courseName,
+    this.lectureName,
+    this.chapterName,
   });
 
-  factory CourseFile.fromJson(Map<String, dynamic> json) {
+  factory CourseFile.fromJson(
+    Map<String, dynamic> json, {
+    String? courseName,
+    String? lectureName,
+    String? chapterName,
+  }) {
     final attributes = json['attributes'] ?? {};
     return CourseFile(
       id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
@@ -50,6 +61,9 @@ class CourseFile {
       createdAt: attributes['created_at'] != null
           ? DateTime.tryParse(attributes['created_at'].toString())
           : null,
+      courseName: courseName,
+      lectureName: lectureName,
+      chapterName: chapterName,
     );
   }
 
@@ -244,14 +258,17 @@ class CourseFilesRepository with OfflineFirstRepository {
   }
 
   /// Extract files from course data
+  /// Files are in chapter_attachments at course level
   List<CourseFile> _extractFilesFromCourses(List<dynamic> courses) {
     final files = <CourseFile>[];
 
     for (final course in courses) {
       final courseAttributes = course['attributes'] ?? {};
-      final attachments = courseAttributes['attachments'] as List<dynamic>? ?? [];
 
-      for (final attachment in attachments) {
+      // Get chapter_attachments from course level
+      final chapterAttachments = courseAttributes['chapter_attachments'] as List<dynamic>? ?? [];
+
+      for (final attachment in chapterAttachments) {
         try {
           final file = CourseFile.fromJson(attachment);
           if (file.filePath.isNotEmpty) {
@@ -260,6 +277,27 @@ class CourseFilesRepository with OfflineFirstRepository {
         } catch (e) {
           // Skip invalid attachments
           continue;
+        }
+      }
+
+      // Also check attachments nested in lectures > chapters
+      final lectures = courseAttributes['lectures'] as List<dynamic>? ?? [];
+      for (final lecture in lectures) {
+        final lectureAttrs = lecture['attributes'] ?? {};
+        final chapters = lectureAttrs['chapters'] as List<dynamic>? ?? [];
+        for (final chapter in chapters) {
+          final chapterAttrs = chapter['attributes'] ?? {};
+          final attachments = chapterAttrs['attachments'] as List<dynamic>? ?? [];
+          for (final attachment in attachments) {
+            try {
+              final file = CourseFile.fromJson(attachment);
+              if (file.filePath.isNotEmpty) {
+                files.add(file);
+              }
+            } catch (e) {
+              continue;
+            }
+          }
         }
       }
     }

@@ -4,6 +4,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../data/lecture_repository.dart';
 import '../../../exams/data/exam_repository.dart';
+import '../../../exams/data/exam_filter_service.dart';
+import '../../../exams/domain/usecases/exam_access_usecase.dart';
 import '../../../exams/models/quiz_models.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'lecture_detail_screen.dart';
@@ -55,14 +57,43 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   Future<void> _loadExams() async {
     setState(() => _isLoadingExams = true);
     try {
-      final result = await _examRepository.getQuizzes();
-      if (result['success'] && mounted) {
-        final allExams = result['data'] as List<Quiz>;
+      // Fetch exams and chapters for this course
+      final results = await Future.wait([
+        _examRepository.getQuizzes(),
+        _lectureRepository.getLectures(courseId: int.tryParse(widget.courseId)),
+      ]);
+
+      if (!mounted) return;
+
+      final examResult = results[0];
+      final lecturesResult = results[1];
+
+      if (examResult['success']) {
+        final allExams = examResult['data'] as List<Quiz>;
+
+        // Extract chapters from lectures data
+        final List<dynamic> chapters = [];
+        if (lecturesResult['success']) {
+          final lectures = lecturesResult['data'] as List<dynamic>? ?? [];
+          for (final lecture in lectures) {
+            final lectureChapters = lecture['attributes']?['chapters']?['data'] as List<dynamic>?;
+            if (lectureChapters != null) {
+              chapters.addAll(lectureChapters);
+            }
+          }
+        }
+
         final courseIdInt = int.tryParse(widget.courseId) ?? -1;
+
+        // Use ExamFilterService for proper course-level filtering
+        final filteredExams = await ExamFilterService.filterExamsByCourse(
+          exams: allExams,
+          courseId: courseIdInt,
+          courseChapters: chapters,
+        );
+
         setState(() {
-          _exams = allExams
-              .where((exam) => exam.courseId == courseIdInt)
-              .toList();
+          _exams = filteredExams;
           _isLoadingExams = false;
         });
       } else if (mounted) {
@@ -483,6 +514,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                     final isLocked = chapterAttrs['is_locked'] as bool? ?? false;
                     final isFreePreview =
                         chapterAttrs['is_free_preview'] as bool? ?? false;
+                    final canWatch = chapterAttrs['can_watch'] as bool? ?? false;
                     final isLastItem = chapterIndex == chapters.length - 1;
 
                     final widgets = <Widget>[
@@ -496,6 +528,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                         onTap: () => _navigateToLecture(lecture, chapter),
                         isFreePreview: isFreePreview,
                         isLocked: isLocked,
+                        canWatch: canWatch,
                         isLastItem: isLastItem,
                       ),
                     ];
@@ -519,6 +552,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     required VoidCallback onTap,
     bool isFreePreview = false,
     bool isLocked = false,
+    bool canWatch = false,
     required int index,
     required int totalCount,
     required bool isLastItem,
@@ -594,6 +628,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 onTap: onTap,
                 isFreePreview: isFreePreview,
                 isLocked: isLocked,
+                canWatch: canWatch,
               ),
             ),
           ],
@@ -610,6 +645,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     VoidCallback? onTap,
     bool isFreePreview = false,
     bool isLocked = false,
+    bool canWatch = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -738,6 +774,36 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
+                      ),
+                    )
+                  else if (canWatch)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F9F0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: Color(0xFF2DBC77),
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'course.available'.tr(),
+                            style: const TextStyle(
+                              color: Color(0xFF2DBC77),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
@@ -932,27 +998,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           ElevatedButton(
             onPressed: status == QuizStatus.available
                 ? () async {
-                    final result = await _examRepository.startQuizAttempt(
-                      exam.quizId,
+                    // Use ExamAccessUseCase to handle access control
+                    final examAccessUseCase = ExamAccessUseCase();
+                    await examAccessUseCase.handleExamAccess(
+                      context: context,
+                      quiz: exam,
                     );
-                    if (result['success'] && mounted) {
-                      final attempt = result['data'] as QuizAttempt;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              QuizScreen(quiz: exam, attempt: attempt),
-                        ),
-                      );
-                    } else if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result['message'] ?? 'exams.failed_start'.tr(),
-                          ),
-                        ),
-                      );
-                    }
                   }
                 : null,
             style: ElevatedButton.styleFrom(

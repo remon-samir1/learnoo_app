@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/data/auth_repository.dart';
-import 'center_selection_screen.dart';
+import '../../../home/presentation/screens/main_screen.dart';
 
 class FacultySelectionScreen extends StatefulWidget {
   final dynamic universityId;
   final String universityName;
+  final dynamic centerId;
+  final String centerName;
+  final List<dynamic> allFaculties;
+
   const FacultySelectionScreen({
     super.key,
     required this.universityId,
     required this.universityName,
+    required this.centerId,
+    required this.centerName,
+    required this.allFaculties,
   });
 
   @override
@@ -21,48 +28,120 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
   final _searchController = TextEditingController();
   final _authRepository = AuthRepository();
 
-  List<dynamic> _faculties = [];
   List<dynamic> _filteredFaculties = [];
   dynamic _selectedFacultyId;
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _isUpdating = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchFaculties();
+    _applyFilter();
     _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _fetchFaculties() async {
+  void _applyFilter() {
+    final filtered = widget.allFaculties.where((faculty) {
+      final attributes = faculty['attributes'] ?? {};
+      final parentId = attributes['parent_id'];
+      final parentData = attributes['parent']?['data'];
+      final parentDataId = parentData?['id'];
+
+      return parentId == widget.centerId || parentDataId == widget.centerId;
+    }).toList();
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _filteredFaculties = filtered;
     });
-
-    final result = await _authRepository.getFaculties();
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        if (result['success']) {
-          _faculties = result['data'] ?? [];
-          _filteredFaculties = _faculties;
-        } else {
-          _errorMessage = result['message'];
-        }
-      });
-    }
   }
 
   void _onSearchChanged() {
     final query = _searchController.text.toLowerCase();
+    final allFiltered = widget.allFaculties.where((faculty) {
+      final attributes = faculty['attributes'] ?? {};
+      final parentId = attributes['parent_id'];
+      final parentData = attributes['parent']?['data'];
+      final parentDataId = parentData?['id'];
+
+      return parentId == widget.centerId || parentDataId == widget.centerId;
+    }).toList();
+
     setState(() {
-      _filteredFaculties = _faculties.where((faculty) {
-        final name = faculty['attributes']['name']?.toLowerCase() ?? '';
+      _filteredFaculties = allFiltered.where((faculty) {
+        final attributes = faculty['attributes'] ?? {};
+        final name = attributes['name']?.toLowerCase() ?? '';
         return name.contains(query);
       }).toList();
     });
+  }
+
+  Future<void> _handleUpdate() async {
+    setState(() => _isUpdating = true);
+
+    final result = await _authRepository.updateAcademicProfile(
+      universityId: widget.universityId,
+      centerIds: [widget.centerId],
+      facultyId: _selectedFacultyId,
+    );
+
+    if (mounted) {
+      setState(() => _isUpdating = false);
+      if (result['success']) {
+        _showSuccessDialog();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Failed to update profile')),
+        );
+      }
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(color: Color(0xFF27AE60), shape: BoxShape.circle),
+                child: const Icon(Icons.check, color: Colors.white, size: 40),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Your academic profile has been set successfully.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Courses will be filtered based on your specialization.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textGray, fontSize: 14),
+              ),
+              const SizedBox(height: 32),
+              PrimaryButton(
+                text: 'GO TO HOME',
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MainScreen()),
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _selectedFacultyName = '';
@@ -106,7 +185,7 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Step 2 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const Text('Step 3 of 3', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 const SizedBox(height: 24),
                 const Text(
                   'Select Your Faculty',
@@ -122,10 +201,10 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Selected University:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
+                const Text('Selected Center:', style: TextStyle(color: AppColors.textGray, fontSize: 14)),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(widget.universityName, style: const TextStyle(fontSize: 12)),
+                  label: Text(widget.centerName, style: const TextStyle(fontSize: 12)),
                   backgroundColor: AppColors.inputFill,
                   side: BorderSide.none,
                   padding: EdgeInsets.zero,
@@ -136,7 +215,22 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Search logic would go here if needed... skipping for now as per design
+          // Search
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search faculties...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.inputBorder)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.inputBorder)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // List
           Expanded(
@@ -144,18 +238,13 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                            const SizedBox(height: 16),
-                            ElevatedButton(onPressed: _fetchFaculties, child: const Text('Retry')),
-                          ],
-                        ),
+                        child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: _filteredFaculties.length,
+                    : _filteredFaculties.isEmpty
+                        ? const Center(child: Text('No options available'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            itemCount: _filteredFaculties.length,
                         separatorBuilder: (context, index) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final faculty = _filteredFaculties[index];
@@ -197,21 +286,11 @@ class _FacultySelectionScreenState extends State<FacultySelectionScreen> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: PrimaryButton(
-              text: 'NEXT',
-              onPressed: _selectedFacultyId == null
+              text: 'FINISH',
+              isLoading: _isUpdating,
+              onPressed: _selectedFacultyId == null || _isUpdating
                   ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CenterSelectionScreen(
-                            universityId: widget.universityId,
-                            facultyId: _selectedFacultyId,
-                            facultyName: _selectedFacultyName,
-                          ),
-                        ),
-                      );
-                    },
+                  : () { _handleUpdate(); },
             ),
           ),
         ],

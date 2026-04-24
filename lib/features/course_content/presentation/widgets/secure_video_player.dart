@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:learnoo/core/widgets/secure_wrapper.dart';
@@ -6,6 +7,7 @@ import 'package:learnoo/core/widgets/dynamic_watermark_widget.dart';
 import 'package:learnoo/core/controllers/watermark_controller.dart';
 import 'package:learnoo/core/models/watermark_config.dart';
 import 'package:learnoo/core/services/feature_manager.dart';
+import 'dart:io' show Platform;
 
 /// A secure video player that enforces DRM (Widevine on Android, FairPlay on iOS if configured)
 /// It is wrapped in [SecureWrapper] and overlays a [DynamicWatermarkWidget].
@@ -45,9 +47,23 @@ class _SecureVideoPlayerState extends State<SecureVideoPlayer> {
   }
 
   void _initializeWatermark() {
-    final config = widget.watermarkConfig ?? 
+    final config = widget.watermarkConfig ??
         FeatureManager().getWatermarkConfig('videos');
-    
+
+    // Debug logging for watermark rendering issues
+    if (kDebugMode) {
+      final bool isEmulator = Platform.isAndroid
+          ? false // Will be detected at runtime via other means
+          : false;
+      debugPrint('[Watermark] Initializing watermark for video player');
+      debugPrint('[Watermark] Platform: ${Platform.operatingSystem}');
+      debugPrint('[Watermark] Device: ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Other"}');
+      debugPrint('[Watermark] Watermark enabled: ${config.enabled}');
+      debugPrint('[Watermark] Opacity: ${config.opacity}');
+      debugPrint('[Watermark] Using TextStyle.withOpacity fix: true');
+      debugPrint('[Watermark] Removed Opacity widgets: true');
+    }
+
     if (config.enabled) {
       _watermarkController = WatermarkController(
         config: config,

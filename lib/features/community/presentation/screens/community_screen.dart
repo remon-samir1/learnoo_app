@@ -93,23 +93,56 @@ class _CommunityScreenState extends State<CommunityScreen> {
       _isLoadingSocialLinks = true;
     });
 
-    int? courseId;
-    final selectedCourse = _courses.firstWhere(
-      (c) => c.attributes.title == _selectedFilter,
-      orElse: () => PostCourse(id: '', type: '', attributes: CourseAttributes(title: '', subTitle: '', description: '', thumbnail: '', objectives: '', price: '0', maxViewsPerStudent: 0, visibility: 'public', approval: 0, status: 0, reason: '')),
-    );
-    if (selectedCourse.id.isNotEmpty) {
-      courseId = int.tryParse(selectedCourse.id);
-    }
-
-    final result = await _repository.getSocialLinks(courseId: courseId);
+    // Fetch all social links without course filter
+    // We'll filter them client-side to support multiple course associations
+    final result = await _repository.getSocialLinks();
 
     setState(() {
       _isLoadingSocialLinks = false;
       if (result['success']) {
         _socialLinks = result['data'];
+        debugPrint('Loaded ${_socialLinks.length} social links');
+        for (var link in _socialLinks) {
+          debugPrint('Link ${link.id}: courses=${link.attributes.courseIds}');
+        }
+      } else {
+        debugPrint('Failed to load social links: ${result['message']}');
       }
     });
+  }
+
+  /// Filter social links for the currently selected course
+  List<SocialLink> _getFilteredSocialLinks() {
+    if (_selectedFilter == 'All') return [];
+
+    final selectedCourse = _courses.firstWhere(
+      (c) => c.attributes.title == _selectedFilter,
+      orElse: () => PostCourse(id: '', type: '', attributes: CourseAttributes(title: '', subTitle: '', description: '', thumbnail: '', objectives: '', price: '0', maxViewsPerStudent: 0, visibility: 'public', approval: 0, status: 0, reason: '')),
+    );
+
+    if (selectedCourse.id.isEmpty) {
+      debugPrint('No course found for filter: $_selectedFilter');
+      return [];
+    }
+
+    final selectedCourseId = int.tryParse(selectedCourse.id);
+    if (selectedCourseId == null) {
+      debugPrint('Invalid course ID: ${selectedCourse.id}');
+      return [];
+    }
+
+    debugPrint('Filtering by course ID: $selectedCourseId');
+    debugPrint('Total social links: ${_socialLinks.length}');
+
+    // Filter links that are associated with the selected course
+    final filtered = _socialLinks.where((link) {
+      final contains = link.attributes.courseIds.contains(selectedCourseId);
+      debugPrint('Link ${link.id}: courseIds=${link.attributes.courseIds}, contains=$contains');
+      return contains;
+    }).toList();
+
+    debugPrint('Filtered ${filtered.length} links for course $selectedCourseId');
+    return filtered;
   }
 
   Future<void> _handleReaction(Post post, String reactionType) async {
@@ -510,7 +543,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       );
     }
 
-    final activeLinks = _socialLinks.where((link) => link.attributes.status).toList();
+    final filteredLinks = _getFilteredSocialLinks();
+    final activeLinks = filteredLinks.where((link) => link.attributes.status).toList();
 
     if (activeLinks.isEmpty) {
       return const SizedBox.shrink();

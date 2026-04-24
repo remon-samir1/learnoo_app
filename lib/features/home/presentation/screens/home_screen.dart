@@ -25,8 +25,10 @@ import '../../../notes/presentation/screens/summaries_list_screen.dart';
 import '../../../notes/presentation/screens/summary_detail_screen.dart';
 import '../../../profile/presentation/screens/my_profile_screen.dart';
 import '../../data/department_repository.dart';
+import '../../data/department_filter_service.dart';
 import '../../../search/data/search_repository.dart';
 import 'sub_departments_screen.dart';
+import 'department_options_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -55,6 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
   String _facultyName = 'Loading...';
   String? _userImageUrl;
   List<String> _centers = [];
+  
+  // User hierarchy data for filtering
+  String? _userUniversityId;
+  String? _userFacultyId;
+  List<String> _userCenterIds = [];
+  List<dynamic> _allCenters = [];
+  List<dynamic> _allFaculties = [];
+  List<dynamic> _allDepartments = []; // Unfiltered list for navigation
   List<dynamic> _courses = [];
   List<dynamic> _subjects = [];
   List<dynamic> _notes = [];
@@ -94,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCourses() async {
     setState(() => _isCoursesLoading = true);
     try {
-      final result = await _courseRepository.getCourses();
+      final result = await _courseRepository.getActivatedCourses();
       if (result['success'] && mounted) {
         setState(() {
           _courses = result['data'] ?? [];
@@ -114,8 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadCourses();
-    _loadSubjects();
     _loadLiveClasses();
     _loadNotes();
     _loadLibraries();
@@ -163,10 +171,34 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadSubjects() async {
     setState(() => _isSubjectsLoading = true);
     try {
-      final result = await _departmentRepository.getDepartments();
-      if (result['success'] && mounted) {
+      final departmentsResult = await _departmentRepository.getDepartments();
+      
+      if (departmentsResult['success'] && mounted) {
+        final allDepartments = departmentsResult['data'] ?? [];
+        
+        // Store unfiltered list for nested navigation
+        _allDepartments = allDepartments;
+        
+        // Filter departments by user's faculty
+        List<dynamic> filteredSubjects = allDepartments;
+        if (_userFacultyId != null && _userFacultyId!.isNotEmpty) {
+          filteredSubjects = allDepartments.where((dept) {
+            final attributes = dept['attributes'] ?? {};
+            
+            // Check parent_id (direct children of faculty)
+            final parentId = attributes['parent_id']?.toString();
+            if (parentId == _userFacultyId) return true;
+            
+            // Check parent.data.id (nested parent structure)
+            final parentDataId = attributes['parent']?['data']?['id']?.toString();
+            if (parentDataId == _userFacultyId) return true;
+            
+            return false;
+          }).toList();
+        }
+        
         setState(() {
-          _subjects = result['data'] ?? [];
+          _subjects = filteredSubjects;
           _isSubjectsLoading = false;
         });
       } else if (mounted) {
@@ -228,6 +260,15 @@ class _HomeScreenState extends State<HomeScreen> {
             .where((name) => name.isNotEmpty)
             .toList();
 
+        // Extract user hierarchy IDs for filtering
+        final universityId = attributes['university']?['data']?['id']?.toString();
+        final facultyId = attributes['faculty']?['data']?['id']?.toString();
+        final centerIds = centersData
+            .map((c) => c['id']?.toString())
+            .where((id) => id != null)
+            .cast<String>()
+            .toList();
+
         // Parse user image
         final userImage = attributes['image']?.toString();
 
@@ -237,13 +278,45 @@ class _HomeScreenState extends State<HomeScreen> {
           _facultyName = facultyName;
           _userImageUrl = userImage;
           _centers = centers;
+          _userUniversityId = universityId;
+          _userFacultyId = facultyId;
+          _userCenterIds = centerIds;
           _isLoading = false;
         });
+
+        // Load centers and faculties for hierarchy validation
+        await _loadCentersAndFaculties();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _loadCentersAndFaculties() async {
+    try {
+      // Load centers
+      final centersResult = await _departmentRepository.getCenters();
+      if (centersResult['success']) {
+        _allCenters = centersResult['data'] ?? [];
+      }
+
+      // Load faculties
+      final facultiesResult = await _departmentRepository.getFaculties();
+      if (facultiesResult['success']) {
+        _allFaculties = facultiesResult['data'] ?? [];
+      }
+
+      // Reload subjects with hierarchy filtering
+      await _loadSubjects();
+      // Reload courses to filter by available departments
+      await _loadCourses();
+    } catch (e) {
+      // Fallback: load subjects without filtering
+      await _loadSubjects();
+      // Still try to load courses
+      await _loadCourses();
     }
   }
 
@@ -1367,19 +1440,70 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Show all departments (no parent filter)
+  // Filter only root departments (direct children of faculties)
   List<dynamic> get _rootDepartments {
-    return _subjects;
+    return _subjects.where((subject) {
+      final attributes = subject['attributes'] as Map<String, dynamic>?;
+      if (attributes == null) return false;
+
+      // Check nested parent.data.type format
+      final parent = attributes['parent'] as Map<String, dynamic>?;
+      if (parent != null) {
+        final parentData = parent['data'] as Map<String, dynamic>?;
+        if (parentData != null) {
+          return parentData['type'] == 'faculty';
+        }
+      }
+
+      // Fallback: check flat parent_id format (API returns parent_id pointing to faculty)
+      final parentId = attributes['parent_id']?.toString();
+      final parentType = attributes['parent_type']?.toString();
+      
+      // If parent_type is explicitly set, use it
+      if (parentType != null) {
+        return parentType == 'faculty';
+      }
+      
+      // If has parent_id but no parent_type, assume it's a faculty (root department)
+      return parentId != null;
+    }).toList();
   }
 
   // Check if a department has children
-  bool _hasChildren(String departmentId) {
-    return _subjects.any((subject) {
-      final parent = subject['attributes']?['parent'];
-      if (parent == null) return false;
-      final parentData = parent['data'];
-      if (parentData == null) return false;
-      return parentData['id']?.toString() == departmentId;
+  bool _hasChildren(dynamic subject) {
+    final attributes = subject['attributes'] as Map<String, dynamic>?;
+    if (attributes == null) return false;
+
+    // First check if childrens array exists and is not empty
+    final childrens = attributes['childrens'] as List<dynamic>?;
+    if (childrens != null && childrens.isNotEmpty) {
+      return true;
+    }
+
+    final departmentId = subject['id']?.toString();
+    if (departmentId == null) return false;
+
+    // Fallback: check if any subject has this as parent
+    return _subjects.any((s) {
+      final attrs = s['attributes'] as Map<String, dynamic>?;
+      if (attrs == null) return false;
+
+      // Check nested parent.data.id format
+      final parent = attrs['parent'] as Map<String, dynamic>?;
+      if (parent != null) {
+        final parentData = parent['data'] as Map<String, dynamic>?;
+        if (parentData != null) {
+          return parentData['id']?.toString() == departmentId;
+        }
+      }
+
+      // Fallback: check flat parent_id format
+      final parentId = attrs['parent_id']?.toString();
+      final parentType = attrs['parent_type']?.toString();
+      if (parentId == departmentId) {
+        return parentType == 'department' || parentType == null;
+      }
+      return false;
     });
   }
 
@@ -1614,9 +1738,33 @@ class _HomeScreenState extends State<HomeScreen> {
     String imageUrl,
   ) {
     // Check if this department has children (sub-departments)
-    final hasChildren = _hasChildren(subjectId);
+    final hasChildren = _hasChildren(subject);
 
-    if (hasChildren) {
+    // Extract childrens array if available
+    final attributes = subject['attributes'] as Map<String, dynamic>?;
+    final children = attributes?['childrens'] as List<dynamic>?;
+
+    // Check if this department has courses
+    final stats = attributes?['stats'] as Map<String, dynamic>?;
+    final coursesCount = stats?['courses'] as int? ?? 0;
+    final hasCourses = coursesCount > 0;
+
+    if (hasChildren && hasCourses) {
+      // Department has both courses and children - show options screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DepartmentOptionsScreen(
+            departmentId: subjectId,
+            departmentTitle: title,
+            departmentImage: imageUrl,
+            allDepartments: _allDepartments,
+            children: children,
+            coursesCount: coursesCount,
+          ),
+        ),
+      );
+    } else if (hasChildren) {
       // Navigate to sub-departments screen
       Navigator.push(
         context,
@@ -1625,7 +1773,8 @@ class _HomeScreenState extends State<HomeScreen> {
             parentId: subjectId,
             parentTitle: title,
             parentImage: imageUrl,
-            allDepartments: _subjects,
+            allDepartments: _allDepartments,
+            children: children,
           ),
         ),
       );
@@ -1677,7 +1826,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final attributes = course['attributes'] ?? {};
           final title = attributes['title']?.toString() ?? 'Untitled Course';
           final instructor =
-              attributes['instructor']?['data']?['attributes']?['name']
+              attributes['instructor']?['data']?['attributes']?['full_name']
                   ?.toString() ??
               attributes['instructor_name']?.toString() ??
               'Unknown Instructor';
