@@ -273,17 +273,12 @@ class CommunityRepository {
     }
   }
 
-  // Get social links filtered by course
-  Future<Map<String, dynamic>> getSocialLinks({int? courseId}) async {
+  // Get all social links
+  Future<Map<String, dynamic>> getSocialLinks() async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'No token found'};
 
-    var urlString = '${ApiConstants.baseUrl}${ApiConstants.socialLinks}';
-    if (courseId != null) {
-      urlString += '?course_id=$courseId';
-    }
-
-    final url = Uri.parse(urlString);
+    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.socialLinks}');
     try {
       final response = await http.get(
         url,

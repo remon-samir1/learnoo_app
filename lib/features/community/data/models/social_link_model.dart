@@ -22,9 +22,7 @@ class SocialLink {
 }
 
 class SocialLinkAttributes {
-  final int courseId;
-  final List<int> courseIds;
-  final List<CourseData> courses;
+  final List<SocialLinkCourse> courses;
   final String icon;
   final String title;
   final String subtitle;
@@ -33,12 +31,9 @@ class SocialLinkAttributes {
   final bool status;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final CourseData? course;
 
   SocialLinkAttributes({
-    required this.courseId,
-    this.courseIds = const [],
-    this.courses = const [],
+    required this.courses,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -47,34 +42,12 @@ class SocialLinkAttributes {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
-    this.course,
   });
 
   factory SocialLinkAttributes.fromJson(Map<String, dynamic> json) {
-    // Parse courses array from API
-    List<CourseData> parsedCourses = [];
-    List<int> parsedCourseIds = [];
-    
-    if (json['courses'] != null && json['courses'] is List) {
-      parsedCourses = (json['courses'] as List)
-          .map((c) => CourseData.fromJson(c))
-          .toList();
-      parsedCourseIds = parsedCourses
-          .map((c) => int.tryParse(c.id) ?? 0)
-          .where((id) => id > 0)
-          .toList();
-    }
-    
-    // Fallback to single course_id/course for backward compatibility
-    final singleCourseId = json['course_id'] ?? 0;
-    if (parsedCourseIds.isEmpty && singleCourseId > 0) {
-      parsedCourseIds = [singleCourseId];
-    }
-
+    final coursesList = json['courses'] as List<dynamic>?;
     return SocialLinkAttributes(
-      courseId: singleCourseId,
-      courseIds: parsedCourseIds,
-      courses: parsedCourses,
+      courses: coursesList?.map((c) => SocialLinkCourse.fromJson(c)).toList() ?? [],
       icon: json['icon']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       subtitle: json['subtitle']?.toString() ?? '',
@@ -83,77 +56,53 @@ class SocialLinkAttributes {
       status: json['status'] ?? false,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '') ?? DateTime.now(),
-      course: json['course'] != null ? CourseData.fromJson(json['course']) : null,
     );
+  }
+
+  bool hasCourse(String courseId) {
+    return courses.any((c) => c.id == courseId);
   }
 }
 
-class CourseData {
+class SocialLinkCourse {
   final String id;
   final String type;
-  final CourseAttributes attributes;
+  final SocialLinkCourseAttributes attributes;
 
-  CourseData({
+  SocialLinkCourse({
     required this.id,
     required this.type,
     required this.attributes,
   });
 
-  factory CourseData.fromJson(Map<String, dynamic> json) {
-    return CourseData(
-      id: json['data']?['id']?.toString() ?? '',
-      type: json['data']?['type']?.toString() ?? 'courses',
-      attributes: CourseAttributes.fromJson(json['data']?['attributes'] ?? {}),
+  factory SocialLinkCourse.fromJson(Map<String, dynamic> json) {
+    return SocialLinkCourse(
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'courses',
+      attributes: SocialLinkCourseAttributes.fromJson(json['attributes'] ?? {}),
     );
   }
 }
 
-class CourseAttributes {
+class SocialLinkCourseAttributes {
   final String title;
   final String subTitle;
   final String description;
   final String thumbnail;
-  final String objectives;
-  final String price;
-  final int maxViewsPerStudent;
-  final String visibility;
-  final int approval;
-  final int status;
-  final String? reason;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
 
-  CourseAttributes({
+  SocialLinkCourseAttributes({
     required this.title,
     required this.subTitle,
     required this.description,
     required this.thumbnail,
-    required this.objectives,
-    required this.price,
-    required this.maxViewsPerStudent,
-    required this.visibility,
-    required this.approval,
-    required this.status,
-    this.reason,
-    this.createdAt,
-    this.updatedAt,
   });
 
-  factory CourseAttributes.fromJson(Map<String, dynamic> json) {
-    return CourseAttributes(
+  factory SocialLinkCourseAttributes.fromJson(Map<String, dynamic> json) {
+    return SocialLinkCourseAttributes(
       title: json['title']?.toString() ?? '',
       subTitle: json['sub_title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       thumbnail: json['thumbnail']?.toString() ?? '',
-      objectives: json['objectives']?.toString() ?? '',
-      price: json['price']?.toString() ?? '0.00',
-      maxViewsPerStudent: json['max_views_per_student'] ?? 0,
-      visibility: json['visibility']?.toString() ?? 'public',
-      approval: json['approval'] ?? 0,
-      status: json['status'] ?? 0,
-      reason: json['reason']?.toString(),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
-      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
     );
   }
 }

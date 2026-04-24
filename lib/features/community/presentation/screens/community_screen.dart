@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/post_model.dart';
-import '../../data/models/social_link_model.dart' hide CourseAttributes;
+import '../../data/models/social_link_model.dart';
 import '../../data/repositories/community_repository.dart';
 import 'create_post_screen.dart';
 import '../../../search/data/search_repository.dart';
@@ -93,56 +93,29 @@ class _CommunityScreenState extends State<CommunityScreen> {
       _isLoadingSocialLinks = true;
     });
 
-    // Fetch all social links without course filter
-    // We'll filter them client-side to support multiple course associations
-    final result = await _repository.getSocialLinks();
-
-    setState(() {
-      _isLoadingSocialLinks = false;
-      if (result['success']) {
-        _socialLinks = result['data'];
-        debugPrint('Loaded ${_socialLinks.length} social links');
-        for (var link in _socialLinks) {
-          debugPrint('Link ${link.id}: courses=${link.attributes.courseIds}');
-        }
-      } else {
-        debugPrint('Failed to load social links: ${result['message']}');
-      }
-    });
-  }
-
-  /// Filter social links for the currently selected course
-  List<SocialLink> _getFilteredSocialLinks() {
-    if (_selectedFilter == 'All') return [];
-
+    // Find the selected course ID
     final selectedCourse = _courses.firstWhere(
       (c) => c.attributes.title == _selectedFilter,
       orElse: () => PostCourse(id: '', type: '', attributes: CourseAttributes(title: '', subTitle: '', description: '', thumbnail: '', objectives: '', price: '0', maxViewsPerStudent: 0, visibility: 'public', approval: 0, status: 0, reason: '')),
     );
 
-    if (selectedCourse.id.isEmpty) {
-      debugPrint('No course found for filter: $_selectedFilter');
-      return [];
-    }
+    // Fetch all social links (no course filter on API)
+    final result = await _repository.getSocialLinks();
 
-    final selectedCourseId = int.tryParse(selectedCourse.id);
-    if (selectedCourseId == null) {
-      debugPrint('Invalid course ID: ${selectedCourse.id}');
-      return [];
-    }
-
-    debugPrint('Filtering by course ID: $selectedCourseId');
-    debugPrint('Total social links: ${_socialLinks.length}');
-
-    // Filter links that are associated with the selected course
-    final filtered = _socialLinks.where((link) {
-      final contains = link.attributes.courseIds.contains(selectedCourseId);
-      debugPrint('Link ${link.id}: courseIds=${link.attributes.courseIds}, contains=$contains');
-      return contains;
-    }).toList();
-
-    debugPrint('Filtered ${filtered.length} links for course $selectedCourseId');
-    return filtered;
+    setState(() {
+      _isLoadingSocialLinks = false;
+      if (result['success']) {
+        final allLinks = result['data'] as List<SocialLink>;
+        // Filter client-side: show links where selected course is in the courses array
+        if (selectedCourse.id.isNotEmpty) {
+          _socialLinks = allLinks.where((link) =>
+            link.attributes.hasCourse(selectedCourse.id)
+          ).toList();
+        } else {
+          _socialLinks = [];
+        }
+      }
+    });
   }
 
   Future<void> _handleReaction(Post post, String reactionType) async {
@@ -543,8 +516,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       );
     }
 
-    final filteredLinks = _getFilteredSocialLinks();
-    final activeLinks = filteredLinks.where((link) => link.attributes.status).toList();
+    final activeLinks = _socialLinks.where((link) => link.attributes.status).toList();
 
     if (activeLinks.isEmpty) {
       return const SizedBox.shrink();
@@ -598,16 +570,29 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildQuickLinkCard(SocialLink link) {
-    Color cardColor = AppColors.primaryBlue;
+    // Build gradient colors from custom color or use default
+    List<Color> gradientColors = [
+      AppColors.primaryBlue,
+      const Color(0xFF5A75FF),
+    ];
+
     if (link.attributes.color != null && link.attributes.color!.isNotEmpty) {
       try {
         String colorStr = link.attributes.color!;
         if (colorStr.startsWith('#')) {
           colorStr = '0xFF${colorStr.substring(1)}';
         }
-        cardColor = Color(int.parse(colorStr));
+        final baseColor = Color(int.parse(colorStr));
+        // Create a lighter version for gradient
+        final lighterColor = Color.fromARGB(
+          baseColor.alpha,
+          (baseColor.red + 40).clamp(0, 255),
+          (baseColor.green + 40).clamp(0, 255),
+          (baseColor.blue + 60).clamp(0, 255),
+        );
+        gradientColors = [baseColor, lighterColor];
       } catch (_) {
-        cardColor = AppColors.primaryBlue;
+        // Keep default gradient
       }
     }
 
@@ -617,7 +602,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
         } else {
-          // Try to launch anyway or show error
           try {
             await launchUrl(url, mode: LaunchMode.externalApplication);
           } catch (e) {
@@ -631,44 +615,75 @@ class _CommunityScreenState extends State<CommunityScreen> {
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: gradientColors[0].withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+              spreadRadius: -2,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (link.attributes.icon.isNotEmpty)
-              IgnorePointer(
-                child: Image.network(
-                  link.attributes.icon,
-                  width: 24,
-                  height: 24,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const FaIcon(
-                      FontAwesomeIcons.link,
-                      color: Colors.white,
-                      size: 24,
-                    );
-                  },
-                ),
-              )
-            else
-              const FaIcon(
-                FontAwesomeIcons.link,
-                color: Colors.white,
-                size: 24,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
               ),
-            const SizedBox(height: 8),
+              child: link.attributes.icon.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      link.attributes.icon,
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const FaIcon(
+                          FontAwesomeIcons.link,
+                          color: Colors.white,
+                          size: 24,
+                        );
+                      },
+                    ),
+                  )
+                : const FaIcon(
+                    FontAwesomeIcons.link,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+            ),
+            const SizedBox(height: 10),
             Text(
               link.attributes.title.isNotEmpty ? link.attributes.title : link.attributes.subtitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
                 height: 1.3,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -793,17 +808,35 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildEmptyWidget() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.forum_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No posts yet',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
