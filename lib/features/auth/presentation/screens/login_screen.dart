@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final attributes = loginResult['data']['data']['attributes'];
     final universityId = attributes['university_id'];
     final facultyId = attributes['faculty_id'];
-    final centerIds = attributes['center_ids'];
+    final centerIds = attributes['centers'];
     final isEmail = _isEmailIdentifier(identifier);
 
     // Check if user is already verified

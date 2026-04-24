@@ -5,11 +5,13 @@ import 'package:shimmer/shimmer.dart';
 import '../../data/course_repository.dart';
 import '../../data/live_room_repository.dart';
 import '../../data/models/live_room.dart' as lr;
+import '../../data/course_files_repository.dart';
 import '../../../exams/data/exam_repository.dart';
 import '../../../exams/models/quiz_models.dart';
 import 'course_detail_screen.dart';
 import '../../../exams/presentation/screens/quiz_screen.dart';
 import 'pdf_reviewer_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
   final String subjectId;
@@ -34,13 +36,17 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   late TabController _tabController;
   final _courseRepository = CourseRepository();
   final _examRepository = ExamRepository();
+  final _courseFilesRepository = CourseFilesRepository();
+  final _liveRoomRepository = LiveRoomRepository();
   bool _isLoadingCourses = true;
   bool _isLoadingExams = true;
   bool _isLoadingLiveRooms = true;
+  bool _isLoadingFiles = true;
   List<dynamic> _courses = [];
   List<Quiz> _exams = [];
   List<lr.LiveRoom> _liveRooms = [];
-  final _liveRoomRepository = LiveRoomRepository();
+  List<CourseFile> _files = [];
+  String? _filesErrorMessage;
 
   @override
   void initState() {
@@ -53,8 +59,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
     await Future.wait([
       _loadCourses(),
     ]);
-    // Load exams and live rooms after courses to have course IDs for filtering
+    // Load files, exams and live rooms after courses to have course IDs for filtering
     await Future.wait([
+      _loadFiles(),
       _loadExams(),
       _loadLiveRooms(),
     ]);
@@ -105,6 +112,196 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
         setState(() => _isLoadingCourses = false);
       }
     }
+  }
+
+  Future<void> _loadFiles() async {
+    setState(() {
+      _isLoadingFiles = true;
+      _filesErrorMessage = null;
+    });
+
+    try {
+      final categoryId = int.tryParse(widget.subjectId);
+      late final Map<String, dynamic> result;
+
+      if (categoryId != null) {
+        result = await _courseFilesRepository.getFilesByCategory(categoryId);
+      } else {
+        // Fallback: try to get files by course IDs if we have courses loaded
+        final courseIds = _courses
+            .map((c) => int.tryParse(c['id'].toString()))
+            .whereType<int>()
+            .toList();
+        result = await _courseFilesRepository.getFilesByCourseIds(courseIds);
+      }
+
+      if (mounted) {
+        if (result['success']) {
+          setState(() {
+            _files = result['data'] as List<CourseFile>? ?? [];
+            _isLoadingFiles = false;
+          });
+        } else {
+          setState(() {
+            _filesErrorMessage = result['message'] ?? 'course.failed_load_files'.tr();
+            _isLoadingFiles = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _filesErrorMessage = 'course.connection_error'.tr(args: [e.toString()]);
+          _isLoadingFiles = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshFiles() async {
+    await _loadFiles();
+  }
+
+  void _openFile(CourseFile file) {
+    if (file.filePath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('course.file_not_available'.tr())),
+      );
+      return;
+    }
+
+    if (file.isPdf) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerScreen(
+            pdfUrl: file.filePath,
+            title: file.title,
+          ),
+        ),
+      );
+    } else if (file.canPreview) {
+      // For other previewable files, use the appropriate viewer
+      // For now, show a message that file type is not directly viewable
+      _downloadOrOpenFile(file);
+    } else {
+      // For non-previewable files, offer download
+      _downloadOrOpenFile(file);
+    }
+  }
+
+  void _downloadOrOpenFile(CourseFile file) async {
+    // Show options for non-PDF files
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                file.title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '.${file.extension.toUpperCase()} ${file.formattedSize.isNotEmpty ? '• ${file.formattedSize}' : ''}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (file.isLocked && !file.downloadable)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0F0),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const FaIcon(FontAwesomeIcons.lock, color: Color(0xFFFF4B4B), size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'course.file_locked'.tr(),
+                          style: const TextStyle(
+                            color: Color(0xFFFF4B4B),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    if (file.canPreview || file.isPdf)
+                      ListTile(
+                        leading: const FaIcon(FontAwesomeIcons.eye, color: Color(0xFF5A75FF)),
+                        title: Text('course.open_file'.tr()),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PdfViewerScreen(
+                                pdfUrl: file.filePath,
+                                title: file.title,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    if (file.downloadable)
+                      ListTile(
+                        leading: const FaIcon(FontAwesomeIcons.download, color: Color(0xFF5A75FF)),
+                        title: Text('course.download_file'.tr()),
+                        onTap: () {
+                          Navigator.pop(context);
+                          // TODO: Implement download functionality
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('course.download_started'.tr(args: [file.title]))),
+                          );
+                        },
+                      ),
+                    ListTile(
+                      leading: const FaIcon(FontAwesomeIcons.share, color: Color(0xFF5A75FF)),
+                      title: Text('course.share_file'.tr()),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // TODO: Implement share functionality
+                      },
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSubjectIconFallback() {
@@ -240,7 +437,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildHeaderInfoCard(FontAwesomeIcons.play, 'course.courses_count'.tr(args: [_courses.length.toString()])),
-                  _buildHeaderInfoCard(FontAwesomeIcons.fileLines, 'course.files_count'.tr(args: ['4'])),
+                  _buildHeaderInfoCard(FontAwesomeIcons.fileLines, 'course.files_count'.tr(args: [_files.length.toString()])),
                   _buildHeaderInfoCard(FontAwesomeIcons.calendarCheck, 'course.exams_count'.tr(args: ['3'])),
                 ],
               ),
@@ -825,54 +1022,175 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
   }
 
   Widget _buildFilesTab() {
-    return ListView(
+    if (_isLoadingFiles) {
+      return _buildFilesSkeletonList();
+    }
+
+    if (_filesErrorMessage != null) {
+      return _buildFilesErrorState();
+    }
+
+    if (_files.isEmpty) {
+      return _buildFilesEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshFiles,
+      color: const Color(0xFF5A75FF),
+      backgroundColor: Colors.white,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _files.length,
+        itemBuilder: (context, index) {
+          final file = _files[index];
+          return _buildFileCard(file);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilesSkeletonList() {
+    return ListView.builder(
       padding: const EdgeInsets.all(20),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        width: double.infinity,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 120,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilesEmptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        _buildFileCard(
-          context,
-          'Chapter 1 Notes',
-          '24 pages • 2.4 MB',
-          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          hasDownload: false,
-        ),
-        _buildFileCard(
-          context,
-          'Chapter 2 Summary',
-          '18 pages • 1.8 MB',
-          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          hasDownload: true,
-        ),
-        _buildFileCard(
-          context,
-          'Practice Problems',
-          '12 pages • 1.2 MB',
-          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          hasDownload: false,
-        ),
-        _buildFileCard(
-          context,
-          'Formula Sheet',
-          '4 pages • 0.5 MB',
-          'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          hasDownload: true,
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  FontAwesomeIcons.fileCircleXmark,
+                  size: 48,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'course.no_files_subject'.tr(),
+                  style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFileCard(BuildContext context, String title, String info, String url, {required bool hasDownload}) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PdfReviewerScreen(
-              pdfUrl: url,
-              title: title,
+  Widget _buildFilesErrorState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _filesErrorMessage!,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _refreshFiles,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5A75FF),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('course.retry'.tr()),
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileCard(CourseFile file) {
+    final isLocked = file.isLocked && !file.downloadable;
+    final canView = !isLocked && (file.isPdf || file.canPreview);
+
+    return InkWell(
+      onTap: isLocked ? null : () => _openFile(file),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -893,31 +1211,104 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF0F0),
+                color: isLocked ? const Color(0xFFF3F4F6) : const Color(0xFFFFF0F0),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const FaIcon(FontAwesomeIcons.fileLines, color: Color(0xFFFF4B4B), size: 20),
+              child: FaIcon(
+                isLocked ? FontAwesomeIcons.lock : _getFileIcon(file.extension),
+                color: isLocked ? const Color(0xFF9CA3AF) : const Color(0xFFFF4B4B),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937))),
+                  Text(
+                    file.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: isLocked ? const Color(0xFF9CA3AF) : const Color(0xFF1F2937),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 4),
-                  Text(info, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                  Text(
+                    _getFileInfo(file),
+                    style: TextStyle(
+                      color: isLocked ? const Color(0xFF9CA3AF) : const Color(0xFF9CA3AF),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
-            _buildFileActionButton(FontAwesomeIcons.eye),
-            if (hasDownload) ...[
-              const SizedBox(width: 10),
-              _buildFileActionButton(FontAwesomeIcons.download),
-            ],
+            if (canView)
+              _buildFileActionButton(FontAwesomeIcons.eye)
+            else if (file.downloadable && !isLocked)
+              _buildFileActionButton(FontAwesomeIcons.download)
+            else if (isLocked)
+              _buildFileActionButton(FontAwesomeIcons.lock),
           ],
         ),
       ),
     );
+  }
+
+  FaIconData _getFileIcon(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'pdf':
+        return FontAwesomeIcons.filePdf;
+      case 'doc':
+      case 'docx':
+        return FontAwesomeIcons.fileWord;
+      case 'xls':
+      case 'xlsx':
+        return FontAwesomeIcons.fileExcel;
+      case 'ppt':
+      case 'pptx':
+        return FontAwesomeIcons.filePowerpoint;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return FontAwesomeIcons.fileImage;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return FontAwesomeIcons.fileVideo;
+      case 'mp3':
+      case 'wav':
+      case 'aac':
+        return FontAwesomeIcons.fileAudio;
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return FontAwesomeIcons.fileZipper;
+      default:
+        return FontAwesomeIcons.fileLines;
+    }
+  }
+
+  String _getFileInfo(CourseFile file) {
+    final parts = <String>[];
+
+    if (file.extension.isNotEmpty) {
+      parts.add(file.extension.toUpperCase());
+    }
+
+    if (file.formattedSize.isNotEmpty) {
+      parts.add(file.formattedSize);
+    }
+
+    if (file.isLocked && !file.downloadable) {
+      parts.add('course.locked'.tr());
+    }
+
+    return parts.join(' • ');
   }
 
   Widget _buildFileActionButton(dynamic icon) {

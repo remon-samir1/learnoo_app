@@ -3,6 +3,8 @@ class SocialLink {
   final String type;
   final SocialLinkAttributes attributes;
 
+  String get link => attributes.link;
+
   SocialLink({
     required this.id,
     required this.type,
@@ -14,6 +16,7 @@ class SocialLink {
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'social-links',
       attributes: SocialLinkAttributes.fromJson(json['attributes'] ?? {}),
+      
     );
   }
 }

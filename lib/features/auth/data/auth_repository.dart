@@ -403,7 +403,7 @@ class AuthRepository {
 
     return updateProfile({
       'university_id': int.tryParse(universityId.toString()) ?? universityId,
-      'center_ids': centerIdsList,
+      'centers': centerIdsList,
       'faculty_id': int.tryParse(facultyId.toString()) ?? facultyId,
     });
   }

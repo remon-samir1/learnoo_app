@@ -7,6 +7,7 @@ import '../../data/repositories/community_repository.dart';
 import 'create_post_screen.dart';
 import '../../../search/data/search_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -578,11 +579,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
     return GestureDetector(
       onTap: () async {
-        final url = Uri.parse(link.attributes.link);
+        final url = Uri.parse(link.link);
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          // Try to launch anyway or show error
+          try {
+            await launchUrl(url, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not open link: ${link.link}')),
+              );
+            }
+          }
         }
       },
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
@@ -593,17 +606,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (link.attributes.icon.isNotEmpty)
-              Image.network(
-                link.attributes.icon,
-                width: 24,
-                height: 24,
-                errorBuilder: (context, error, stackTrace) {
-                  return const FaIcon(
-                    FontAwesomeIcons.link,
-                    color: Colors.white,
-                    size: 24,
-                  );
-                },
+              IgnorePointer(
+                child: Image.network(
+                  link.attributes.icon,
+                  width: 24,
+                  height: 24,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const FaIcon(
+                      FontAwesomeIcons.link,
+                      color: Colors.white,
+                      size: 24,
+                    );
+                  },
+                ),
               )
             else
               const FaIcon(
@@ -1059,12 +1074,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ),
             const SizedBox(height: 8),
           ],
-          Text(
-            post.attributes.content,
+          Linkify(
+            onOpen: (link) async {
+              final url = Uri.parse(link.url);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
+            text: post.attributes.content,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.textDark,
               height: 1.5,
+            ),
+            linkStyle: const TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryBlue,
+              height: 1.5,
+              decoration: TextDecoration.underline,
             ),
           ),
           const SizedBox(height: 12),

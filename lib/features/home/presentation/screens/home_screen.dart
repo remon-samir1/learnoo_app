@@ -1367,12 +1367,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Filter only root departments (no parent)
+  // Show all departments (no parent filter)
   List<dynamic> get _rootDepartments {
-    return _subjects.where((subject) {
-      final parent = subject['attributes']?['parent'];
-      return parent == null;
-    }).toList();
+    return _subjects;
   }
 
   // Check if a department has children
