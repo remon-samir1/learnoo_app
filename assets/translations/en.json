@@ -312,7 +312,13 @@
     "video_downloaded": "Video downloaded successfully",
     "download_started": "Download started...",
     "download_failed": "Download failed",
-    "play_downloaded": "Play Downloaded"
+    "play_downloaded": "Play Downloaded",
+    "slow_internet_title": "Slow Internet Connection",
+    "slow_internet_message": "Your internet connection is slow. The video is taking longer than expected to load. Please check your connection or try a lower quality.",
+    "switch_to_lower_quality": "Switch to Lower Quality",
+    "video_quality": "Video Quality",
+    "quality_auto": "Auto",
+    "recommended": "Recommended"
   },
   "exams": {
     "title": "Quizzes & Exams",

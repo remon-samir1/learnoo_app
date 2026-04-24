@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/feature_manager.dart';
+import '../models/watermark_config.dart';
 import 'watermark_widget.dart';
 
 /// Watermark type enumeration
@@ -35,7 +36,7 @@ extension WatermarkTypeExtension on WatermarkType {
 
 /// Reusable Watermark Wrapper Widget
 /// Applies a configurable watermark overlay to any child widget
-class WatermarkWrapper extends StatelessWidget {
+class WatermarkWrapper extends StatefulWidget {
   final Widget child;
   final WatermarkType type;
   final String? studentCode;
@@ -50,28 +51,66 @@ class WatermarkWrapper extends StatelessWidget {
   });
 
   @override
+  State<WatermarkWrapper> createState() => _WatermarkWrapperState();
+}
+
+class _WatermarkWrapperState extends State<WatermarkWrapper> {
+  late FeatureManager _manager;
+
+  @override
+  void initState() {
+    super.initState();
+    _manager = widget.featureManager ?? FeatureManager();
+    _manager.addListener(_onFeatureManagerUpdate);
+  }
+
+  @override
+  void didUpdateWidget(WatermarkWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.featureManager != oldWidget.featureManager) {
+      oldWidget.featureManager?.removeListener(_onFeatureManagerUpdate);
+      _manager = widget.featureManager ?? FeatureManager();
+      _manager.addListener(_onFeatureManagerUpdate);
+    }
+  }
+
+  @override
+  void dispose() {
+    _manager.removeListener(_onFeatureManagerUpdate);
+    super.dispose();
+  }
+
+  void _onFeatureManagerUpdate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final manager = featureManager ?? FeatureManager();
-    final settings = manager.getWatermarkSettings(type.key);
+    final settings = _manager.getWatermarkConfig(widget.type.key);
 
     // If watermark is disabled, return child directly
     if (!settings.enabled) {
-      return child;
+      return widget.child;
     }
 
     // Determine watermark text
-    final watermarkText = settings.useStudentCode && studentCode != null
-        ? studentCode!
+    final watermarkText = settings.useStudentCode && widget.studentCode != null
+        ? widget.studentCode!
         : settings.text;
 
     // Support moving watermark if position is 'moving'
-    if (settings.position.toLowerCase() == 'moving') {
+    if (settings.position.name.toLowerCase() == 'moving' || settings.dynamicPosition) {
       return Stack(
         children: [
-          child,
+          widget.child,
           WatermarkWidget(
             userName: watermarkText,
-            userId: studentCode ?? '',
+            userId: widget.studentCode ?? '',
+            opacity: settings.opacity,
+            rotation: settings.rotation,
+            dynamicInterval: settings.dynamicInterval,
             style: TextStyle(
               fontSize: settings.fontSize,
               fontWeight: FontWeight.bold,
@@ -85,17 +124,17 @@ class WatermarkWrapper extends StatelessWidget {
     return Stack(
       children: [
         // Original content
-        child,
+        widget.child,
         // Watermark overlay
         _buildWatermarkOverlay(settings, watermarkText),
       ],
     );
   }
 
-  Widget _buildWatermarkOverlay(WatermarkSettings settings, String text) {
+  Widget _buildWatermarkOverlay(WatermarkConfig settings, String text) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final position = settings.position.toLowerCase();
+        final position = settings.position.name;
         
         if (position == 'full') {
           return _buildFullWatermark(settings, text, constraints);
@@ -107,7 +146,7 @@ class WatermarkWrapper extends StatelessWidget {
   }
 
   Widget _buildFullWatermark(
-    WatermarkSettings settings,
+    WatermarkConfig settings,
     String text,
     BoxConstraints constraints,
   ) {
@@ -126,7 +165,7 @@ class WatermarkWrapper extends StatelessWidget {
   }
 
   List<Widget> _buildRepeatedWatermarks(
-    WatermarkSettings settings,
+    WatermarkConfig settings,
     String text,
     BoxConstraints constraints,
   ) {
@@ -166,7 +205,7 @@ class WatermarkWrapper extends StatelessWidget {
   }
 
   Widget _buildCornerWatermark(
-    WatermarkSettings settings,
+    WatermarkConfig settings,
     String text,
     BoxConstraints constraints,
     String position,
@@ -174,19 +213,47 @@ class WatermarkWrapper extends StatelessWidget {
     double? left, top, right, bottom;
 
     switch (position) {
-      case 'topleft':
+      case 'topLeft':
         left = 16;
         top = 16;
         break;
-      case 'topright':
+      case 'topRight':
         right = 16;
         top = 16;
         break;
-      case 'bottomleft':
+      case 'bottomLeft':
         left = 16;
         bottom = 16;
         break;
-      case 'bottomright':
+ 
+      case 'center':
+        // Center the watermark in the middle of the container
+        return Center(
+          child: IgnorePointer(
+            child: Transform.rotate(
+              angle: settings.rotation * (math.pi / 180),
+              child: Opacity(
+                opacity: settings.opacity,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: settings.fontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      case 'bottomRight':
       default:
         right = 16;
         bottom = 16;

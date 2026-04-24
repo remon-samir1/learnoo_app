@@ -306,7 +306,13 @@
     "video_downloaded": "تم تحميل الفيديو بنجاح",
     "download_started": "جاري التحميل...",
     "download_failed": "فشل التحميل",
-    "play_downloaded": "تشغيل المحمل"
+    "play_downloaded": "تشغيل المحمل",
+    "slow_internet_title": "اتصال إنترنت بطيء",
+    "slow_internet_message": "اتصال الإنترنت لديك بطيء. يستغرق الفيديو وقتًا أطول من المتوقع للتحميل. يرجى التحقق من الاتصال أو تجربة جودة أقل.",
+    "switch_to_lower_quality": "التبديل إلى جودة أقل",
+    "video_quality": "جودة الفيديو",
+    "quality_auto": "تلقائي",
+    "recommended": "موصى به"
   },
   "downloads": {
     "delete_title": "حذف الفيديو",

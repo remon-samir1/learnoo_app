@@ -215,4 +215,44 @@ class ChapterRepository with OfflineFirstRepository {
     final cached = getCached(HiveBoxes.progress, 'user_progress');
     return cached as List<dynamic>?;
   }
+
+  /// Increment chapter view count when user watches for required minutes
+  Future<Map<String, dynamic>> incrementViewCount({
+    required int chapterId,
+    required int watchedMinutes,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'No token found'};
+
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.chapters}/$chapterId/view');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'watched_minutes': watchedMinutes,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'data': data['data'],
+          'current_views': data['data']?['current_user_views'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to record view',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
 }

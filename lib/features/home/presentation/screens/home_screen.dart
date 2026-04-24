@@ -1788,7 +1788,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Image.network(
                 imageUrl,
-                height: 100,
+                height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
               ),

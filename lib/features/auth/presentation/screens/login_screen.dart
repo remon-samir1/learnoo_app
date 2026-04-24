@@ -9,7 +9,6 @@ import '../screens/otp_verification_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../../data/auth_repository.dart';
-import '../../../../features/academic/presentation/screens/university_selection_screen.dart';
 import '../../../home/presentation/screens/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -70,6 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final token = loginResult['data']['meta']['token'];
     final attributes = loginResult['data']['data']['attributes'];
     final universityId = attributes['university_id'];
+    final facultyId = attributes['faculty_id'];
+    final centerIds = attributes['center_ids'];
     final isEmail = _isEmailIdentifier(identifier);
 
     // Check if user is already verified
@@ -85,19 +86,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (isVerified || (!otpEnabled && loginWithoutOtpAllowed)) {
       setState(() => _isLoading = false);
       if (mounted) {
-        if (universityId != null) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-            (route) => false,
-          );
-        } else {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const UniversitySelectionScreen()),
-            (route) => false,
-          );
-        }
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
       }
       return;
     }
@@ -134,6 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
               token: token,
               isEmail: isEmail,
               universityId: universityId,
+              facultyId: facultyId,
+              centerIds: centerIds,
             ),
           ),
         );

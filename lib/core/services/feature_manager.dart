@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../models/watermark_config.dart';
 
 /// Feature model representing a single feature flag or setting
 class Feature {
@@ -358,29 +360,42 @@ class FeatureManager extends ChangeNotifier {
 
   /// Watermark settings helpers
   /// Handles API keys like: feature_watermark_pdfs_enabled, enable_watermark_videos_enabled
-  WatermarkSettings getWatermarkSettings(String type) {
-    // Map internal type to API type (files -> pdfs)
+  WatermarkConfig getWatermarkConfig(String type) {
     final apiType = _mapTypeToApi(type);
 
-    // Check for enabled flag with various prefixes
     final bool enabled = _isWatermarkEnabled(type, apiType);
+    final String text = _getWatermarkSetting('text', type, apiType, defaultValue: platformName);
+    final bool useStudentCode = _isWatermarkEnabled(type, apiType, suffix: 'use_student_code');
+    final String positionStr = _getWatermarkSetting('position', type, apiType, defaultValue: 'center');
+    final double opacity = (double.tryParse(_getWatermarkSetting('opacity', type, apiType, defaultValue: '20')) ?? 20) / 100.0;
+    final double rotationDegrees = double.tryParse(_getWatermarkSetting('rotation', type, apiType, defaultValue: '-12')) ?? -12.0;
+    final String size = _getWatermarkSetting('size', type, apiType, defaultValue: 'medium');
 
-    // Get other settings (try with and without prefixes)
-    final text = _getWatermarkSetting('text', type, apiType, defaultValue: platformName);
-    final opacityValue = _getWatermarkSetting('opacity', type, apiType, defaultValue: '20');
-    final rotationValue = _getWatermarkSetting('rotation', type, apiType, defaultValue: '-12');
-    final size = _getWatermarkSetting('size', type, apiType, defaultValue: 'medium');
-    final position = _getWatermarkSetting('position', type, apiType, defaultValue: 'full');
-    final useStudentCode = _isWatermarkEnabled(type, apiType, suffix: 'use_student_code');
+    final bool dynamicPosition = _isWatermarkEnabled(type, apiType, suffix: 'dynamic_position');
+    final int dynamicInterval = int.tryParse(_getWatermarkSetting('dynamic_interval', type, apiType, defaultValue: '10')) ?? 10;
+    final bool randomCoordinates = _isWatermarkEnabled(type, apiType, suffix: 'random_coordinates');
+    
+    final String animationStyleStr = _getWatermarkSetting('animation_style', type, apiType, defaultValue: 'slide');
+    final String easingTypeStr = _getWatermarkSetting('easing_type', type, apiType, defaultValue: 'linear');
 
-    return WatermarkSettings(
+    final bool voiceEnabled = _isWatermarkEnabled(type, apiType, suffix: 'voice_enabled');
+    final int voiceInterval = int.tryParse(_getWatermarkSetting('voice_interval', type, apiType, defaultValue: '5')) ?? 5;
+
+    return WatermarkConfig(
       enabled: enabled,
       text: text,
-      opacity: (int.tryParse(opacityValue) ?? 20) / 100.0,
-      rotation: double.tryParse(rotationValue) ?? -12.0,
-      size: size,
-      position: position,
       useStudentCode: useStudentCode,
+      position: WatermarkConfig.parsePosition(positionStr),
+      opacity: opacity,
+      rotation: rotationDegrees * (math.pi / 180.0), // convert to radians
+      size: size,
+      dynamicPosition: dynamicPosition,
+      dynamicInterval: dynamicInterval,
+      randomCoordinates: randomCoordinates,
+      animationStyle: WatermarkConfig.parseAnimationStyle(animationStyleStr),
+      easingType: WatermarkConfig.parseEasingType(easingTypeStr),
+      voiceEnabled: voiceEnabled,
+      voiceInterval: voiceInterval,
     );
   }
 
@@ -439,39 +454,5 @@ class FeatureManager extends ChangeNotifier {
   void dispose() {
     _featureChangesController.close();
     super.dispose();
-  }
-}
-
-/// Watermark configuration
-class WatermarkSettings {
-  final bool enabled;
-  final String text;
-  final double opacity;
-  final double rotation;
-  final String size;
-  final String position;
-  final bool useStudentCode;
-
-  WatermarkSettings({
-    required this.enabled,
-    required this.text,
-    required this.opacity,
-    required this.rotation,
-    required this.size,
-    required this.position,
-    required this.useStudentCode,
-  });
-
-  /// Get font size based on size setting
-  double get fontSize {
-    switch (size.toLowerCase()) {
-      case 'small':
-        return 12.0;
-      case 'large':
-        return 24.0;
-      case 'medium':
-      default:
-        return 18.0;
-    }
   }
 }

@@ -50,4 +50,7 @@ class ApiConstants {
 
   // Feature flags endpoint
   static const String features = '/v1/feature';
+
+  // Chapter view count endpoint
+  static const String chapterViewCount = '/v1/chapter-view-count';
 }

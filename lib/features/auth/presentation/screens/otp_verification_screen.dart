@@ -12,7 +12,9 @@ class OtpVerificationScreen extends StatefulWidget {
   final String phone;
   final String token;
   final bool isEmail;
-  final dynamic universityId; // Added this
+  final dynamic universityId;
+  final dynamic facultyId;
+  final dynamic centerIds;
   const OtpVerificationScreen({
     super.key,
     required this.isRegister,
@@ -20,6 +22,8 @@ class OtpVerificationScreen extends StatefulWidget {
     required this.token,
     required this.isEmail,
     this.universityId,
+    this.facultyId,
+    this.centerIds,
   });
 
   @override
@@ -271,7 +275,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               PrimaryButton(
                 text: 'auth.go_home'.tr(),
                 onPressed: () {
-                  if (widget.universityId != null) {
+                  // Check if user has completed all academic selections (university, faculty, centers)
+                  final hasCompleteProfile = widget.universityId != null &&
+                      widget.facultyId != null &&
+                      widget.centerIds != null &&
+                      widget.centerIds is List &&
+                      widget.centerIds.isNotEmpty;
+                  if (hasCompleteProfile) {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (context) => const MainScreen()),
