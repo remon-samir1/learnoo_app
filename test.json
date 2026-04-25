@@ -1,531 +1,1371 @@
-
-
 {
     "data": [
         {
-            "id": "179",
-            "type": "department",
+            "id": "7",
+            "type": "features",
             "attributes": {
-                "image": null,
-                "name": "dep",
-                "order": 1,
-                "stats": {
-                    "courses": 1,
-                    "students": 0
-                },
-                "parent_id": 178,
-                "parent": {
-                    "data": {
-                        "id": "178",
-                        "type": "faculty",
-                        "attributes": {
-                            "image": null,
-                            "name": "f",
-                            "order": 0,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 177,
-                            "created_at": "2026-04-23T21:34:56.000000Z",
-                            "updated_at": "2026-04-23T21:34:56.000000Z"
-                        }
-                    }
-                },
-                "courses": [
-                    {
-                        "id": "30",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "test",
-                            "sub_title": null,
-                            "description": null,
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/m6CE56BGNLmxe761E717gADlOEDVfaNPaC0QwxIM.png",
-                            "objectives": null,
-                            "price": "5.00",
-                            "max_views_per_student": 10,
-                            "approval": 0,
-                            "status": 0,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 1,
-                                "chapters": 5,
-                                "notes": 1,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:35:11",
-                            "updated_at": "2026-04-23 21:36:18"
-                        }
-                    }
-                ],
-                "childrens": [],
-                "created_at": "2026-04-23T21:35:03.000000Z",
-                "updated_at": "2026-04-23T21:35:03.000000Z"
+                "key": "platform_name",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:03+00:00",
+                "updated_at": "2026-04-13T23:51:03+00:00"
             }
         },
         {
-            "id": "180",
-            "type": "department",
+            "id": "8",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/D9WwC51bLgJAS0fYAgigJAgFxgZZPvTi4JxPl8Ha.jpg",
-                "name": "التيرم الثاني",
-                "order": 1,
-                "stats": {
-                    "courses": 0,
-                    "students": 0
-                },
-                "parent_id": 176,
-                "parent": {
-                    "data": {
-                        "id": "176",
-                        "type": "faculty",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/AlCRvkJ8kxGXXJuj0If4Q9YyVkRxYO1f4YJ3WoI4.jpg",
-                            "name": "كلية التجارة وادارة الاعمال",
-                            "order": 0,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 174,
-                            "created_at": "2026-04-23T21:34:47.000000Z",
-                            "updated_at": "2026-04-23T23:16:34.000000Z"
-                        }
-                    }
-                },
-                "courses": [],
-                "childrens": [
-                    {
-                        "id": "182",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/zMM5sTRPSaereQYLuag7XRyNP7Dmz42DhcXvfa6F.jpg",
-                            "name": "انتساب",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 180,
-                            "created_at": "2026-04-23T21:40:41.000000Z",
-                            "updated_at": "2026-04-23T21:40:41.000000Z"
-                        }
-                    },
-                    {
-                        "id": "183",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/n6QhKISrohQW3sF5eo2ODIC5HV3952MU4PYkDxjx.jpg",
-                            "name": "انتظام",
-                            "order": 2,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 180,
-                            "created_at": "2026-04-23T21:41:26.000000Z",
-                            "updated_at": "2026-04-23T21:41:26.000000Z"
-                        }
-                    }
-                ],
-                "created_at": "2026-04-23T21:36:24.000000Z",
-                "updated_at": "2026-04-23T21:36:24.000000Z"
+                "key": "tagline",
+                "value": "Your Learning Platform",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:03+00:00",
+                "updated_at": "2026-04-13T23:51:03+00:00"
             }
         },
         {
-            "id": "182",
-            "type": "department",
+            "id": "9",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/zMM5sTRPSaereQYLuag7XRyNP7Dmz42DhcXvfa6F.jpg",
-                "name": "انتساب",
-                "order": 1,
-                "stats": {
-                    "courses": 0,
-                    "students": 0
-                },
-                "parent_id": 180,
-                "parent": {
-                    "data": {
-                        "id": "180",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/D9WwC51bLgJAS0fYAgigJAgFxgZZPvTi4JxPl8Ha.jpg",
-                            "name": "التيرم الثاني",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 176,
-                            "created_at": "2026-04-23T21:36:24.000000Z",
-                            "updated_at": "2026-04-23T21:36:24.000000Z"
-                        }
-                    }
-                },
-                "courses": [],
-                "childrens": [
-                    {
-                        "id": "184",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/RwAsLbjP0yUwhZaH8i4TLNiyj10gnaXENL5p63hd.jpg",
-                            "name": "الفرقة الاولى",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 182,
-                            "created_at": "2026-04-23T21:42:04.000000Z",
-                            "updated_at": "2026-04-23T21:42:04.000000Z"
-                        }
-                    }
-                ],
-                "created_at": "2026-04-23T21:40:41.000000Z",
-                "updated_at": "2026-04-23T21:40:41.000000Z"
+                "key": "support_email",
+                "value": "support@example.com",
+                "group": "general",
+                "type": "email",
+                "created_at": "2026-04-13T23:51:04+00:00",
+                "updated_at": "2026-04-13T23:51:04+00:00"
             }
         },
         {
-            "id": "183",
-            "type": "department",
+            "id": "10",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/n6QhKISrohQW3sF5eo2ODIC5HV3952MU4PYkDxjx.jpg",
-                "name": "انتظام",
-                "order": 2,
-                "stats": {
-                    "courses": 0,
-                    "students": 0
-                },
-                "parent_id": 180,
-                "parent": {
-                    "data": {
-                        "id": "180",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/D9WwC51bLgJAS0fYAgigJAgFxgZZPvTi4JxPl8Ha.jpg",
-                            "name": "التيرم الثاني",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 176,
-                            "created_at": "2026-04-23T21:36:24.000000Z",
-                            "updated_at": "2026-04-23T21:36:24.000000Z"
-                        }
-                    }
-                },
-                "courses": [],
-                "childrens": [],
-                "created_at": "2026-04-23T21:41:26.000000Z",
-                "updated_at": "2026-04-23T21:41:26.000000Z"
+                "key": "logo",
+                "value": "https://api.learnoo.app/storage/uploads/settings/5bPdE0iE3duyy9eMbEvXRFJGV80bh2FQ65iRVX9n.png",
+                "group": "general",
+                "type": "file",
+                "created_at": "2026-04-13T23:51:04+00:00",
+                "updated_at": "2026-04-20T04:56:41+00:00"
             }
         },
         {
-            "id": "184",
-            "type": "department",
+            "id": "11",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/RwAsLbjP0yUwhZaH8i4TLNiyj10gnaXENL5p63hd.jpg",
-                "name": "الفرقة الاولى",
-                "order": 1,
-                "stats": {
-                    "courses": 0,
-                    "students": 0
-                },
-                "parent_id": 182,
-                "parent": {
-                    "data": {
-                        "id": "182",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/zMM5sTRPSaereQYLuag7XRyNP7Dmz42DhcXvfa6F.jpg",
-                            "name": "انتساب",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 180,
-                            "created_at": "2026-04-23T21:40:41.000000Z",
-                            "updated_at": "2026-04-23T21:40:41.000000Z"
-                        }
-                    }
-                },
-                "courses": [],
-                "childrens": [
-                    {
-                        "id": "185",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/Cy0oVqV1UNdnxgRabdRarvwo6F0EzItUKTKOg9X4.jpg",
-                            "name": "كورسات",
-                            "order": 1,
-                            "stats": {
-                                "courses": 6,
-                                "students": 0
-                            },
-                            "parent_id": 184,
-                            "created_at": "2026-04-23T21:43:16.000000Z",
-                            "updated_at": "2026-04-23T21:43:16.000000Z"
-                        }
-                    },
-                    {
-                        "id": "186",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/PHVWq2TVMHK5riC49M1bcNJmNw6ut74swLkmLehL.jpg",
-                            "name": "مراجعات نهائية",
-                            "order": 2,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 184,
-                            "created_at": "2026-04-23T21:44:01.000000Z",
-                            "updated_at": "2026-04-23T21:44:01.000000Z"
-                        }
-                    }
-                ],
-                "created_at": "2026-04-23T21:42:04.000000Z",
-                "updated_at": "2026-04-23T21:42:04.000000Z"
+                "key": "primary_color",
+                "value": "#0xFF2137D6",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:05+00:00",
+                "updated_at": "2026-04-17T14:18:40+00:00"
             }
         },
         {
-            "id": "185",
-            "type": "department",
+            "id": "12",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/Cy0oVqV1UNdnxgRabdRarvwo6F0EzItUKTKOg9X4.jpg",
-                "name": "كورسات",
-                "order": 1,
-                "stats": {
-                    "courses": 6,
-                    "students": 0
-                },
-                "parent_id": 184,
-                "parent": {
-                    "data": {
-                        "id": "184",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/RwAsLbjP0yUwhZaH8i4TLNiyj10gnaXENL5p63hd.jpg",
-                            "name": "الفرقة الاولى",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 182,
-                            "created_at": "2026-04-23T21:42:04.000000Z",
-                            "updated_at": "2026-04-23T21:42:04.000000Z"
-                        }
-                    }
-                },
-                "courses": [
-                    {
-                        "id": "31",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "اقتصاد جزئي",
-                            "sub_title": "اقتصاد اولى انتساب",
-                            "description": "شرح تفصيلي  لمحتوبات المنهج وتدريب على اسئلة الامنحان",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/SfqOMp6a0FGpBBUGO4FAHCBzwyVlHe17lqVIU11L.jpg",
-                            "objectives": "توصيل المعلومة للطالب بابسط الطرق",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 1,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 1,
-                                "chapters": 1,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 1
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:46:01",
-                            "updated_at": "2026-04-23 21:46:01"
-                        }
-                    },
-                    {
-                        "id": "32",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "محاسبة",
-                            "sub_title": "محاسبة اولى انتساب",
-                            "description": "شرح مبسط",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/vWkfhPGOOYuw5xA8Uxx0rRUSPxD5bxD0Sx9dBa4S.jpg",
-                            "objectives": "توصيل المعلومة",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 1,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 1,
-                                "chapters": 1,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:47:17",
-                            "updated_at": "2026-04-23 21:47:17"
-                        }
-                    },
-                    {
-                        "id": "33",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "ادارة عامة",
-                            "sub_title": "ادارة - اولى انتساب",
-                            "description": "شرح مبسط",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/0K6JA6x1GdMvDOWLQjhSubYd5MehW4WkQiR11tXO.jpg",
-                            "objectives": "توصيل المعلومة بسهولة",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 0,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 0,
-                                "chapters": 0,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:48:18",
-                            "updated_at": "2026-04-23 21:48:18"
-                        }
-                    },
-                    {
-                        "id": "34",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "تطور و موارد",
-                            "sub_title": "تطور اولى انتساب",
-                            "description": "شرج مبسط",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/Wn2gFUyFmJByRoVlYpo1Cy13XuvbdWiAYym5XmYz.jpg",
-                            "objectives": "توصيل المعلومة",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 1,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 0,
-                                "chapters": 0,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:49:27",
-                            "updated_at": "2026-04-23 21:49:27"
-                        }
-                    },
-                    {
-                        "id": "35",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "حاسب الى",
-                            "sub_title": "اولى انتساب",
-                            "description": "شرح مبسط",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/sqdo6G1jLOax5KTjM6gX5yginSAIN5wQtaJC39gV.jpg",
-                            "objectives": "توصي المعلومة بسلاسة",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 1,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 1,
-                                "chapters": 1,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:50:29",
-                            "updated_at": "2026-04-23 21:50:29"
-                        }
-                    },
-                    {
-                        "id": "36",
-                        "type": "courses",
-                        "attributes": {
-                            "title": "سلوك ادارى",
-                            "sub_title": "سلوك - اولى انتساب",
-                            "description": "شرح مبسط",
-                            "thumbnail": "https://api.learnoo.app/storage/uploads/thumbnails/KsURBJLvfQoiGkBKkFdaWb3SjYhyKDfui2O8yo1I.jpg",
-                            "objectives": "توصيل معلومة",
-                            "price": "0.00",
-                            "max_views_per_student": 5,
-                            "approval": 0,
-                            "status": 1,
-                            "reason": null,
-                            "stats": {
-                                "lectures": 0,
-                                "chapters": 0,
-                                "notes": 0,
-                                "exams": 0,
-                                "students": 0
-                            },
-                            "chapter_attachments": [],
-                            "chapter_discussions": [],
-                            "created_at": "2026-04-23 21:51:33",
-                            "updated_at": "2026-04-23 21:51:33"
-                        }
-                    }
-                ],
-                "childrens": [],
-                "created_at": "2026-04-23T21:43:16.000000Z",
-                "updated_at": "2026-04-23T21:43:16.000000Z"
+                "key": "accent_color",
+                "value": "#ffffff",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:05+00:00",
+                "updated_at": "2026-04-17T14:18:40+00:00"
             }
         },
         {
-            "id": "186",
-            "type": "department",
+            "id": "13",
+            "type": "features",
             "attributes": {
-                "image": "https://api.learnoo.app/storage/uploads/images/PHVWq2TVMHK5riC49M1bcNJmNw6ut74swLkmLehL.jpg",
-                "name": "مراجعات نهائية",
-                "order": 2,
-                "stats": {
-                    "courses": 0,
-                    "students": 0
-                },
-                "parent_id": 184,
-                "parent": {
-                    "data": {
-                        "id": "184",
-                        "type": "department",
-                        "attributes": {
-                            "image": "https://api.learnoo.app/storage/uploads/images/RwAsLbjP0yUwhZaH8i4TLNiyj10gnaXENL5p63hd.jpg",
-                            "name": "الفرقة الاولى",
-                            "order": 1,
-                            "stats": {
-                                "courses": 0,
-                                "students": 0
-                            },
-                            "parent_id": 182,
-                            "created_at": "2026-04-23T21:42:04.000000Z",
-                            "updated_at": "2026-04-23T21:42:04.000000Z"
-                        }
-                    }
-                },
-                "courses": [],
-                "childrens": [],
-                "created_at": "2026-04-23T21:44:01.000000Z",
-                "updated_at": "2026-04-23T21:44:01.000000Z"
+                "key": "font_family",
+                "value": "Open Sans",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:06+00:00",
+                "updated_at": "2026-04-20T10:52:23+00:00"
+            }
+        },
+        {
+            "id": "14",
+            "type": "features",
+            "attributes": {
+                "key": "terms_of_service",
+                "value": "Welcome to Learnoo. By using our platform, you agree to these Terms of Service.\n\n1. Account Registration You must provide accurate information when creating an account.\n\n2. Content Usage All course content is for personal educational use only.\n\n3. Payments All purchases are final unless stated otherwise.",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:07+00:00",
+                "updated_at": "2026-04-19T01:20:11+00:00"
+            }
+        },
+        {
+            "id": "15",
+            "type": "features",
+            "attributes": {
+                "key": "privacy_policy",
+                "value": "Learnoo Privacy Policy\n\nWe collect and process your data to provide educational services.\n\n1. Data Collection We collect name, email, phone, and usage data.\n\n2. Data Usage Your data is used to personalize your learning experience.\n\n3. Data Sharing We do not sell your personal data to third parties.",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-13T23:51:07+00:00",
+                "updated_at": "2026-04-19T01:20:11+00:00"
+            }
+        },
+        {
+            "id": "16",
+            "type": "features",
+            "attributes": {
+                "key": "feature_library_purchases",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-15T07:27:49+00:00"
+            }
+        },
+        {
+            "id": "17",
+            "type": "features",
+            "attributes": {
+                "key": "feature_otp_verification",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-23T22:03:25+00:00"
+            }
+        },
+        {
+            "id": "18",
+            "type": "features",
+            "attributes": {
+                "key": "feature_electronic_library",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-23T22:04:27+00:00"
+            }
+        },
+        {
+            "id": "19",
+            "type": "features",
+            "attributes": {
+                "key": "feature_continue_watching",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-22T23:06:41+00:00"
+            }
+        },
+        {
+            "id": "20",
+            "type": "features",
+            "attributes": {
+                "key": "feature_login_without_otp",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-22T23:06:41+00:00"
+            }
+        },
+        {
+            "id": "21",
+            "type": "features",
+            "attributes": {
+                "key": "feature_profile_editing",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-15T07:27:49+00:00",
+                "updated_at": "2026-04-24T00:13:57+00:00"
+            }
+        },
+        {
+            "id": "35",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_position",
+                "value": "topLeft",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-24T21:13:04+00:00"
+            }
+        },
+        {
+            "id": "36",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_size",
+                "value": "large",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-21T17:20:13+00:00"
+            }
+        },
+        {
+            "id": "37",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_opacity",
+                "value": "50",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-23T11:45:51+00:00"
+            }
+        },
+        {
+            "id": "38",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_size",
+                "value": "medium",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "39",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "40",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_rotation",
+                "value": "-1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-23T00:53:09+00:00"
+            }
+        },
+        {
+            "id": "41",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_text",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "42",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-17T12:26:30+00:00"
+            }
+        },
+        {
+            "id": "43",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-21T17:01:26+00:00"
+            }
+        },
+        {
+            "id": "44",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_opacity",
+                "value": "50",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-25T03:02:17+00:00"
+            }
+        },
+        {
+            "id": "45",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_rotation",
+                "value": "-12",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "46",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_opacity",
+                "value": "41",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-17T12:26:30+00:00"
+            }
+        },
+        {
+            "id": "47",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_position",
+                "value": "center",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-25T03:04:18+00:00"
+            }
+        },
+        {
+            "id": "48",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_opacity",
+                "value": "20",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "49",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_size",
+                "value": "medium",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "50",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-24T23:22:40+00:00"
+            }
+        },
+        {
+            "id": "51",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-23T12:02:07+00:00"
+            }
+        },
+        {
+            "id": "52",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_text",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "53",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_position",
+                "value": "full",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "54",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_enabled",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:35:26+00:00"
+            }
+        },
+        {
+            "id": "55",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_rotation",
+                "value": "-12",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "56",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_position",
+                "value": "topLeft",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-22T15:26:35+00:00"
+            }
+        },
+        {
+            "id": "57",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_text",
+                "value": "WATERMARK",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-23T12:50:27+00:00"
+            }
+        },
+        {
+            "id": "58",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_size",
+                "value": "large",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-23T12:50:10+00:00"
+            }
+        },
+        {
+            "id": "59",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_rotation",
+                "value": "-12",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "60",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_size",
+                "value": "large",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-25T03:04:18+00:00"
+            }
+        },
+        {
+            "id": "61",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-17T12:26:30+00:00"
+            }
+        },
+        {
+            "id": "62",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_text",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "63",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_rotation",
+                "value": "-12",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "64",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_opacity",
+                "value": "50",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-21T17:20:14+00:00"
+            }
+        },
+        {
+            "id": "65",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_position",
+                "value": "bottomRight",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-18T11:30:39+00:00"
+            }
+        },
+        {
+            "id": "66",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_position",
+                "value": "full",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "67",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "68",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "69",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_opacity",
+                "value": "20",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "70",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "71",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-21T17:38:50+00:00"
+            }
+        },
+        {
+            "id": "72",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_size",
+                "value": "medium",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "73",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_text",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "74",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_rotation",
+                "value": "17",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-21T17:38:50+00:00"
+            }
+        },
+        {
+            "id": "75",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_text",
+                "value": "Learnoo",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "76",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_use_student_code",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-16T23:33:15+00:00",
+                "updated_at": "2026-04-16T23:33:15+00:00"
+            }
+        },
+        {
+            "id": "77",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-23T18:22:40+00:00"
+            }
+        },
+        {
+            "id": "78",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_animation_style",
+                "value": "fade",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-23T12:40:32+00:00"
+            }
+        },
+        {
+            "id": "79",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-22T15:26:35+00:00"
+            }
+        },
+        {
+            "id": "80",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "81",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_animation_style",
+                "value": "glide",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "82",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "83",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_dynamic_interval",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-23T12:40:32+00:00"
+            }
+        },
+        {
+            "id": "84",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "85",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-23T12:43:26+00:00"
+            }
+        },
+        {
+            "id": "86",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "87",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "88",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "89",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_dynamic_interval",
+                "value": "2",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "90",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "91",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_animation_style",
+                "value": "scale",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T17:38:51+00:00"
+            }
+        },
+        {
+            "id": "92",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_animation_style",
+                "value": "glide",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "93",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_dynamic_interval",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T17:20:13+00:00"
+            }
+        },
+        {
+            "id": "94",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_dynamic_interval",
+                "value": "2",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "95",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "96",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_dynamic_interval",
+                "value": "2",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "97",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_dynamic_interval",
+                "value": "2",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "98",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "99",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "100",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "101",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "102",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "103",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "104",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_dynamic_position",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "105",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "106",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "107",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_easing_type",
+                "value": "easeInOut",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "108",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_movement_pattern",
+                "value": "random",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "109",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "110",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_random_coordinates",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-22T15:26:35+00:00"
+            }
+        },
+        {
+            "id": "111",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_animation_style",
+                "value": "glide",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "112",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_animation_style",
+                "value": "glide",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-21T15:20:32+00:00",
+                "updated_at": "2026-04-21T15:20:32+00:00"
+            }
+        },
+        {
+            "id": "113",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_voice_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "114",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_voice_interval",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-23T11:59:08+00:00"
+            }
+        },
+        {
+            "id": "115",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_voice_interval",
+                "value": "5",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "116",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_voice_enabled",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "117",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_voice_enabled",
+                "value": "1",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-23T00:53:09+00:00"
+            }
+        },
+        {
+            "id": "118",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_voice_interval",
+                "value": "5",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "119",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_voice_enabled",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "120",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_voice_enabled",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "121",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_voice_interval",
+                "value": "5",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "122",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_voice_enabled",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "123",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_voice_interval",
+                "value": "5",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:42+00:00",
+                "updated_at": "2026-04-22T12:58:42+00:00"
+            }
+        },
+        {
+            "id": "124",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_voice_interval",
+                "value": "5",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T12:58:43+00:00",
+                "updated_at": "2026-04-22T12:58:43+00:00"
+            }
+        },
+        {
+            "id": "125",
+            "type": "features",
+            "attributes": {
+                "key": "feature_single_device_access",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T23:06:41+00:00",
+                "updated_at": "2026-04-22T23:06:41+00:00"
+            }
+        },
+        {
+            "id": "126",
+            "type": "features",
+            "attributes": {
+                "key": "feature_screen_share_max_resolution",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T23:06:41+00:00",
+                "updated_at": "2026-04-22T23:06:41+00:00"
+            }
+        },
+        {
+            "id": "127",
+            "type": "features",
+            "attributes": {
+                "key": "feature_block_screenshots",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-22T23:06:41+00:00",
+                "updated_at": "2026-04-23T01:01:40+00:00"
+            }
+        },
+        {
+            "id": "128",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_chapters_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:40+00:00",
+                "updated_at": "2026-04-23T18:22:40+00:00"
+            }
+        },
+        {
+            "id": "129",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_library_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:40+00:00",
+                "updated_at": "2026-04-23T18:22:40+00:00"
+            }
+        },
+        {
+            "id": "130",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_files_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:41+00:00",
+                "updated_at": "2026-04-23T18:22:41+00:00"
+            }
+        },
+        {
+            "id": "131",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_exams_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:41+00:00",
+                "updated_at": "2026-04-23T18:22:41+00:00"
+            }
+        },
+        {
+            "id": "132",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_liveStreams_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:41+00:00",
+                "updated_at": "2026-04-23T18:22:41+00:00"
+            }
+        },
+        {
+            "id": "133",
+            "type": "features",
+            "attributes": {
+                "key": "watermark_videos_use_phone_number",
+                "value": "0",
+                "group": "general",
+                "type": "text",
+                "created_at": "2026-04-23T18:22:41+00:00",
+                "updated_at": "2026-04-23T18:22:41+00:00"
             }
         }
     ]

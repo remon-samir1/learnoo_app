@@ -124,16 +124,16 @@ AnimatedPositioned(
                         Text(
                           widget.userName,
                           style: widget.style?.copyWith(
-                                color: (widget.style?.color ?? Colors.white).withOpacity(widget.opacity),
+                                color: (widget.style?.color ?? Colors.black54).withOpacity(widget.opacity),
                               ) ??
                               TextStyle(
-                                color: Colors.white.withOpacity(widget.opacity),
+                                color: Colors.black54.withOpacity(widget.opacity),
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 shadows: const [
                                   Shadow(
                                     blurRadius: 3,
-                                    color: Colors.black54,
+                                    color: Colors.white,
                                     offset: Offset(1, 1),
                                   ),
                                 ],

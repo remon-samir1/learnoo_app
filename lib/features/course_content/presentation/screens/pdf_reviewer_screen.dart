@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:dio/dio.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart' as pdf_lib;
+import 'package:dio/dio.dart';
 import '../../../../core/widgets/watermark_wrapper.dart';
 import '../../../../core/services/feature_manager.dart';
+import '../../../../core/services/download_service.dart';
 import '../../../auth/data/auth_repository.dart';
+import '../models/pdf_annotation.dart';
+import '../managers/pdf_annotation_manager.dart';
 
 class PdfReviewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -25,35 +27,84 @@ class PdfReviewerScreen extends StatefulWidget {
   State<PdfReviewerScreen> createState() => _PdfReviewerScreenState();
 }
 
-enum AnnotationMode { none, highlight, underline, squiggly, strikethrough, ink }
+enum AnnotationMode { none, pen, highlighter, eraser }
 
 class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
   bool _isLoading = false;
-  double _downloadProgress = 0;
+  String? _localFilePath;
+  bool _isInitializing = true;
+  String? _initError;
 
+  // Download service
+  final DownloadService _downloadService = DownloadService();
+
+  // Annotation manager
+  final PdfAnnotationManager _annotationManager = PdfAnnotationManager();
+  
   // Annotation state
   AnnotationMode _currentAnnotationMode = AnnotationMode.none;
-  Color _annotationColor = Colors.yellow;
   bool _showAnnotationToolbar = false;
   final FeatureManager _featureManager = FeatureManager();
   String _userId = '';
 
+  // Current drawing state
+  List<AnnotationPoint> _currentStrokePoints = [];
+
   // Available annotation colors
   final List<Color> _annotationColors = [
-    Colors.yellow,
-    Colors.green,
     Colors.red,
     Colors.blue,
+    Colors.green,
+    Colors.yellow,
     Colors.purple,
     Colors.orange,
+    Colors.black,
   ];
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _initializePdf();
+  }
+
+  Future<void> _initializePdf() async {
+    try {
+      setState(() {
+        _isInitializing = true;
+        _initError = null;
+      });
+
+      final fileName = '${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
+      final result = await _downloadService.downloadFile(
+        url: widget.pdfUrl,
+        fileName: fileName,
+        subDirectory: 'temp',
+      );
+
+      if (mounted) {
+        if (result.status == DownloadStatus.completed && result.localPath != null) {
+          setState(() {
+            _localFilePath = result.localPath;
+            _isInitializing = false;
+          });
+        } else if (result.status == DownloadStatus.failed) {
+          setState(() {
+            _initError = result.errorMessage ?? 'Failed to load PDF';
+            _isInitializing = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _initError = 'Error loading PDF: $e';
+          _isInitializing = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -73,6 +124,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
 
   Future<void> _downloadPdf() async {
     try {
+      // Request storage permission on Android
       if (Platform.isAndroid) {
         var status = await Permission.storage.status;
         if (!status.isGranted) {
@@ -88,26 +140,25 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
         }
       }
 
-      setState(() {
-        _isLoading = true;
-        _downloadProgress = 0;
-      });
+      setState(() => _isLoading = true);
 
+      // Get public storage directory
       final directory = Platform.isAndroid
           ? await getExternalStorageDirectory()
           : await getApplicationDocumentsDirectory();
-      
-      final fileName = '${widget.title.replaceAll(' ', '_')}.pdf';
-      final filePath = '${directory!.path}/$fileName';
 
-      await Dio().download(
+      final fileName = '${widget.title.replaceAll(' ', '_')}.pdf';
+      final targetPath = '${directory!.path}/$fileName';
+
+      // Download from URL to public storage
+      final dio = Dio();
+      await dio.download(
         widget.pdfUrl,
-        filePath,
-        onReceiveProgress: (count, total) {
-          if (total != -1) {
-            setState(() {
-              _downloadProgress = count / total;
-            });
+        targetPath,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            final progress = received / total;
+            // Optionally update progress indicator if needed
           }
         },
       );
@@ -115,7 +166,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloaded to $filePath')),
+          SnackBar(content: Text('Downloaded to $targetPath')),
         );
       }
     } catch (e) {
@@ -131,64 +182,278 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
   void _setAnnotationMode(AnnotationMode mode) {
     setState(() {
       _currentAnnotationMode = mode;
+      _currentStrokePoints.clear();
+      
+      // Update annotation manager settings
+      if (mode == AnnotationMode.pen) {
+        _annotationManager.isHighlighterMode = false;
+      } else if (mode == AnnotationMode.highlighter) {
+        _annotationManager.isHighlighterMode = true;
+      }
     });
   }
 
   void _setAnnotationColor(Color color) {
     setState(() {
-      _annotationColor = color;
+      _annotationManager.currentColor = color;
     });
   }
 
-  AnnotationMode _getAnnotationModeFromSelection() {
-    switch (_currentAnnotationMode) {
-      case AnnotationMode.highlight:
-        return AnnotationMode.highlight;
-      case AnnotationMode.underline:
-        return AnnotationMode.underline;
-      case AnnotationMode.squiggly:
-        return AnnotationMode.squiggly;
-      case AnnotationMode.strikethrough:
-        return AnnotationMode.strikethrough;
-      default:
-        return AnnotationMode.none;
+  void _setStrokeWidth(double width) {
+    setState(() {
+      _annotationManager.currentStrokeWidth = width;
+    });
+  }
+
+  void _eraseNearbyPoints(Offset position) {
+    final pageNumber = _pdfViewerController.pageNumber;
+    if (pageNumber == 0) return;
+    
+    final eraseRadius = _annotationManager.currentStrokeWidth * 5;
+    final annotations = _annotationManager.getAnnotationsForPage(pageNumber);
+    
+    setState(() {
+      for (final stroke in annotations) {
+        stroke.points.removeWhere((point) {
+          return (point.offset - position).distance < eraseRadius;
+        });
+      }
+      // Remove empty strokes
+      annotations.removeWhere((stroke) => stroke.points.isEmpty);
+    });
+  }
+
+  Future<void> _saveCurrentStroke() async {
+    if (_currentStrokePoints.length < 2) {
+      _currentStrokePoints.clear();
+      return;
     }
+
+    final pageNumber = _pdfViewerController.pageNumber;
+    if (pageNumber == 0) return;
+
+    // Create stroke from current points
+    final stroke = InkStroke(
+      points: List.from(_currentStrokePoints),
+      color: _annotationManager.currentColor,
+      strokeWidth: _annotationManager.currentStrokeWidth,
+      isHighlighter: _annotationManager.isHighlighterMode,
+    );
+
+    // Add to annotation manager
+    _annotationManager.addStroke(pageNumber, stroke);
+    
+    // Clear current stroke points
+    _currentStrokePoints.clear();
+
+    // Auto-save to PDF
+    await _autoSaveToPdf();
+  }
+
+  Future<void> _autoSaveToPdf() async {
+    if (_localFilePath == null) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final success = await _annotationManager.saveToPdf(_localFilePath!);
+      
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (success) {
+          // Optionally show a subtle indicator that auto-save happened
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to save annotation')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error auto-saving: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _discardChanges() async {
+    if (_localFilePath == null) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // Discard all annotations
+      _annotationManager.discardAll();
+      _currentStrokePoints.clear();
+      
+      // Reload the original PDF
+      await _initializePdf();
+      
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Changes discarded')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error discarding changes: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_annotationManager.hasUnsavedChanges) {
+      return true;
+    }
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text('You have unsaved annotations. What would you like to do?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _discardChanges();
+              Navigator.pop(context, true);
+            },
+            child: const Text('Discard'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _autoSaveToPdf();
+              Navigator.pop(context, true);
+            },
+            child: const Text('Save & Close'),
+          ),
+        ],
+      ),
+    );
+    
+    return result ?? false;
+  }
+
+  void _undo() {
+    final pageNumber = _pdfViewerController.pageNumber;
+    if (pageNumber == 0) return;
+    
+    _annotationManager.undo(pageNumber);
+    setState(() {});
+    
+    // Re-save after undo
+    _autoSaveToPdf();
+  }
+
+  void _clearCurrentPage() {
+    final pageNumber = _pdfViewerController.pageNumber;
+    if (pageNumber == 0) return;
+    
+    _annotationManager.clearPage(pageNumber);
+    setState(() {});
+    
+    // Re-save after clearing
+    _autoSaveToPdf();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            icon: FaIcon(
-              _showAnnotationToolbar ? FontAwesomeIcons.penToSquare : FontAwesomeIcons.highlighter,
-              size: 20,
-              color: _showAnnotationToolbar ? Colors.orange : null,
+    // Show initialization loading
+    if (_isInitializing) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title)),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading PDF...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show initialization error
+    if (_initError != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title)),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_initError!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _initializePdf,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+          actions: [
+            // Undo button
+            if (_showAnnotationToolbar)
+              IconButton(
+                icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 20),
+                onPressed: _annotationManager.canUndo(_pdfViewerController.pageNumber)
+                    ? _undo
+                    : null,
+                tooltip: 'Undo',
+              ),
+            // Annotation toggle button
+            IconButton(
+              icon: FaIcon(
+                _showAnnotationToolbar ? FontAwesomeIcons.penToSquare : FontAwesomeIcons.highlighter,
+                size: 20,
+                color: _showAnnotationToolbar ? Colors.orange : null,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAnnotationToolbar = !_showAnnotationToolbar;
+                  if (!_showAnnotationToolbar) {
+                    _currentAnnotationMode = AnnotationMode.none;
+                  }
+                });
+              },
+              tooltip: 'pdf.annotation_tools'.tr(),
             ),
-            onPressed: () {
-              setState(() {
-                _showAnnotationToolbar = !_showAnnotationToolbar;
-                if (!_showAnnotationToolbar) {
-                  _currentAnnotationMode = AnnotationMode.none;
-                }
-              });
-            },
-            tooltip: 'pdf.annotation_tools'.tr(),
-          ),
-          IconButton(
-            icon: const FaIcon(FontAwesomeIcons.download, size: 20),
-            onPressed: _isLoading ? null : _downloadPdf,
-          ),
-        ],
-      ),
+            // Discard button
+            if (_showAnnotationToolbar && _annotationManager.hasUnsavedChanges)
+              IconButton(
+                icon: const FaIcon(FontAwesomeIcons.trash, size: 20),
+                onPressed: _discardChanges,
+                tooltip: 'Discard Changes',
+              ),
+            // Download button
+            IconButton(
+              icon: const FaIcon(FontAwesomeIcons.download, size: 20),
+              onPressed: _isLoading ? null : _downloadPdf,
+            ),
+          ],
+        ),
       body: Column(
         children: [
           // Annotation Toolbar
           if (_showAnnotationToolbar)
             Container(
-              height: 100,
+              height: 120,
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 boxShadow: [
@@ -208,28 +473,55 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
                     child: Row(
                       children: [
                         _buildAnnotationModeButton(
-                          FontAwesomeIcons.highlighter,
-                          'pdf.highlight'.tr(),
-                          AnnotationMode.highlight,
-                          Colors.yellow,
-                        ),
-                        _buildAnnotationModeButton(
-                          FontAwesomeIcons.underline,
-                          'pdf.underline'.tr(),
-                          AnnotationMode.underline,
-                          Colors.blue,
-                        ),
-                        _buildAnnotationModeButton(
-                          FontAwesomeIcons.strikethrough,
-                          'pdf.strikethrough'.tr(),
-                          AnnotationMode.strikethrough,
+                          FontAwesomeIcons.pen,
+                          'Pen',
+                          AnnotationMode.pen,
                           Colors.red,
                         ),
                         _buildAnnotationModeButton(
-                          FontAwesomeIcons.pen,
-                          'pdf.ink'.tr(),
-                          AnnotationMode.ink,
-                          Colors.purple,
+                          FontAwesomeIcons.highlighter,
+                          'Highlighter',
+                          AnnotationMode.highlighter,
+                          Colors.yellow,
+                        ),
+                        _buildAnnotationModeButton(
+                          FontAwesomeIcons.eraser,
+                          'Eraser',
+                          AnnotationMode.eraser,
+                          Colors.grey,
+                        ),
+                        const VerticalDivider(width: 20),
+                        // Clear all button
+                        InkWell(
+                          onTap: _clearCurrentPage,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FaIcon(FontAwesomeIcons.trash, size: 20, color: Colors.red),
+                                SizedBox(height: 4),
+                                Text('Clear', style: TextStyle(fontSize: 10, color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 20),
+                        Text('Width', style: const TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 100,
+                          child: Slider(
+                            value: _annotationManager.currentStrokeWidth,
+                            min: 1,
+                            max: 10,
+                            onChanged: _setStrokeWidth,
+                          ),
                         ),
                       ],
                     ),
@@ -241,7 +533,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: _annotationColors.map((color) {
-                        final isSelected = _annotationColor == color;
+                        final isSelected = _annotationManager.currentColor == color;
                         return Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: GestureDetector(
@@ -277,30 +569,69 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
             ),
           Expanded(
             child: WatermarkWrapper(
-              type: WatermarkType.library,
+              type: WatermarkType.files,
               studentCode: _userId.isNotEmpty ? _userId : null,
               featureManager: _featureManager,
               child: Stack(
                 children: [
-                  SfPdfViewer.network(
-                    widget.pdfUrl,
-                    controller: _pdfViewerController,
-                    key: _pdfViewerKey,
-                    enableTextSelection: true,
-                    enableDocumentLinkAnnotation: true,
-                    enableHyperlinkNavigation: true,
-                    onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
-                      if (details.selectedText != null && _currentAnnotationMode != AnnotationMode.none) {
-                        // Apply annotation when text is selected
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('pdf.text_selected'.tr(args: [details.selectedText!.substring(0, details.selectedText!.length > 20 ? 20 : details.selectedText!.length)])),
-                            duration: const Duration(seconds: 1),
+                  if (_localFilePath != null)
+                    SfPdfViewer.file(
+                      File(_localFilePath!),
+                      controller: _pdfViewerController,
+                      key: _pdfViewerKey,
+                      enableTextSelection: _currentAnnotationMode == AnnotationMode.none,
+                      enableDocumentLinkAnnotation: true,
+                      enableHyperlinkNavigation: true,
+                    )
+                  else
+                    const Center(child: Text('PDF file not available')),
+                  // Drawing overlay
+                  if (_showAnnotationToolbar && _currentAnnotationMode != AnnotationMode.none)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          if (_currentAnnotationMode == AnnotationMode.eraser) {
+                            _eraseNearbyPoints(details.localPosition);
+                          } else {
+                            setState(() {
+                              _currentStrokePoints.add(AnnotationPoint(
+                                offset: details.localPosition,
+                                color: _annotationManager.currentColor,
+                                strokeWidth: _annotationManager.currentStrokeWidth,
+                                isHighlighter: _annotationManager.isHighlighterMode,
+                              ));
+                            });
+                          }
+                        },
+                        onPanUpdate: (details) {
+                          if (_currentAnnotationMode == AnnotationMode.eraser) {
+                            _eraseNearbyPoints(details.localPosition);
+                          } else {
+                            setState(() {
+                              _currentStrokePoints.add(AnnotationPoint(
+                                offset: details.localPosition,
+                                color: _annotationManager.currentColor,
+                                strokeWidth: _annotationManager.currentStrokeWidth,
+                                isHighlighter: _annotationManager.isHighlighterMode,
+                              ));
+                            });
+                          }
+                        },
+                        onPanEnd: (_) async {
+                          if (_currentAnnotationMode != AnnotationMode.eraser) {
+                            await _saveCurrentStroke();
+                          }
+                        },
+                        child: CustomPaint(
+                          size: Size.infinite,
+                          painter: _AnnotationPainter(
+                            currentStrokePoints: _currentStrokePoints,
+                            pageAnnotations: _annotationManager.getAnnotationsForPage(_pdfViewerController.pageNumber),
                           ),
-                        );
-                      }
-                    },
-                  ),
+                        ),
+                      ),
+                    ),
                   if (_isLoading)
                     Container(
                       color: Colors.black26,
@@ -311,7 +642,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
                             const CircularProgressIndicator(color: Colors.white),
                             const SizedBox(height: 16),
                             Text(
-                              'course.downloading'.tr(args: [(_downloadProgress * 100).toStringAsFixed(0)]),
+                              'Saving...',
                               style: const TextStyle(color: Colors.white),
                             ),
                           ],
@@ -324,7 +655,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildAnnotationModeButton(
@@ -372,4 +703,52 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
       ),
     );
   }
+}
+
+class _AnnotationPainter extends CustomPainter {
+  final List<AnnotationPoint> currentStrokePoints;
+  final List<InkStroke> pageAnnotations;
+
+  _AnnotationPainter({
+    required this.currentStrokePoints,
+    required this.pageAnnotations,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw saved page annotations
+    for (final stroke in pageAnnotations) {
+      _drawStroke(canvas, stroke.points, stroke.color, stroke.strokeWidth, stroke.isHighlighter);
+    }
+
+    // Draw current stroke being drawn
+    if (currentStrokePoints.isNotEmpty) {
+      final isHighlighter = currentStrokePoints.first.isHighlighter;
+      _drawStroke(canvas, currentStrokePoints, currentStrokePoints.first.color, currentStrokePoints.first.strokeWidth, isHighlighter);
+    }
+  }
+
+  void _drawStroke(Canvas canvas, List<AnnotationPoint> points, Color color, double strokeWidth, bool isHighlighter) {
+    if (points.isEmpty) return;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      final point = points[i];
+      final nextPoint = points[i + 1];
+
+      // Skip if the points are too far apart (new stroke)
+      if ((point.offset - nextPoint.offset).distance > 50) continue;
+
+      final paint = Paint()
+        ..color = isHighlighter ? color.withOpacity(0.3) : color
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawLine(point.offset, nextPoint.offset, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

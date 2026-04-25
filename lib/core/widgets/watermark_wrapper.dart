@@ -101,7 +101,8 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
         : settings.text;
 
     // Support moving watermark if position is 'moving'
-    if (settings.position.name.toLowerCase() == 'moving' || settings.dynamicPosition) {
+    if (settings.position.name.toLowerCase() == 'moving' ||
+        settings.dynamicPosition) {
       return Stack(
         children: [
           widget.child,
@@ -125,95 +126,74 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
       children: [
         // Original content
         widget.child,
-        // Watermark overlay
+        // Watermark overlay — sized to text only, never full screen
         _buildWatermarkOverlay(settings, watermarkText),
       ],
     );
   }
 
   Widget _buildWatermarkOverlay(WatermarkConfig settings, String text) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final position = settings.position.name;
-        
-        if (position == 'full') {
-          return _buildFullWatermark(settings, text, constraints);
-        } else {
-          return _buildCornerWatermark(settings, text, constraints, position);
-        }
-      },
-    );
+    final position = settings.position.name;
+
+    if (position == 'full') {
+      return _buildFullWatermark(settings, text);
+    } else {
+      return _buildCornerWatermark(settings, text, position);
+    }
   }
 
-  Widget _buildFullWatermark(
-    WatermarkConfig settings,
-    String text,
-    BoxConstraints constraints,
-  ) {
+  // ─────────────────────────────────────────────
+  // FULL: CustomPainter — no gray overlay, no shadows stacking
+  // ─────────────────────────────────────────────
+  Widget _buildFullWatermark(WatermarkConfig settings, String text) {
     return IgnorePointer(
-      child: Container(
-        width: constraints.maxWidth,
-        height: constraints.maxHeight,
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-        ),
-        child: Stack(
-          children: _buildRepeatedWatermarks(settings, text, constraints),
+      child: CustomPaint(
+        // Size.zero → painter draws on the Stack's overlay layer
+        // without consuming any layout space itself
+        size: Size.zero,
+        painter: _WatermarkPainter(
+          text: text,
+          fontSize: settings.fontSize,
+          opacity: settings.opacity,
+          rotation: settings.rotation,
         ),
       ),
     );
   }
 
-  List<Widget> _buildRepeatedWatermarks(
-    WatermarkConfig settings,
-    String text,
-    BoxConstraints constraints,
-  ) {
-    final List<Widget> watermarks = [];
-    final double spacing = settings.fontSize * 8; // Much larger spacing to prevent gray overlay
-    final int rows = (constraints.maxHeight / spacing).ceil() + 1;
-    final int cols = (constraints.maxWidth / spacing).ceil() + 1;
-
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < cols; col++) {
-        // Offset alternate rows for a staggered effect
-        final offset = (row % 2) * (spacing / 2);
-        watermarks.add(
-          Positioned(
-            left: col * spacing + offset - spacing,
-            top: row * spacing * 0.7,
-            child: Transform.rotate(
-              angle: settings.rotation * (math.pi / 180),
-        child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: settings.fontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withOpacity(settings.opacity),
-                  shadows: const [
-                    Shadow(
-                      blurRadius: 3,
-                      color: Colors.black54,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-    }
-
-    return watermarks;
-  }
-
+  // ─────────────────────────────────────────────
+  // CORNER / CENTER: widget sized to text only
+  // ─────────────────────────────────────────────
   Widget _buildCornerWatermark(
     WatermarkConfig settings,
     String text,
-    BoxConstraints constraints,
     String position,
   ) {
+    // The actual text widget — no shadows, sized to its content
+    // Use dark gray color for visibility on both light and dark PDF backgrounds
+    final textWidget = IgnorePointer(
+      child: Transform.rotate(
+        angle: settings.rotation * (math.pi / 180),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          color: Colors.transparent,
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: settings.fontSize,
+              fontWeight: FontWeight.bold,
+              // Dark gray color visible on both light and dark backgrounds
+              color: Colors.black54.withOpacity(settings.opacity),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (position == 'center') {
+      return Center(child: textWidget);
+    }
+
     double? left, top, right, bottom;
 
     switch (position) {
@@ -229,38 +209,6 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
         left = 16;
         bottom = 16;
         break;
- 
-case 'center':
-        // Center the watermark in the middle of the container
-        return Center(
-          child: IgnorePointer(
-            child: Transform.rotate(
-              angle: settings.rotation * (math.pi / 180),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                ),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: settings.fontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white.withOpacity(settings.opacity),
-                    shadows: const [
-                      Shadow(
-                        blurRadius: 3,
-                        color: Colors.black54,
-                        offset: Offset(1, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
       case 'bottomRight':
       default:
         right = 16;
@@ -273,38 +221,83 @@ case 'center':
       top: top,
       right: right,
       bottom: bottom,
-      child: IgnorePointer(
-        child: Transform.rotate(
-          angle: settings.rotation * (math.pi / 180),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: const BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.all(Radius.circular(4)),
-            ),
-child: Text(
-              text,
-              style: TextStyle(
-                fontSize: settings.fontSize,
-                fontWeight: FontWeight.bold,
-                color: Colors.white.withOpacity(settings.opacity),
-                shadows: const [
-                  Shadow(
-                    blurRadius: 3,
-                    color: Colors.black54,
-                    offset: Offset(1, 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+      child: textWidget,
     );
   }
 }
 
-/// Simplified watermark widget for specific use cases
+// ─────────────────────────────────────────────────────────────────────────────
+// CustomPainter for 'full' mode
+// Draws repeated text directly on the Canvas — transparent background,
+// no Widget tree overhead, no shadow stacking.
+// ─────────────────────────────────────────────────────────────────────────────
+class _WatermarkPainter extends CustomPainter {
+  final String text;
+  final double fontSize;
+  final double opacity;
+  final double rotation;
+
+  const _WatermarkPainter({
+    required this.text,
+    required this.fontSize,
+    required this.opacity,
+    required this.rotation,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // We need the actual screen size from the Stack parent,
+    // so we clip to the nearest ancestor's bounds instead of `size`
+    // (size is zero — we rely on the Stack to clip naturally).
+    final screenSize = PaintingBinding.instance.window.physicalSize /
+        PaintingBinding.instance.window.devicePixelRatio;
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+          // Dark gray color visible on both light and dark backgrounds
+          color: Colors.black54.withOpacity(opacity),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final double spacingX = fontSize * 14;
+    final double spacingY = fontSize * 10;
+
+    final int cols = (screenSize.width / spacingX).ceil() + 2;
+    final int rows = (screenSize.height / spacingY).ceil() + 2;
+
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        // Stagger every other row
+        final double stagger = (row % 2) * (spacingX / 2);
+        final double x = col * spacingX + stagger;
+        final double y = row * spacingY;
+
+        canvas.save();
+        canvas.translate(x, y);
+        canvas.rotate(rotation * (math.pi / 180));
+        textPainter.paint(canvas, Offset.zero);
+        canvas.restore();
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WatermarkPainter old) =>
+      old.text != text ||
+      old.opacity != opacity ||
+      old.rotation != rotation ||
+      old.fontSize != fontSize;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Simplified watermark widget for specific use cases
+// ─────────────────────────────────────────────────────────────────────────────
 class SimpleWatermark extends StatelessWidget {
   final String text;
   final double opacity;
@@ -319,7 +312,7 @@ class SimpleWatermark extends StatelessWidget {
     this.fontSize = 18.0,
   });
 
-@override
+  @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Transform.rotate(
@@ -329,14 +322,8 @@ class SimpleWatermark extends StatelessWidget {
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withOpacity(opacity),
-            shadows: const [
-              Shadow(
-                blurRadius: 3,
-                color: Colors.black54,
-                offset: Offset(1, 1),
-              ),
-            ],
+            // Dark gray color visible on both light and dark backgrounds
+            color: Colors.black54.withOpacity(opacity),
           ),
         ),
       ),

@@ -6,6 +6,7 @@ enum WatermarkPosition {
   bottomLeft,
   bottomRight,
   center,
+  full,
 }
 
 enum WatermarkAnimationStyle {
@@ -104,6 +105,7 @@ class WatermarkConfig {
       case 'bottomleft': return WatermarkPosition.bottomLeft;
       case 'bottomright': return WatermarkPosition.bottomRight;
       case 'center': return WatermarkPosition.center;
+      case 'full': return WatermarkPosition.full;
       default: return WatermarkPosition.center;
     }
   }

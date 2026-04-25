@@ -110,7 +110,7 @@ class _SecurePDFViewerState extends State<SecurePDFViewer> {
                   userId: widget.userId,
                   userName: widget.userName,
                   style: const TextStyle(
-                    color: Colors.white38, // Slightly more visible on documents
+                    color: Colors.black54, // Visible on both light and dark backgrounds
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
