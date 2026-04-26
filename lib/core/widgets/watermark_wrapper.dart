@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../services/feature_manager.dart';
 import '../models/watermark_config.dart';
@@ -157,15 +156,9 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
           fontSize: settings.fontSize,
           opacity: settings.opacity,
           rotation: settings.rotation,
-          isDarkMode: _isDarkBackground(),
         ),
       ),
     );
-  }
-
-  /// Detect if background is dark based on platform brightness
-  bool _isDarkBackground() {
-    return ui.PlatformDispatcher.instance.platformBrightness == ui.Brightness.dark;
   }
 
   // ─────────────────────────────────────────────
@@ -176,11 +169,8 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
     String text,
     String position,
   ) {
-    // Adaptive color based on background brightness
-    final isDark = _isDarkBackground();
-    final baseColor = isDark ? Colors.white : Colors.black;
-    
     // The actual text widget — no shadows, sized to its content
+    // Use dark gray color for visibility on both light and dark PDF backgrounds
     final textWidget = IgnorePointer(
       child: Transform.rotate(
         angle: settings.rotation * (math.pi / 180),
@@ -192,8 +182,8 @@ class _WatermarkWrapperState extends State<WatermarkWrapper> {
             style: TextStyle(
               fontSize: settings.fontSize,
               fontWeight: FontWeight.bold,
-              // Adaptive color: white on dark, black on light
-              color: baseColor.withOpacity(settings.opacity),
+              // Dark gray color visible on both light and dark backgrounds
+              color: Colors.black54.withOpacity(settings.opacity),
             ),
           ),
         ),
@@ -246,14 +236,12 @@ class _WatermarkPainter extends CustomPainter {
   final double fontSize;
   final double opacity;
   final double rotation;
-  final bool isDarkMode;
 
   const _WatermarkPainter({
     required this.text,
     required this.fontSize,
     required this.opacity,
     required this.rotation,
-    this.isDarkMode = false,
   });
 
   @override
@@ -264,16 +252,14 @@ class _WatermarkPainter extends CustomPainter {
     final screenSize = PaintingBinding.instance.window.physicalSize /
         PaintingBinding.instance.window.devicePixelRatio;
 
-    final baseColor = isDarkMode ? Colors.white : Colors.black;
-    
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
-          // Adaptive color: white on dark, black on light
-          color: baseColor.withOpacity(opacity),
+          // Dark gray color visible on both light and dark backgrounds
+          color: Colors.black54.withOpacity(opacity),
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -306,8 +292,7 @@ class _WatermarkPainter extends CustomPainter {
       old.text != text ||
       old.opacity != opacity ||
       old.rotation != rotation ||
-      old.fontSize != fontSize ||
-      old.isDarkMode != isDarkMode;
+      old.fontSize != fontSize;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

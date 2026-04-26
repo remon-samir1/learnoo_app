@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 /// A dynamic, moving watermark widget that displays user information.
@@ -99,11 +98,6 @@ class _WatermarkWidgetState extends State<WatermarkWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Adaptive color based on platform brightness
-    final isDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final baseColor = isDark ? Colors.white : Colors.black;
-    final shadowColor = isDark ? Colors.black54 : Colors.white54;
-    
     return LayoutBuilder(
       builder: (context, constraints) {
         // Initialize on first build or when constraints change significantly
@@ -130,17 +124,17 @@ AnimatedPositioned(
                         Text(
                           widget.userName,
                           style: widget.style?.copyWith(
-                                color: (widget.style?.color ?? baseColor).withOpacity(widget.opacity),
+                                color: (widget.style?.color ?? Colors.black54).withOpacity(widget.opacity),
                               ) ??
                               TextStyle(
-                                color: baseColor.withOpacity(widget.opacity),
+                                color: Colors.black54.withOpacity(widget.opacity),
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                shadows: [
+                                shadows: const [
                                   Shadow(
                                     blurRadius: 3,
-                                    color: shadowColor,
-                                    offset: const Offset(1, 1),
+                                    color: Colors.white,
+                                    offset: Offset(1, 1),
                                   ),
                                 ],
                               ),

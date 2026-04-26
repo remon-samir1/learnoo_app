@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../models/watermark_config.dart';
 import '../controllers/watermark_controller.dart';
@@ -53,11 +52,6 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
           currentOpacity = fadeValue.value;
         }
 
-        // Adaptive color based on platform brightness
-        final isDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
-        final baseColor = isDark ? Colors.white : Colors.black;
-        final shadowColor = isDark ? Colors.black54 : Colors.white54;
-        
         // Split display text by separator to show multiple lines
         final displayParts = widget.controller.displayText.split(' | ');
         
@@ -70,14 +64,14 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
               ...displayParts.map((part) => Text(
                 part,
                 style: TextStyle(
-                  color: baseColor.withOpacity(currentOpacity),
+                  color: Colors.white.withOpacity(currentOpacity),
                   fontSize: widget.controller.config.fontSize,
                   fontWeight: FontWeight.bold,
-                  shadows: [
+                  shadows: const [
                     Shadow(
-                      offset: const Offset(1, 1),
+                      offset: Offset(1, 1),
                       blurRadius: 2.0,
-                      color: shadowColor,
+                      color: Colors.black54,
                     )
                   ]
                 ),
@@ -85,10 +79,10 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
               Text(
                 DateTime.now().toString().split('.')[0],
                 style: TextStyle(
-                  color: baseColor.withOpacity(currentOpacity * 0.7),
+                  color: Colors.white.withOpacity(currentOpacity * 0.7),
                   fontSize: widget.controller.config.fontSize * 0.7,
-                  shadows: [
-                    Shadow(offset: const Offset(1, 1), blurRadius: 2.0, color: shadowColor)
+                  shadows: const [
+                    Shadow(offset: Offset(1, 1), blurRadius: 2.0, color: Colors.black54)
                   ]
                 ),
               ),
