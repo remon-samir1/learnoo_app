@@ -11,6 +11,8 @@ class WatermarkController extends ChangeNotifier {
   
   String _displayText = '';
   String get displayText => _displayText;
+  String _studentCode = '';
+  String _phoneNumber = '';
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -54,6 +56,10 @@ class WatermarkController extends ChangeNotifier {
           positionX = 0.5;
           positionY = 0.5;
           break;
+        case WatermarkPosition.full:
+          positionX = 0.5;
+          positionY = 0.5;
+          break;
       }
     }
   }
@@ -65,8 +71,8 @@ class WatermarkController extends ChangeNotifier {
       return;
     }
 
-    if (config.useStudentCode) {
-      await _fetchStudentCode();
+    if (config.useStudentCode || config.usePhoneNumber) {
+      await _fetchUserInfo();
     }
 
     if (config.voiceEnabled && _displayText.isNotEmpty) {
@@ -84,17 +90,46 @@ class WatermarkController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetchStudentCode() async {
+  Future<void> _fetchUserInfo() async {
     try {
       final result = await _authRepository.getProfile();
       if (result['success'] == true && result['data'] != null) {
-        final code = result['data']['attributes']?['student_code'];
-        if (code != null && code.toString().isNotEmpty) {
-          _displayText = code.toString();
+        final attributes = result['data']['attributes'];
+        if (attributes != null) {
+          // Get student code if enabled
+          if (config.useStudentCode) {
+            final code = attributes['student_code'];
+            if (code != null && code.toString().isNotEmpty) {
+              _studentCode = code.toString();
+            }
+          }
+          
+          // Get phone number if enabled
+          if (config.usePhoneNumber) {
+            final phone = attributes['phone'];
+            if (phone != null && phone.toString().isNotEmpty) {
+              _phoneNumber = phone.toString();
+            }
+          }
+          
+          // Build display text based on available info
+          final parts = <String>[];
+          if (_studentCode.isNotEmpty) {
+            parts.add(_studentCode);
+          }
+          if (_phoneNumber.isNotEmpty) {
+            parts.add(_phoneNumber);
+          }
+          
+          if (parts.isNotEmpty) {
+            _displayText = parts.join(' | ');
+          } else if (config.text.isNotEmpty) {
+            _displayText = config.text;
+          }
         }
       }
     } catch (e) {
-      debugPrint("Error fetching student code: $e");
+      debugPrint("Error fetching user info for watermark: $e");
     }
   }
 
@@ -113,7 +148,7 @@ class WatermarkController extends ChangeNotifier {
       positionY = _random.nextDouble();
     } else {
       final positions = const [
-        [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.5, 0.5]
+        [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.5, 0.5], [0.5, 0.5]
       ];
       
       // Find closest position to round correctly due to double precision

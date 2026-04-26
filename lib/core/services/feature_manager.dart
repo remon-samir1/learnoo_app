@@ -347,6 +347,16 @@ class FeatureManager extends ChangeNotifier {
       isEnabled('feature_profile_editing') ||
       isEnabled('enable_profile_editing');
 
+  /// Block screenshots enabled
+  bool get isBlockScreenshotsEnabled =>
+      isEnabled('feature_block_screenshots') ||
+      isEnabled('enable_block_screenshots');
+
+  /// Screen share max resolution enabled
+  bool get isScreenShareMaxResolutionEnabled =>
+      isEnabled('feature_screen_share_max_resolution') ||
+      isEnabled('enable_screen_share_max_resolution');
+
   /// App settings
   String get platformName => getString('platform_name', defaultValue: 'Learnoo');
   String get tagline => getString('tagline', defaultValue: 'Your Learning Platform');
@@ -366,6 +376,7 @@ class FeatureManager extends ChangeNotifier {
     final bool enabled = _isWatermarkEnabled(type, apiType);
     final String text = _getWatermarkSetting('text', type, apiType, defaultValue: platformName);
     final bool useStudentCode = _isWatermarkEnabled(type, apiType, suffix: 'use_student_code');
+    final bool usePhoneNumber = _isWatermarkEnabled(type, apiType, suffix: 'use_phone_number');
     final String positionStr = _getWatermarkSetting('position', type, apiType, defaultValue: 'center');
     final double opacity = (double.tryParse(_getWatermarkSetting('opacity', type, apiType, defaultValue: '20')) ?? 20) / 100.0;
     final double rotationDegrees = double.tryParse(_getWatermarkSetting('rotation', type, apiType, defaultValue: '-12')) ?? -12.0;
@@ -385,6 +396,7 @@ class FeatureManager extends ChangeNotifier {
       enabled: enabled,
       text: text,
       useStudentCode: useStudentCode,
+      usePhoneNumber: usePhoneNumber,
       position: WatermarkConfig.parsePosition(positionStr),
       opacity: opacity,
       rotation: rotationDegrees * (math.pi / 180.0), // convert to radians

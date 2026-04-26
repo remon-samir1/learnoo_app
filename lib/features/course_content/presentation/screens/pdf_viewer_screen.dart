@@ -45,6 +45,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   bool _showAnnotationToolbar = false;
   final FeatureManager _featureManager = FeatureManager();
   String _userId = '';
+  String _studentCode = '';
+  String _phoneNumber = '';
 
   // Current drawing state
   List<AnnotationPoint> _currentStrokePoints = [];
@@ -76,13 +78,31 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       final result = await authRepository.getProfile();
       if (result['success'] && mounted) {
         final data = result['data'] ?? {};
+        final attributes = data['attributes'] ?? {};
         setState(() {
           _userId = data['id']?.toString() ?? '';
+          _studentCode = attributes['student_code']?.toString() ?? '';
+          _phoneNumber = attributes['phone']?.toString() ?? '';
         });
       }
     } catch (e) {
       debugPrint('Error loading user data for watermark: $e');
     }
+  }
+
+  /// Get combined watermark text based on feature settings
+  String? get _watermarkText {
+    final config = _featureManager.getWatermarkConfig('files');
+    final parts = <String>[];
+    
+    if (config.useStudentCode && _studentCode.isNotEmpty) {
+      parts.add(_studentCode);
+    }
+    if (config.usePhoneNumber && _phoneNumber.isNotEmpty) {
+      parts.add(_phoneNumber);
+    }
+    
+    return parts.isNotEmpty ? parts.join(' | ') : null;
   }
 
   Future<void> _initializePdf() async {
@@ -657,7 +677,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           Expanded(
             child: WatermarkWrapper(
               type: WatermarkType.files,
-              studentCode: _userId.isNotEmpty ? _userId : null,
+              studentCode: _watermarkText,
               featureManager: _featureManager,
               child: Stack(
                 children: [

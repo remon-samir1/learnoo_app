@@ -23,6 +23,7 @@ import '../../../../core/widgets/watermark_wrapper.dart';
 import '../../../../core/services/feature_manager.dart';
 import '../../../../core/services/user_progress_service.dart';
 import '../../../../core/services/video_watch_tracker.dart';
+import '../../../../core/services/chapter_audio_watermark_service.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../data/chapter_repository.dart';
@@ -308,7 +309,12 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
   /// Tracker for view counting after view_by_minute threshold
   VideoWatchTracker? _watchTracker;
 
+  /// Audio watermark service for chapter videos
+  ChapterAudioWatermarkService? _audioWatermarkService;
+
   String _userId = '';
+  String _studentCode = '';
+  String _phoneNumber = '';
 
   /// Ensures progress is saved only once on exit
   bool _progressSaved = false;
@@ -418,10 +424,37 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
     final result = await _authRepository.getProfile();
     if (result['success'] && mounted) {
       final userId = result['data']['id']?.toString() ?? '';
+      final attributes = result['data']['attributes'];
+      final studentCode = attributes?['student_code']?.toString() ?? '';
+      final phoneNumber = attributes?['phone']?.toString() ?? '';
       setState(() {
         _userId = userId;
+        _studentCode = studentCode;
+        _phoneNumber = phoneNumber;
       });
     }
+  }
+
+  /// Get combined watermark text based on feature settings
+  String? get _watermarkText {
+    final config = _featureManager.getWatermarkConfig('chapters');
+    final parts = <String>[];
+    
+    if (config.useStudentCode && _studentCode.isNotEmpty) {
+      parts.add(_studentCode);
+    }
+    if (config.usePhoneNumber && _phoneNumber.isNotEmpty) {
+      parts.add(_phoneNumber);
+    }
+    
+    return parts.isNotEmpty ? parts.join(' | ') : null;
+  }
+
+  /// Initialize audio watermark service
+  Future<void> _initAudioWatermark() async {
+    _audioWatermarkService = ChapterAudioWatermarkService();
+    await _audioWatermarkService!.init();
+    await _audioWatermarkService!.loadConfiguration();
   }
 
   @override
@@ -429,6 +462,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadUserData();
+    _initAudioWatermark();
     _encryptedVideoService.loadDownloadedVideos();
     // Check if offline mode
     if (widget.offlineVideoPath != null && widget.offlineVideoKey != null) {
@@ -488,6 +522,15 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     _watchTracker?.onAppLifecycleStateChanged(state);
+
+    // Handle audio watermark lifecycle
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _audioWatermarkService?.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      _audioWatermarkService?.resume();
+    }
 
     // Save progress when app goes to background
     if (state == AppLifecycleState.paused ||
@@ -575,6 +618,9 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
     // Dispose view tracker
     _watchTracker?.dispose();
+
+    // Dispose audio watermark service
+    _audioWatermarkService?.dispose();
 
     // Dispose video handler (includes controllers and listeners)
     _videoHandler.dispose();
@@ -1106,6 +1152,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
       // Attach view tracker to video controller
       _watchTracker?.attach(_videoController!);
+
+      // Start audio watermark if enabled
+      if (_audioWatermarkService != null && 
+          _audioWatermarkService!.isEnabled && 
+          _audioWatermarkService!.interval > 0) {
+        _audioWatermarkService!.start(_videoController!);
+      }
     } catch (e) {
       _onVideoErrorWithMessage(e.toString());
     }
@@ -1327,6 +1380,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
       if (!_isOfflineMode) {
         _watchTracker?.attach(_videoController!);
       }
+
+      // Start audio watermark if enabled
+      if (_audioWatermarkService != null && 
+          _audioWatermarkService!.isEnabled && 
+          _audioWatermarkService!.interval > 0) {
+        _audioWatermarkService!.start(_videoController!);
+      }
     } catch (e) {
       _onVideoErrorWithMessage(e.toString());
     }
@@ -1487,6 +1547,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 
         // Add listener for progress tracking
         _videoController!.addListener(_videoListener);
+
+        // Start audio watermark if enabled (even for offline videos)
+        if (_audioWatermarkService != null && 
+            _audioWatermarkService!.isEnabled && 
+            _audioWatermarkService!.interval > 0) {
+          _audioWatermarkService!.start(_videoController!);
+        }
 
         // Reset view tracking AFTER adding listener, using actual video position
         _viewCounted = false;
@@ -2241,7 +2308,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
         builder: (context) => _FullScreenVideoPlayer(
           videoController: _videoController!,
           chewieController: _chewieController!,
-          userId: _userId,
+          watermarkText: _watermarkText,
           featureManager: _featureManager,
         ),
       ),
@@ -2262,7 +2329,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
               children: [
                 WatermarkWrapper(
                   type: WatermarkType.chapters,
-                  studentCode: _userId.isNotEmpty ? _userId : null,
+                  studentCode: _watermarkText,
                   featureManager: _featureManager,
                   child: Chewie(controller: _chewieController!),
                 ),
@@ -3488,7 +3555,7 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
                 : _localPdfPath != null
                     ? WatermarkWrapper(
                         type: WatermarkType.files,
-                        studentCode: _userId.isNotEmpty ? _userId : null,
+                        studentCode: _watermarkText,
                         featureManager: _featureManager,
                         child: PDFView(
                           filePath: _localPdfPath,
@@ -4444,13 +4511,13 @@ class _LectureDetailScreenState extends State<LectureDetailScreen>
 class _FullScreenVideoPlayer extends StatefulWidget {
   final VideoPlayerController videoController;
   final ChewieController chewieController;
-  final String userId;
+  final String? watermarkText;
   final FeatureManager featureManager;
 
   const _FullScreenVideoPlayer({
     required this.videoController,
     required this.chewieController,
-    required this.userId,
+    required this.watermarkText,
     required this.featureManager,
   });
 
@@ -4496,7 +4563,7 @@ class _FullScreenVideoPlayerState extends State<_FullScreenVideoPlayer> {
           if (_fullScreenChewieController != null)
             WatermarkWrapper(
               type: WatermarkType.chapters,
-              studentCode: widget.userId.isNotEmpty ? widget.userId : null,
+              studentCode: widget.watermarkText,
               featureManager: widget.featureManager,
               child: Chewie(controller: _fullScreenChewieController!),
             ),

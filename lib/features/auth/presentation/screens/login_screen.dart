@@ -58,8 +58,33 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!loginResult['success']) {
       setState(() => _isLoading = false);
       if (mounted) {
+        final errors = loginResult['errors'];
+        String errorText = loginResult['message'] ?? 'auth.login_failed'.tr();
+        if (errors != null && errors is Map) {
+          final errorMessages = errors.entries
+              .where((e) => e.value is List && (e.value as List).isNotEmpty)
+              .map((e) {
+                final fieldName = e.key;
+                final fieldErrors = e.value as List;
+                return '$fieldName: ${fieldErrors.first.toString()}';
+              })
+              .join('\n');
+          if (errorMessages.isNotEmpty) {
+            errorText = errorMessages;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loginResult['message'] ?? 'auth.login_failed'.tr())),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(errorText)),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return;
@@ -80,30 +105,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Check feature flags for OTP flow
     final otpEnabled = _featureManager.isOtpVerificationEnabled;
-    final loginWithoutOtpAllowed = _featureManager.isLoginWithoutOtpAllowed;
 
-    // If verified OR (OTP disabled AND login without OTP allowed), skip verification
-    if (isVerified || (!otpEnabled && loginWithoutOtpAllowed)) {
+    // If OTP verification is disabled OR user is already verified, skip verification and go to home
+    if (!otpEnabled || isVerified) {
       setState(() => _isLoading = false);
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
-        );
-      }
-      return;
-    }
-
-    // If OTP is disabled but login without OTP is not allowed, show error
-    if (!otpEnabled && !loginWithoutOtpAllowed) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('auth.verification_disabled'.tr()),
-            backgroundColor: Colors.orange,
-          ),
         );
       }
       return;

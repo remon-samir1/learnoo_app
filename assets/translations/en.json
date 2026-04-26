@@ -60,6 +60,7 @@
     "email_hint": "Enter your email address",
     "phone_label": "Phone number",
     "phone_hint": "Enter your phone number",
+    "phone_start_with_zero": "Don't start with 0 - the country code already includes it",
     "send": "SEND",
     "email": "Email",
     "phone": "Phone",

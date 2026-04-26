@@ -90,26 +90,34 @@ class AuthRepository {
     await _storage.write(key: 'last_acknowledged_version_code', value: versionCode.toString());
   }
 
-  String _handleError(dynamic data, String defaultMessage) {
-    if (data == null) return defaultMessage;
+  Map<String, dynamic> _handleError(dynamic data, String defaultMessage) {
+    if (data == null) {
+      return {'message': defaultMessage, 'errors': null};
+    }
 
     // Check if there's a direct message field
     if (data['message'] != null) {
-      return data['message'].toString();
+      final message = data['message'].toString();
+      // Check for validation errors object
+      if (data['errors'] != null && data['errors'] is Map) {
+        return {'message': message, 'errors': data['errors'] as Map<String, dynamic>};
+      }
+      return {'message': message, 'errors': null};
     }
 
     // Check for validation errors object
     if (data['errors'] != null && data['errors'] is Map) {
       final errors = data['errors'] as Map<String, dynamic>;
-      return errors.values
+      final errorMessages = errors.values
           .map((e) {
             if (e is List) return e.join(', ');
             return e.toString();
           })
           .join('\n');
+      return {'message': errorMessages, 'errors': errors};
     }
 
-    return defaultMessage;
+    return {'message': defaultMessage, 'errors': null};
   }
 
   Future<Map<String, dynamic>> register({
@@ -155,9 +163,11 @@ class AuthRepository {
           'data': data,
         };
       } else {
+        final errorData = _handleError(data, 'Registration failed');
         return {
           'success': false,
-          'message': _handleError(data, 'Registration failed'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -192,9 +202,11 @@ class AuthRepository {
         };
       } else {
         final data = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        final errorData = _handleError(data, 'Failed to send verification email');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to send verification email'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -230,9 +242,11 @@ class AuthRepository {
         };
       } else {
         final data = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        final errorData = _handleError(data, 'Failed to send verification phone');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to send verification phone'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -262,9 +276,11 @@ class AuthRepository {
           'message': data['message'] ?? 'Email verified successfully',
         };
       } else {
+        final errorData = _handleError(data, 'Failed to verify email');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to verify email'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -294,9 +310,11 @@ class AuthRepository {
           'message': data['message'] ?? 'Phone verified successfully',
         };
       } else {
+        final errorData = _handleError(data, 'Failed to verify phone');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to verify phone'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -325,9 +343,11 @@ class AuthRepository {
       if (response.statusCode == 200) {
         return {'success': true, 'data': data['data']};
       } else {
+        final errorData = _handleError(data, 'Failed to fetch universities');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to fetch universities'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -354,9 +374,11 @@ class AuthRepository {
       if (response.statusCode == 200) {
         return {'success': true, 'data': data['data']};
       } else {
+        final errorData = _handleError(data, 'Failed to fetch centers');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to fetch centers'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -383,9 +405,11 @@ class AuthRepository {
       if (response.statusCode == 200) {
         return {'success': true, 'data': data['data']};
       } else {
+        final errorData = _handleError(data, 'Failed to fetch faculties');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to fetch faculties'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -434,9 +458,11 @@ class AuthRepository {
           'data': data['data'],
         };
       } else {
+        final errorData = _handleError(data, 'Failed to update profile');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to update profile'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -493,9 +519,11 @@ class AuthRepository {
           'data': data['data'],
         };
       } else {
+        final errorData = _handleError(data, 'Failed to update profile');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to update profile'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -539,7 +567,12 @@ class AuthRepository {
           'data': data,
         };
       } else {
-        return {'success': false, 'message': _handleError(data, 'Login failed')};
+        final errorData = _handleError(data, 'Login failed');
+        return {
+          'success': false,
+          'message': errorData['message'],
+          'errors': errorData['errors'],
+        };
       }
     } catch (e) {
       return {'success': false, 'message': 'Connection error: $e'};
@@ -568,9 +601,11 @@ class AuthRepository {
           'data': data['data'],
         };
       } else {
+        final errorData = _handleError(data, 'Failed to fetch profile');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to fetch profile'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
           'statusCode': response.statusCode,
         };
       }
@@ -601,9 +636,11 @@ class AuthRepository {
           'data': data,
         };
       } else {
+        final errorData = _handleError(data, 'Failed to send password reset code');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to send password reset code'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -640,9 +677,11 @@ class AuthRepository {
           'data': data,
         };
       } else {
+        final errorData = _handleError(data, 'Failed to verify code');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to verify code'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {
@@ -683,9 +722,11 @@ class AuthRepository {
           'data': data,
         };
       } else {
+        final errorData = _handleError(data, 'Failed to reset password');
         return {
           'success': false,
-          'message': _handleError(data, 'Failed to reset password'),
+          'message': errorData['message'],
+          'errors': errorData['errors'],
         };
       }
     } catch (e) {

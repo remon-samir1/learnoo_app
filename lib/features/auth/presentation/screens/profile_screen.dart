@@ -75,6 +75,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    // Validate phone number doesn't start with 0 (only for Egypt)
+    if (_selectedCountryCode == '20' && _phoneController.text.startsWith('0')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_outlined, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('auth.phone_start_with_zero'.tr())),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final fullPhone = '$_selectedCountryCode${_phoneController.text}';
@@ -157,7 +175,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (errors != null && errors is Map) {
           final errorMessages = errors.entries
               .where((e) => e.value is List && (e.value as List).isNotEmpty)
-              .map((e) => (e.value as List).first.toString())
+              .map((e) {
+                final fieldName = e.key;
+                final fieldErrors = e.value as List;
+                return '$fieldName: ${fieldErrors.first.toString()}';
+              })
               .join('\n');
           if (errorMessages.isNotEmpty) {
             errorText = errorMessages;
@@ -342,6 +364,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: TextField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
+                          onChanged: (value) {
+                            // Real-time validation for phone number starting with 0 (only for Egypt)
+                            if (_selectedCountryCode == '20' && value.startsWith('0') && value.length == 1) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text('auth.phone_start_with_zero'.tr())),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
                           decoration: InputDecoration(
                             hintText: 'auth.phone_hint'.tr(),
                             hintStyle: const TextStyle(

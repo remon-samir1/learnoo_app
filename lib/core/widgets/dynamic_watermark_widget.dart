@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../models/watermark_config.dart';
 import '../controllers/watermark_controller.dart';
@@ -43,34 +44,52 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
           return const SizedBox.shrink();
         }
 
-Widget watermark = Container(
+        // Calculate opacity - use color alpha instead of Opacity widget to avoid gray overlay on real devices
+        double currentOpacity = widget.controller.config.opacity;
+        if (widget.controller.config.animationStyle == WatermarkAnimationStyle.fade) {
+          final fadeValue = Tween(begin: currentOpacity, end: 0.0).animate(
+             CurvedAnimation(parent: _fxController, curve: Curves.easeInOut)
+          );
+          currentOpacity = fadeValue.value;
+        }
+
+        // Adaptive color based on platform brightness
+        final window = ui.PlatformDispatcher.instance.views.first;
+        final isDark = window.platformBrightness == ui.Brightness.dark;
+        final baseColor = isDark ? Colors.white : Colors.black;
+        final shadowColor = isDark ? Colors.black54 : Colors.white54;
+        
+        // Split display text by separator to show multiple lines
+        final displayParts = widget.controller.displayText.split(' | ');
+        
+        Widget watermark = Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.controller.displayText,
+              ...displayParts.map((part) => Text(
+                part,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(currentOpacity),
+                  color: baseColor.withOpacity(currentOpacity),
                   fontSize: widget.controller.config.fontSize,
                   fontWeight: FontWeight.bold,
-                  shadows: const [
+                  shadows: [
                     Shadow(
-                      offset: Offset(1, 1),
+                      offset: const Offset(1, 1),
                       blurRadius: 2.0,
-                      color: Colors.black54,
+                      color: shadowColor,
                     )
                   ]
                 ),
-              ),
+              )),
               Text(
                 DateTime.now().toString().split('.')[0],
                 style: TextStyle(
-                  color: Colors.white.withOpacity(currentOpacity * 0.7),
+                  color: baseColor.withOpacity(currentOpacity * 0.7),
                   fontSize: widget.controller.config.fontSize * 0.7,
-                  shadows: const [
-                    Shadow(offset: Offset(1, 1), blurRadius: 2.0, color: Colors.black54)
+                  shadows: [
+                    Shadow(offset: const Offset(1, 1), blurRadius: 2.0, color: shadowColor)
                   ]
                 ),
               ),
@@ -100,17 +119,6 @@ Widget watermark = Container(
             child: watermark,
           );
         }
-
-// Calculate opacity - use color alpha instead of Opacity widget to avoid gray overlay on real devices
-        double currentOpacity = widget.controller.config.opacity;
-        if (widget.controller.config.animationStyle == WatermarkAnimationStyle.fade) {
-          final fadeValue = Tween(begin: currentOpacity, end: 0.0).animate(
-             CurvedAnimation(parent: _fxController, curve: Curves.easeInOut)
-          );
-          currentOpacity = fadeValue.value;
-        }
-        // Apply opacity to text color instead of using Opacity widget
-        // This fixes gray overlay issue on real Android devices with SurfaceView
 
         // Map X,Y to Alignment (-1.0 to 1.0)
         final alignX = (widget.controller.positionX * 2) - 1.0;

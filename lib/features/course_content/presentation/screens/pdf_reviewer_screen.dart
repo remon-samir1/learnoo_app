@@ -48,6 +48,8 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
   bool _showAnnotationToolbar = false;
   final FeatureManager _featureManager = FeatureManager();
   String _userId = '';
+  String _studentCode = '';
+  String _phoneNumber = '';
 
   // Current drawing state
   List<AnnotationPoint> _currentStrokePoints = [];
@@ -113,13 +115,31 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
       final result = await authRepository.getProfile();
       if (result['success'] && mounted) {
         final data = result['data'] ?? {};
+        final attributes = data['attributes'] ?? {};
         setState(() {
           _userId = data['id']?.toString() ?? '';
+          _studentCode = attributes['student_code']?.toString() ?? '';
+          _phoneNumber = attributes['phone']?.toString() ?? '';
         });
       }
     } catch (e) {
       debugPrint('Error loading user data for watermark: $e');
     }
+  }
+
+  /// Get combined watermark text based on feature settings
+  String? get _watermarkText {
+    final config = _featureManager.getWatermarkConfig('files');
+    final parts = <String>[];
+    
+    if (config.useStudentCode && _studentCode.isNotEmpty) {
+      parts.add(_studentCode);
+    }
+    if (config.usePhoneNumber && _phoneNumber.isNotEmpty) {
+      parts.add(_phoneNumber);
+    }
+    
+    return parts.isNotEmpty ? parts.join(' | ') : null;
   }
 
   Future<void> _downloadPdf() async {
@@ -143,9 +163,16 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
       setState(() => _isLoading = true);
 
       // Get public storage directory
-      final directory = Platform.isAndroid
-          ? await getExternalStorageDirectory()
-          : await getApplicationDocumentsDirectory();
+      Directory? directory;
+      if (Platform.isAndroid) {
+        final externalDir = await getExternalStorageDirectory();
+        directory = Directory('${externalDir!.path}/Downloads');
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
 
       final fileName = '${widget.title.replaceAll(' ', '_')}.pdf';
       final targetPath = '${directory!.path}/$fileName';
@@ -570,7 +597,7 @@ class _PdfReviewerScreenState extends State<PdfReviewerScreen> {
           Expanded(
             child: WatermarkWrapper(
               type: WatermarkType.files,
-              studentCode: _userId.isNotEmpty ? _userId : null,
+              studentCode: _watermarkText,
               featureManager: _featureManager,
               child: Stack(
                 children: [

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:learnoo/core/services/screen_protection_service.dart';
+import 'package:learnoo/core/services/feature_manager.dart';
 
 /// A fail-safe wrapper that protects sensitive content.
 /// Content starts HIDDEN (black screen) until security checks pass.
@@ -20,18 +21,29 @@ class SecureWrapper extends StatefulWidget {
 
 class _SecureWrapperState extends State<SecureWrapper> with WidgetsBindingObserver {
   final ScreenProtectionService _security = ScreenProtectionService();
+  final FeatureManager _featureManager = FeatureManager();
   bool _isSafe = false;
   String _statusMessage = "Initializing security...";
   Timer? _appCheckTimer;
+  bool _isProtectionEnabled = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _performInitialSecurityScan();
     
-    // Periodically check for suspicious apps on Android
-    _appCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) => _scanForSuspiciousApps());
+    // Check if protection features are enabled from dashboard
+    _isProtectionEnabled = _featureManager.isBlockScreenshotsEnabled || 
+                           _featureManager.isScreenShareMaxResolutionEnabled;
+    
+    if (_isProtectionEnabled) {
+      _performInitialSecurityScan();
+      // Periodically check for suspicious apps on Android
+      _appCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) => _scanForSuspiciousApps());
+    } else {
+      // Protection disabled via feature flags, mark as safe
+      setState(() => _isSafe = true);
+    }
   }
 
   @override
@@ -43,6 +55,8 @@ class _SecureWrapperState extends State<SecureWrapper> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isProtectionEnabled) return;
+    
     if (state == AppLifecycleState.resumed) {
       _performInitialSecurityScan();
     } else {

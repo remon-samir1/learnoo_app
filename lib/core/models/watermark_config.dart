@@ -30,6 +30,7 @@ class WatermarkConfig {
   final bool enabled;
   final String text;
   final bool useStudentCode;
+  final bool usePhoneNumber;
   final WatermarkPosition position;
   final double opacity;
   final double rotation;
@@ -52,6 +53,7 @@ class WatermarkConfig {
     required this.enabled,
     required this.text,
     required this.useStudentCode,
+    required this.usePhoneNumber,
     required this.position,
     required this.opacity,
     required this.rotation,

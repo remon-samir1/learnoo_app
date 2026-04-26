@@ -41,6 +41,8 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
   // User info for watermark
   String _userName = '';
   String _userId = '';
+  String _studentCode = '';
+  String _phoneNumber = '';
   bool _showWatermark = true;
   final FeatureManager _featureManager = FeatureManager();
   final AuthRepository _authRepository = AuthRepository();
@@ -69,18 +71,44 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
       final firstName = attributes['first_name']?.toString() ?? '';
       final lastName = attributes['last_name']?.toString() ?? '';
       final userId = result['data']['id']?.toString() ?? '';
+      final studentCode = attributes['student_code']?.toString() ?? '';
+      final phoneNumber = attributes['phone']?.toString() ?? '';
       setState(() {
         _userName = '$firstName $lastName'.trim();
         _userId = userId;
+        _studentCode = studentCode;
+        _phoneNumber = phoneNumber;
       });
     }
+  }
+
+  /// Get combined watermark text based on feature settings
+  String? get _watermarkText {
+    final config = _featureManager.getWatermarkConfig('exams');
+    final parts = <String>[];
+    
+    if (config.useStudentCode && _studentCode.isNotEmpty) {
+      parts.add(_studentCode);
+    }
+    if (config.usePhoneNumber && _phoneNumber.isNotEmpty) {
+      parts.add(_phoneNumber);
+    }
+    
+    return parts.isNotEmpty ? parts.join(' | ') : null;
   }
 
   Future<void> _initializeProtection() async {
     // Initialize screen protection service
     await _screenProtection.initialize();
-    // Enable global protection (FLAG_SECURE on Android, iOS protection)
-    await _screenProtection.enableGlobalProtection();
+
+    // Enable global protection only if feature flags are enabled
+    final blockScreenshots = _featureManager.isBlockScreenshotsEnabled;
+    final screenShareMaxRes = _featureManager.isScreenShareMaxResolutionEnabled;
+
+    if (blockScreenshots || screenShareMaxRes) {
+      // Enable global protection (FLAG_SECURE on Android, iOS protection)
+      await _screenProtection.enableGlobalProtection();
+    }
   }
 
   Future<void> _loadQuestions() async {
@@ -674,7 +702,7 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
         // Watermark overlay for exam protection - controlled by API
         WatermarkWrapper(
           type: WatermarkType.exams,
-          studentCode: _userId.isNotEmpty ? _userId : null,
+          studentCode: _watermarkText,
           featureManager: _featureManager,
           child: Container(), // Empty child as the watermark is positioned fill
         ),
