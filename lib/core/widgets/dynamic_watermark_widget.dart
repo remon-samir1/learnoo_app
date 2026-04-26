@@ -54,8 +54,7 @@ class _DynamicWatermarkWidgetState extends State<DynamicWatermarkWidget> with Si
         }
 
         // Adaptive color based on platform brightness
-        final window = ui.PlatformDispatcher.instance.views.first;
-        final isDark = window.platformBrightness == ui.Brightness.dark;
+        final isDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
         final baseColor = isDark ? Colors.white : Colors.black;
         final shadowColor = isDark ? Colors.black54 : Colors.white54;
         
